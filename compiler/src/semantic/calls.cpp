@@ -385,19 +385,36 @@ void note(References &result, const std::u32string &name, const ast::NodeSource 
     }
 }
 
+// The module and function atoms a call names: Module:Function, or erlang:Function for an unqualified call of an
+// auto-imported builtin (plan 30 step DIST5b2); none for any other call.
+std::optional<std::pair<std::u32string, std::u32string>> called_builtin(const ast::Module &syntax,
+                                                                        const ast::CallExpression &call) {
+    const auto &target = syntax.expression(ungroup(syntax, call.target)).value;
+    if (const auto *name = std::get_if<ast::Atom>(&target)) {
+        if (!auto_imported(syntax, {name->name, call.arguments.size()})) {
+            return std::nullopt;
+        }
+        return std::pair{std::u32string(U"erlang"), name->name};
+    }
+    const auto *remote = std::get_if<ast::RemoteExpression>(&target);
+    const auto *module = remote ? literal_atom(syntax, remote->module) : nullptr;
+    const auto *function = module ? literal_atom(syntax, remote->function) : nullptr;
+    if (function == nullptr) {
+        return std::nullopt;
+    }
+    return std::pair{module->name, function->name};
+}
+
 // Note the library modules a call of a catalog builtin continues in (builtin_continuations.hpp), which name no
 // module themselves. Added for maps_order comparison funs (plan 21 step LIB4F).
 void note_continuations(const ast::Module &syntax, const ast::Expression &expression, References &result) {
     const auto *call = std::get_if<ast::CallExpression>(&expression.value);
-    const auto *remote =
-        call ? std::get_if<ast::RemoteExpression>(&syntax.expression(ungroup(syntax, call->target)).value) : nullptr;
-    const auto *module = remote ? literal_atom(syntax, remote->module) : nullptr;
-    const auto *function = module ? literal_atom(syntax, remote->function) : nullptr;
-    if (function == nullptr) {
+    const auto called = call ? called_builtin(syntax, *call) : std::nullopt;
+    if (!called) {
         return;
     }
     each_continuation(
-        utf8(module->name), utf8(function->name), call->arguments.size(),
+        utf8(called->first), utf8(called->second), call->arguments.size(),
         [&](const BuiltinContinuation &item) { note(result, std::u32string(item.target_module), expression.source); });
 }
 

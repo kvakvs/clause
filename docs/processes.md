@@ -468,7 +468,8 @@ gives `undefined`.
   `badarg`.
 - `processes/0` lists live pids in creation order. A spawned process inherits
   its parent's group leader; the first process leads itself. `group_leader/2` of
-  a pid of no live process is `badarg`.
+  a pid of no live process is `badarg`; leaders of other nodes are in
+  [group leaders](distribution.md#group-leaders).
 - `garbage_collect/0,1,2` asks for a collection at the target's next safepoint
   and returns `true` (`false` for no live process); with `{async, RequestId}` it
   returns `async` and sends `{garbage_collect, RequestId, Result}`. `yield/0`
@@ -483,13 +484,15 @@ Sources: `builtins/erlang/spawning.cpp`, `scheduler/aliases.cpp`.
   `{min_bin_vheap_size, N}`, `{max_heap_size, S}`, `{message_queue_data, M}`,
   `{async_dist, B}`; `{min_heap_size, N}` sets the child's
   [minimum heap](runtime-heap.md#sizing-and-budget), the other tuning options
-  are checked and accepted, not applied. A node other than this node is
-  `badarg`.
+  are checked and accepted, not applied. Another node spawns as
+  [spawning](distribution.md#spawning) says.
 - `spawn_request/1..5` spawns at once and sends `{Tag, ReqId, ok, Pid}`
   (`{Tag, ReqId, error, Reason}` on failure, `badopt` for an invalid option) as
   `{reply_tag, Tag}` and `{reply, yes | no | error_only | success_only}` ask;
   with `monitor` the request id is the monitor reference.
-  `spawn_request_abandon/1` returns `false`: the reply is already sent.
+  `spawn_request_abandon/1` returns `false`: the reply is already sent. A
+  request to another node waits for that node's reply
+  ([spawning](distribution.md#spawning)) and can be abandoned meanwhile.
 - `hibernate(M, F, A)` waits until the mailbox holds a message, then calls
   `M:F(A...)` in place of the call; the stack is kept, so the result returns to
   the caller.
@@ -592,7 +595,7 @@ not suspend.
 | `exit(Dest, Reason)`, `exit_signal(Dest, Reason)` | `badarg` unless `Dest` is a pid or reference; `true` after the [exit signal](#exit-signals) |
 | `process_flag(trap_exit, Bool)`, `process_flag(min_heap_size, N)`, `process_flag(save_calls, N)` | The previous setting; `badarg` for another flag, a non-boolean or a negative or non-integer size |
 | `erlang:send(Dest, Msg)`, `Dest ! Msg` | `Msg`, after sending it ([messages](#messages)); `send/2` is not auto-imported |
-| `spawn(Node, ...)`, `spawn_link(Node, ...)`, `spawn_monitor(Node, ...)` (`/2`, `/4`) | This node (`node()`): as without `Node`. Another node: OTP's useless pid of a node that is not alive, a process that ends at once with reason `noconnection`, so a link or monitor reports `noconnection`; `badarg` for a non-atom node (plan 21 step LIB9A) |
+| `spawn(Node, ...)`, `spawn_link(Node, ...)`, `spawn_monitor(Node, ...)` (`/2`, `/4`) | This node (`node()`): as without `Node`. Another node: the process runs there ([spawning](distribution.md#spawning)); a node that cannot be reached gives OTP's useless pid, a process here that ends at once with reason `noconnection`, so a link or monitor reports `noconnection`; `badarg` for a non-atom node (plan 21 step LIB9A, plan 30 step DIST5b2) |
 | `erlang:send(Dest, Msg, Options)` | `ok`, or `noconnect` for a message to another node with the `noconnect` option; options `nosuspend`, `noconnect`, `priority` (an ordinary message) |
 | `send_nosuspend(Dest, Msg)`, `send_nosuspend(Dest, Msg, [noconnect])` | `true`; `false` for another node with `noconnect` |
 | `link(Pid, Options)`, `exit(Dest, Reason, Options)`, `exit_signal(Dest, Reason, Options)` | As without options; `Options` is `[]` or `[priority]` (an ordinary signal) |

@@ -460,7 +460,8 @@ void Executor::queue_packet(ProcessContext &builder, Connection &connection, std
 
 void Executor::take_down(ProcessContext &builder, Word node) {
     auto &connection = *connections_.find(node);
-    // Links go first, then monitors and node monitors, as in OTP.
+    // Pending spawns and links go first, then monitors and node monitors, as in OTP.
+    fail_spawn_requests(builder, node);
     drop_remote_links(builder, node, connection.links);
     end_process_monitors(builder, node, connection.processes);
     if (!connection.monitors.empty()) {

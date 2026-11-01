@@ -322,6 +322,7 @@ bool Executor::notify(ProcessContext &process) {
     auto &signals = process.signals();
     names_.erase(signals.name());
     end_distribution(process);
+    orphan_spawn_requests(process);
     // Tables go first, as in OTP: a monitor's 'DOWN' message finds them deleted or inherited.
     release_tables(process);
     for (const auto &[reference, monitored] : signals.take_monitors()) {

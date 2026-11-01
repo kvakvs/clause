@@ -21,8 +21,17 @@ struct BuiltinContinuation {
 // writes of maps ordered by comparison funs sort their keys in clause_io_lib:sort_maps/6 (plan 21 step LIB4F); a
 // passive node monitor asks net_kernel in clause_dist:passive_monitor/3 (plan 30 step DIST2c); a controller's iolist
 // becomes one binary in erts_internal:dist_ctrl_put_data/2 (plan 30 step DIST2d); an alive node's cookies are the
-// auth server's (plan 30 step DIST4b1c); an alive node's disconnect_node/1 is net_kernel's (plan 30 step DIST4b2a).
+// auth server's (plan 30 step DIST4b1c); an alive node's disconnect_node/1 is net_kernel's (plan 30 step DIST4b2a);
+// a spawn on another node waits for its reply in clause_dist_spawn:spawn/5 (plan 30 step DIST5b2).
 inline constexpr std::array BUILTIN_CONTINUATIONS{
+    BuiltinContinuation{{"erlang", "spawn", 2}, U"clause_dist_spawn", U"spawn", 5},
+    BuiltinContinuation{{"erlang", "spawn", 4}, U"clause_dist_spawn", U"spawn", 5},
+    BuiltinContinuation{{"erlang", "spawn_link", 2}, U"clause_dist_spawn", U"spawn", 5},
+    BuiltinContinuation{{"erlang", "spawn_link", 4}, U"clause_dist_spawn", U"spawn", 5},
+    BuiltinContinuation{{"erlang", "spawn_monitor", 2}, U"clause_dist_spawn", U"spawn", 5},
+    BuiltinContinuation{{"erlang", "spawn_monitor", 4}, U"clause_dist_spawn", U"spawn", 5},
+    BuiltinContinuation{{"erlang", "spawn_opt", 3}, U"clause_dist_spawn", U"spawn", 5},
+    BuiltinContinuation{{"erlang", "spawn_opt", 5}, U"clause_dist_spawn", U"spawn", 5},
     BuiltinContinuation{{"erlang", "monitor_node", 3}, U"clause_dist", U"passive_monitor", 3},
     BuiltinContinuation{{"erlang", "dmonitor_node", 3}, U"clause_dist", U"passive_monitor", 3},
     BuiltinContinuation{{"erlang", "dist_ctrl_put_data", 2}, U"erts_internal", U"dist_ctrl_put_data", 2},

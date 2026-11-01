@@ -8,6 +8,9 @@ bool otp_auto_import(const FunctionKey &key);
 // Whether the compiler handles erlang:F/A itself, without the library module: a bridge builtin, a guard BIF or a
 // body builtin such as apply/3.
 bool compiler_handled(const FunctionKey &key);
+// Whether an unqualified call or fun of `key` is erlang:F/A: OTP auto-imports it and the module neither defines,
+// imports nor suppresses it (builtin continuations of unqualified calls, plan 30 step DIST5b2).
+bool auto_imported(const ast::Module &syntax, const FunctionKey &key);
 // Whether an unqualified call or fun of `key` reaches erlang:F/A of the library module: OTP auto-imports it, the
 // module neither defines, imports nor suppresses it, and no builtin the compiler handles has the name.
 bool library_auto_import(const ast::Module &syntax, const FunctionKey &key);

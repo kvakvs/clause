@@ -816,3 +816,11 @@ gotchas and user directions not recorded elsewhere.
   Connection loss order to one process: link exit, then 'DOWN', then nodedown. Fixture helper names must not clash
   with BIFs (`put/2` is call_to_redefined_bif under warnings_as_errors). A scratch observe_case.py (imports
   cases/nodes/regenerate, runs nodes under OTP, prints raw stdout/stderr) is the fast way to see an oracle failure.
+- DIST5b (2026-11-01): OTP takes a SPAWN_REPLY as a signal of the requester, handled when it next receives: a test
+  process that is the controller must receive (flush) before taking the packets its reply causes. Abandoned request
+  with link+monitor: OTP sends only EXIT abandoned (no DEMONITOR_P); an ended requester's child gets DEMONITOR_P then
+  EXIT with the reason. Requests send options [monitor, link | rest] for the tuple forms. demonitor/1 of a pending
+  spawn id returns true (demonitor/1 always does). Builtin continuations (builtin_continuations.hpp) were noted only
+  for remote calls: unqualified auto-imported calls (spawn/4, get_cookie/0, disconnect_node/1) now bring the target
+  module too (calls.cpp called_builtin). Keep continuation targets in small modules: clause_dist calls net_kernel,
+  so continuing in it linked all of distribution into every spawn/4 program (2 s -> 55 s tests).

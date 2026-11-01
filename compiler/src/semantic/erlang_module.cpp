@@ -26,8 +26,12 @@ bool otp_auto_import(const FunctionKey &key) {
 
 bool compiler_handled(const FunctionKey &key) { return auto_imported_bif(key) || bridge_builtin(key); }
 
-bool library_auto_import(const ast::Module &syntax, const FunctionKey &key) {
-    return otp_auto_import(key) && !compiler_handled(key) && !defines_function(syntax, key) && !imported(syntax, key) &&
+bool auto_imported(const ast::Module &syntax, const FunctionKey &key) {
+    return otp_auto_import(key) && !defines_function(syntax, key) && !imported(syntax, key) &&
            !auto_import_off(syntax, key);
+}
+
+bool library_auto_import(const ast::Module &syntax, const FunctionKey &key) {
+    return auto_imported(syntax, key) && !compiler_handled(key);
 }
 } // namespace clause::semantic

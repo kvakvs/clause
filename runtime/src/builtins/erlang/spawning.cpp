@@ -4,6 +4,7 @@
 #include "../../terms/identities.hpp"
 #include "../portions.hpp"
 #include "../typed.hpp"
+#include "dist_spawns.hpp"
 #include "terms.hpp"
 #include <array>
 #include <clause/runtime/code_server.hpp>
@@ -15,13 +16,6 @@ namespace clause::runtime::builtins {
 namespace {
 using detail::Executor;
 using detail::SpawnOptions;
-
-// The node a spawn on this node names; anything else is badarg.
-void local_node(const Term &node) {
-    if (!detail::is_this_node(node)) {
-        bad_argument();
-    }
-}
 
 // Whether an atom option value is one of `allowed`.
 template <std::size_t N> bool one_of(const Term &value, const std::array<std::string_view, N> &allowed) {
@@ -107,10 +101,15 @@ TermResult<Term> spawn_opt2(ProcessContext &context, const Term &fun, const List
     return spawn_fun(context, fun, spawn_options(context, options));
 }
 
-TermResult<Term> spawn_opt3(ProcessContext &context, const AtomArgument &node, const Term &fun,
-                            const ListArgument &options) {
-    local_node(node.term);
-    return spawn_opt2(context, fun, options);
+// spawn_opt(Node, Fun, Options): another node's spawn continues in clause_dist_spawn:spawn/5 (plan 30 step DIST5b2).
+Word spawn_opt3(ProcessContext &context, const AtomArgument &node, const Term &fun, const ListArgument &options) {
+    if (detail::is_this_node(node.term)) {
+        return need(spawn_opt2(context, fun, options)).word();
+    }
+    if (!fun.is_function(0)) {
+        bad_argument();
+    }
+    return spawn_remote(context, node.term, fun_call(context, fun), options.term);
 }
 
 // The call of spawn_opt/4,5 and spawn_request: Module, Function, Args.
@@ -129,10 +128,17 @@ TermResult<Term> spawn_opt4(ProcessContext &context, const AtomArgument &module,
     return spawn_call(context, {module, function, arguments}, spawn_options(context, options));
 }
 
-TermResult<Term> spawn_opt5(ProcessContext &context, const Term &node, const AtomArgument &module,
-                            const AtomArgument &function, const ListArgument &arguments, const ListArgument &options) {
-    local_node(node);
-    return spawn_opt4(context, module, function, arguments, options);
+// spawn_opt(Node, Module, Function, Args, Options): badarg unless Node is an atom; another node's spawn continues in
+// clause_dist_spawn:spawn/5 (plan 30 step DIST5b2).
+Word spawn_opt5(ProcessContext &context, const Term &node, const AtomArgument &module, const AtomArgument &function,
+                const ListArgument &arguments, const ListArgument &options) {
+    if (detail::is_this_node(node)) {
+        return need(spawn_opt4(context, module, function, arguments, options)).word();
+    }
+    if (!node.is_atom()) {
+        bad_argument();
+    }
+    return spawn_remote(context, node, {module.term, function.term, arguments.term}, options.term);
 }
 
 // spawn_request's own options: the reply tag and which replies to send.
@@ -219,14 +225,33 @@ TermResult<Term> request_call(ProcessContext &context, const Call &call, const L
     return request(context, options, [&](const SpawnOptions &spawn) { return spawn_call(context, call, spawn); });
 }
 
+// A spawn request of a fun or a call on `node`: here, or on another node (plan 30 step DIST5b2).
+TermResult<Term> request_fun_at(ProcessContext &context, const Term &node, const Term &fun,
+                                const ListArgument *options) {
+    if (detail::is_this_node(node)) {
+        return request_fun(context, fun, options);
+    }
+    if (!fun.is_function(0)) {
+        bad_argument();
+    }
+    return request_remote(context, node, fun_call(context, fun), options);
+}
+
+TermResult<Term> request_call_at(ProcessContext &context, const Term &node, const Call &call,
+                                 const ListArgument *options) {
+    if (detail::is_this_node(node)) {
+        return request_call(context, call, options);
+    }
+    return request_remote(context, node, {call.module.term, call.function.term, call.arguments.term}, options);
+}
+
 // spawn_request(Fun).
 TermResult<Term> spawn_request1(ProcessContext &context, const Term &fun) { return request_fun(context, fun, nullptr); }
 
 // spawn_request(Fun, Options) or spawn_request(Node, Fun).
 TermResult<Term> spawn_request2(ProcessContext &context, const Term &first, const Term &second) {
     if (first.is_atom()) {
-        local_node(first);
-        return request_fun(context, second, nullptr);
+        return request_fun_at(context, first, second, nullptr);
     }
     const auto options = need(Argument<ListArgument>::convert(second));
     if (!options) {
@@ -239,8 +264,7 @@ TermResult<Term> spawn_request2(ProcessContext &context, const Term &first, cons
 TermResult<Term> spawn_request3(ProcessContext &context, const AtomArgument &first, const Term &second,
                                 const ListArgument &third) {
     if (second.is_function()) {
-        local_node(first.term);
-        return request_fun(context, second, &third);
+        return request_fun_at(context, first.term, second, &third);
     }
     const auto function = need(Argument<AtomArgument>::convert(second));
     if (!function) {
@@ -253,9 +277,8 @@ TermResult<Term> spawn_request3(ProcessContext &context, const AtomArgument &fir
 TermResult<Term> spawn_request4(ProcessContext &context, const AtomArgument &first, const AtomArgument &second,
                                 const Term &third, const ListArgument &fourth) {
     if (third.is_atom()) {
-        local_node(first.term);
         const auto function = need(Argument<AtomArgument>::convert(third));
-        return request_call(context, {second, *function, fourth}, nullptr);
+        return request_call_at(context, first.term, {second, *function, fourth}, nullptr);
     }
     const auto arguments = need(Argument<ListArgument>::convert(third));
     if (!arguments) {
@@ -268,16 +291,20 @@ TermResult<Term> spawn_request4(ProcessContext &context, const AtomArgument &fir
 TermResult<Term> spawn_request5(ProcessContext &context, const Term &node, const AtomArgument &module,
                                 const AtomArgument &function, const ListArgument &arguments,
                                 const ListArgument &options) {
-    local_node(node);
-    return request_call(context, {module, function, arguments}, &options);
+    if (!node.is_atom()) {
+        bad_argument();
+    }
+    return request_call_at(context, node, {module, function, arguments}, &options);
 }
 
-// spawn_request_abandon(ReqId): the reply was already sent when the request returned, so false.
+// spawn_request_abandon(ReqId): a local request's reply was already sent when it returned, so false; a request to
+// another node still waiting for its reply is abandoned (plan 30 step DIST5b2).
 TermResult<Term> spawn_request_abandon(ProcessContext &context, const Term &request) {
     if (!request.is_reference()) {
         bad_argument();
     }
-    return TermFactory(context).boolean(false);
+    return TermFactory(context).boolean(
+        Executor::of(context).abandon_spawn(context, request.reference_value_unchecked()));
 }
 
 // alias() and alias(Options): explicit_unalias (the default) or reply.
@@ -367,6 +394,18 @@ detail::AliasMode alias_mode(const Term &value) {
     return detail::AliasMode::reply_demonitor;
 }
 } // namespace
+
+std::optional<SpawnOptions> served_spawn_options(ProcessContext &context, const Term &list) {
+    const auto options = need(Argument<ListArgument>::convert(list));
+    if (!options) {
+        return std::nullopt;
+    }
+    try {
+        return spawn_options(context, *options);
+    } catch (const BuiltinFailure &) {
+        return std::nullopt;
+    }
+}
 
 detail::MonitorOptions monitor_options(ProcessContext &context, const Term &list) {
     const auto options = need(Argument<ListArgument>::convert(list));

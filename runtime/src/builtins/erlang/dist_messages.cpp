@@ -2,6 +2,7 @@
 #include "../../process/exits.hpp"
 #include "../../scheduler/executor.hpp"
 #include "../../terms/identities.hpp"
+#include "dist_spawns.hpp"
 #include "term_decoding.hpp"
 #include "term_encoding.hpp"
 #include <algorithm>
@@ -16,8 +17,9 @@
 // Messages across nodes (plan 30 step DIST4b3a, docs/distribution.md#messages): a send to another node's process
 // becomes OTP's pass-through packet (112, then the control message and the payload, each in the external format) on
 // the node's connection. The packets a connection's input handler puts are read as OTP 29 reads them (observed):
-// messages are delivered, process monitor signals (DIST4b3b1) and link signals (DIST5a) go to the executor, other
-// operations of the right shape wait for DIST5b, and unreadable packets kill the controller after OTP's report.
+// messages are delivered, process monitor signals (DIST4b3b1) and link signals (DIST5a) go to the executor, group
+// leaders are set (DIST5b1), spawns served and answered (DIST5b2), and unreadable packets kill the controller after
+// OTP's report.
 namespace clause::runtime::builtins {
 namespace {
 using detail::DistSend;
@@ -26,6 +28,7 @@ using detail::Executor;
 // The control message operations Clause sends (erl_dist_protocol).
 constexpr std::int64_t SEND = 2;
 constexpr std::int64_t REG_SEND = 6;
+constexpr std::int64_t GROUP_LEADER = 7;
 constexpr std::int64_t SEND_SENDER = 22;
 constexpr std::int64_t ALIAS_SEND = 33;
 // The first byte of a pass-through packet, and of a term in the external format.
@@ -66,8 +69,22 @@ std::pair<Term, Term> control_of(ProcessContext &context, const Term &destinatio
 // for the operations that bring no message to deliver.
 enum class Receiver : std::uint8_t { none, pid, name, alias };
 
-// The process monitor signal (DIST4b3b1) or link signal (DIST5a) of an operation the executor acts on, or none.
-enum class Signal : std::uint8_t { none, monitor, demonitor, monitor_exit, link, unlink, unlink_ack, link_exit, exit };
+// The process monitor signal (DIST4b3b1), group leader (DIST5b1), spawn (DIST5b2) or link signal (DIST5a) of an
+// operation acted on, or none. The link signals come last.
+enum class Signal : std::uint8_t {
+    none,
+    monitor,
+    demonitor,
+    monitor_exit,
+    group_leader,
+    spawn_request,
+    spawn_reply,
+    link,
+    unlink,
+    unlink_ack,
+    link_exit,
+    exit
+};
 
 // The shape of one of OTP's control messages: its operation, its tuple's arity, whether a payload follows, the
 // receiver of a message and its element, its signal, and the element of an exit's reason when no payload brings it.
@@ -88,7 +105,7 @@ constexpr std::array SHAPES{
     Shape{.operation = 3, .arity = 4, .signal = Signal::link_exit, .reason = 3},                 // EXIT
     Shape{.operation = 5, .arity = 1},                                                           // NODE_LINK
     Shape{.operation = REG_SEND, .arity = 4, .payload = true, .receiver = Receiver::name, .element = 3},
-    Shape{.operation = 7, .arity = 3},                                                             // GROUP_LEADER
+    Shape{.operation = GROUP_LEADER, .arity = 3, .signal = Signal::group_leader},
     Shape{.operation = 8, .arity = 4, .signal = Signal::exit, .reason = 3},                        // EXIT2
     Shape{.operation = 12, .arity = 4, .payload = true, .receiver = Receiver::pid, .element = 2},  // SEND_TT
     Shape{.operation = 13, .arity = 5, .signal = Signal::link_exit, .reason = 4},                  // EXIT_TT
@@ -103,11 +120,11 @@ constexpr std::array SHAPES{
     Shape{.operation = 25, .arity = 4, .payload = true, .signal = Signal::link_exit},             // PAYLOAD_EXIT_TT
     Shape{.operation = 26, .arity = 3, .payload = true, .signal = Signal::exit},                  // PAYLOAD_EXIT2
     Shape{.operation = 27, .arity = 4, .payload = true, .signal = Signal::exit},                  // PAYLOAD_EXIT2_TT
-    Shape{.operation = 28, .arity = 4, .payload = true, .signal = Signal::monitor_exit}, // PAYLOAD_MONITOR_P_EXIT
-    Shape{.operation = 29, .arity = 6, .payload = true},                                 // SPAWN_REQUEST
-    Shape{.operation = 30, .arity = 7, .payload = true},                                 // SPAWN_REQUEST_TT
-    Shape{.operation = 31, .arity = 5},                                                  // SPAWN_REPLY
-    Shape{.operation = 32, .arity = 6},                                                  // SPAWN_REPLY_TT
+    Shape{.operation = 28, .arity = 4, .payload = true, .signal = Signal::monitor_exit},  // PAYLOAD_MONITOR_P_EXIT
+    Shape{.operation = 29, .arity = 6, .payload = true, .signal = Signal::spawn_request}, // SPAWN_REQUEST
+    Shape{.operation = 30, .arity = 7, .payload = true, .signal = Signal::spawn_request}, // SPAWN_REQUEST_TT
+    Shape{.operation = 31, .arity = 5, .signal = Signal::spawn_reply},                    // SPAWN_REPLY
+    Shape{.operation = 32, .arity = 6, .signal = Signal::spawn_reply},                    // SPAWN_REPLY_TT
     Shape{.operation = ALIAS_SEND, .arity = 3, .payload = true, .receiver = Receiver::alias, .element = 2},
     Shape{.operation = 34, .arity = 4, .payload = true, .receiver = Receiver::alias, .element = 2}, // ALIAS_SEND_TT
     Shape{.operation = 35, .arity = 4, .signal = Signal::unlink},                                   // UNLINK_ID
@@ -129,6 +146,9 @@ bool names_receiver(Receiver kind, const Term &term) {
     return true;
 }
 
+// Whether `term` is a pid of any node (GROUP_LEADER names two, DIST5b1).
+bool any_pid(const Term &term) { return term.is_pid() || term.is_external_pid(); }
+
 // Whether `term` is a reference of any node.
 bool any_reference(const Term &term) { return term.is_reference() || term.is_external_reference(); }
 
@@ -139,6 +159,10 @@ bool pid_of_node(ProcessContext &context, const Term &term, Word node) {
 
 bool pid_of_old_self(ProcessContext &context, const Term &term) {
     return term.is_external_pid() && detail::is_this_node(node_of(context, term));
+}
+
+bool old_self_reference(ProcessContext &context, const Term &term) {
+    return term.is_external_reference() && detail::is_this_node(node_of(context, term));
 }
 
 // Whether a signal is a link signal (DIST5a), and whether it is UNLINK_ID or UNLINK_ID_ACK, whose id comes before
@@ -183,10 +207,44 @@ bool monitor_formed(ProcessContext &context, const Shape &shape, const Term &con
            (watched.is_pid() || watched.is_atom() || pid_of_old_self(context, watched));
 }
 
+// Whether a SPAWN_REQUEST's {Module, Function, Arity} has OTP's shape.
+bool mfa_formed(const Term &mfa) {
+    return mfa.is_tuple() && mfa.tuple_size_unchecked() == 3 && mfa.tuple_element_unchecked(0).is_atom() &&
+           mfa.tuple_element_unchecked(1).is_atom() && small(mfa.tuple_element_unchecked(2).word());
+}
+
+// Whether a SPAWN_REPLY names a request and receiver here, its flags and a result.
+bool reply_formed(ProcessContext &context, const Term &control) {
+    const auto element = [&](std::size_t index) { return control.tuple_element_unchecked(index); };
+    const auto flags = small(element(3).word());
+    const bool here = (element(2).is_pid() || pid_of_old_self(context, element(2))) &&
+                      (element(1).is_reference() || old_self_reference(context, element(1)));
+    return here && flags && *flags >= 0 && *flags < (std::int64_t{1} << 27) &&
+           (element(4).is_external_pid() || element(4).is_atom());
+}
+
+// Whether a spawn signal names what OTP's dist.c accepts (DIST5b2): SPAWN_REQUEST another node's reference and pid,
+// a group leader pid and {Module, Function, Arity}; SPAWN_REPLY a reference and pid here (or of an earlier
+// incarnation), flags below 2^27 and another node's pid or an error atom.
+bool spawn_formed(ProcessContext &context, const Shape &shape, const Term &control) {
+    const auto element = [&](std::size_t index) { return control.tuple_element_unchecked(index); };
+    if (shape.signal == Signal::spawn_reply) {
+        return reply_formed(context, control);
+    }
+    return element(1).is_external_reference() && element(2).is_external_pid() && any_pid(element(3)) &&
+           mfa_formed(element(4));
+}
+
 // Whether a signal from `node` names what OTP's dist.c accepts, as monitor_formed and link_formed check.
 bool well_formed(ProcessContext &context, const Shape &shape, const Term &control, Word node) {
     if (shape.signal == Signal::none) {
         return true;
+    }
+    if (shape.signal == Signal::group_leader) {
+        return any_pid(control.tuple_element_unchecked(1)) && any_pid(control.tuple_element_unchecked(2));
+    }
+    if (shape.signal == Signal::spawn_request || shape.signal == Signal::spawn_reply) {
+        return spawn_formed(context, shape, control);
     }
     return links(shape.signal) ? link_formed(context, shape, control, node)
                                : monitor_formed(context, shape, control, node);
@@ -303,23 +361,21 @@ void signal_monitor(ProcessContext &context, Word node, const Reading &reading) 
 // The executor's kind of a link signal.
 detail::RemoteLinkSignal::Kind link_kind(Signal signal) {
     using Kind = detail::RemoteLinkSignal::Kind;
-    switch (signal) {
-    case Signal::unlink:
-        return Kind::unlink;
-    case Signal::unlink_ack:
-        return Kind::unlink_ack;
-    case Signal::link_exit:
-        return Kind::link_exit;
-    case Signal::exit:
-        return Kind::exit;
-    case Signal::none:
-    case Signal::monitor:
-    case Signal::demonitor:
-    case Signal::monitor_exit:
-    case Signal::link:
-        break;
+    // The link signals come last in Signal, in the order of the executor's kinds.
+    constexpr std::array KINDS{Kind::link, Kind::unlink, Kind::unlink_ack, Kind::link_exit, Kind::exit};
+    return KINDS.at(static_cast<std::size_t>(signal) - static_cast<std::size_t>(Signal::link));
+}
+
+// GROUP_LEADER {7, Leader, Member}: a member here takes the leader once it does not run elsewhere; another node's
+// member is ignored, as OTP's (DIST5b1).
+void signal_group_leader(ProcessContext &context, const Reading &reading) {
+    const auto member = reading.control.tuple_element_unchecked(2);
+    if (member.is_pid()) {
+        Executor::inspect(context, member.word(), [&](ProcessContext &target, Executor &) {
+            lead(target, reading.control.tuple_element_unchecked(1), context);
+            return true;
+        });
     }
-    return Kind::link;
 }
 
 // Hand a link signal to the executor (DIST5a): the sender, the receiver, an unlink's id, and an exit's reason from
@@ -384,6 +440,21 @@ DistSend send_remote(ProcessContext &context, const RemoteMessage &send) {
     return Executor::of(context).dist_output(context, node, dist_packet(context, control, send.message), send.connect);
 }
 
+void lead(ProcessContext &member, const Term &leader, ProcessContext &builder) {
+    if (leader.is_pid()) {
+        member.signals().set_group_leader(leader.word());
+    } else {
+        member.signals().set_remote_group_leader(need(detail::MessageBuffer::copy_of(leader, builder)));
+    }
+}
+
+void send_group_leader(ProcessContext &context, const Term &leader, const Term &pid) {
+    TermFactory factory(context);
+    const auto control = need(factory.tuple(std::array{need(factory.integer(GROUP_LEADER)), leader, pid}));
+    Executor::of(context).dist_output(context, node_of(context, pid), dist_packet(context, control, std::nullopt),
+                                      true);
+}
+
 std::vector<std::byte> dist_packet(ProcessContext &context, const Term &control, const std::optional<Term> &payload) {
     const auto head = encode_external(context, control);
     const auto body = payload ? encode_external(context, *payload) : std::string{};
@@ -404,6 +475,12 @@ void take_packet(ProcessContext &context, const PacketSource &source, std::span<
             deliver(context, reading);
         } else if (links(reading.shape->signal)) {
             signal_link(context, source.node, reading);
+        } else if (reading.shape->signal == Signal::group_leader) {
+            signal_group_leader(context, reading);
+        } else if (reading.shape->signal == Signal::spawn_request) {
+            take_spawn_request(context, reading.control, source.node, reading.message);
+        } else if (reading.shape->signal == Signal::spawn_reply) {
+            take_spawn_reply(context, source.node, reading.control);
         } else {
             signal_monitor(context, source.node, reading);
         }

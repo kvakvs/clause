@@ -26,6 +26,8 @@ inline constexpr std::uint64_t ATOM_CACHE = 0x2;
 inline constexpr std::uint64_t DIST_MONITOR = 0x8;
 inline constexpr std::uint64_t DIST_MONITOR_NAME = 0x20;
 inline constexpr std::uint64_t EXIT_PAYLOAD = 0x40'0000;
+// A node takes SPAWN_REQUEST only with it (plan 30 step DIST5b2).
+inline constexpr std::uint64_t SPAWN = std::uint64_t{0x1} << 32;
 inline constexpr std::uint64_t HIDDEN_ATOM_CACHE = 0x40;
 inline constexpr std::uint64_t DIST_HDR_ATOM_CACHE = 0x2000;
 inline constexpr std::uint64_t FRAGMENTS = 0x800000;

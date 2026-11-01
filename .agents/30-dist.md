@@ -7,8 +7,8 @@ direction); formerly backlog item F38.
 - **Today:** a Clause program is a non-distributed node until `net_kernel:start/1,2` (DIST4b1a) or
   `--sname`/`--name` (DIST4b1b), with OTP's cookies (DIST4b1c), under `kernel_sup` (DIST4b1d); started nodes
   connect over IPv4 or IPv6 (DIST4b2a to DIST4b2c), exchange messages (DIST4b3a), monitor each other's processes and
-  ping (DIST4b3b1), link and send exit signals (DIST5a), no group leaders or spawns yet; the program's end loses
-  queued packets as OTP's `halt` (DIST4b3b2).
+  ping (DIST4b3b1), link and send exit signals (DIST5a), lead each other's processes (DIST5b1) and spawn on each
+  other (DIST5b2); the program's end loses queued packets as OTP's `halt` (DIST4b3b2).
   Clause and OTP 29 nodes interoperate on either epmd (DIST4b4).
   - The runtime has other nodes' pids, ports and references as terms (DIST1), a nameable node
     (`erlang:setnode/2`, DIST2a), connection entries with node status messages (`setnode/3`,
@@ -111,13 +111,7 @@ Depends on: DIST4b4 ([30-finished](30-finished.md)).
 Split (2026-11-01), each sub-step adds its part of `dist_signals`:
 
 - DIST5a (links and exit signals, golden `dist_signals` part one) is done ([30-finished](30-finished.md)).
-- **DIST5b Group leaders and spawning on other nodes.**
-  - `GROUP_LEADER`; `group_leader/2` of another node's pid (also not alive: `true`); a process here whose group
-    leader is another node's pid (remote spawns), its I/O requests go there.
-  - `SPAWN_REQUEST`/`SPAWN_REPLY` (link and monitor flags, options, errors `badarg`, `badopt`, `noconnection`,
-    `notsup`); `spawn/2,4`, `spawn_link/2,4`, `spawn_monitor/2,4`, `spawn_opt/3,5`, `spawn_request/2..5`,
-    `spawn_request_abandon/1` across nodes; the useless-pid row of `differences.md` goes.
-  - Golden `dist_signals` part two.
+- DIST5b1 (group leaders) and DIST5b2 (spawning on other nodes) are done ([30-finished](30-finished.md)).
 - **DIST5c Ordering, send options and OTP peers.**
   - Signals between a pair of processes in order across pending connections and auto-connect; `erlang:send/3`
     `noconnect` and `nosuspend`, `send_nosuspend/2,3`.
@@ -160,7 +154,10 @@ Depends on: [DIST6](#step-dist6).
   - [ ] `gen:call/3,4` to `{Name, Node}`, `gen_server:multi_call/2,3,4` and `abcast/2,3`,
         remote `gen_statem` and `gen_event` calls.
   - [ ] I/O of remote processes reaches their group leaders: output of `rpc:call/4` appears on the
-        calling node.
+        calling node. Today `standard_io` always writes to this node's standard output, even for a process whose
+        group leader is another node's pid (DIST5b1 keeps such leaders): route `standard_io` requests to such a
+        leader through the I/O protocol (`clause_io`), and decide with OTP's behavior for local group leaders
+        that are not `user`.
   - [ ] `net_adm`: `world/0,1`, `world_list/1,2`, `host_file/0`, `localhost/0`,
         `dns_hostname/1` with real nodes.
 - Tests

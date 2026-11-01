@@ -109,6 +109,9 @@ TermResult<Term> Executor::create(ProcessContext &parent, Prepare prepare, const
     if (*frame) {
         child.stack().start(*static_cast<const FrameDescriptor *>(*frame));
     }
+    if (options.request != nullptr) {
+        return launch_requested(parent, std::move(*built), *pid, *options.request);
+    }
     return !options.link && !options.monitor ? launch(parent, std::move(*built), *pid)
                                              : launch_linked(parent, std::move(*built), *pid, options);
 }
@@ -122,8 +125,7 @@ TermResult<Term> Executor::launch_linked(ProcessContext &parent, std::unique_ptr
     }
     retire_arrays();
     // A spawned process inherits its parent's group leader (step 41G1).
-    const auto leader = parent.signals().group_leader();
-    child.signals().set_group_leader(leader != 0 ? leader : pid_of(parent));
+    child.signals().inherit_group_leader(parent.signals(), pid_of(parent));
     try {
         auto result = adopt(parent, child, pid, options);
         if (!result) {
@@ -141,8 +143,7 @@ TermResult<Term> Executor::launch(ProcessContext &parent, std::unique_ptr<Proces
     auto &child = *built;
     // A spawned process inherits its parent's group leader (step 41G1); the running parent's own cannot change
     // meanwhile, as group_leader/2 waits for its slice to end.
-    const auto leader = parent.signals().group_leader();
-    child.signals().set_group_leader(leader != 0 ? leader : pid_of(parent));
+    child.signals().inherit_group_leader(parent.signals(), pid_of(parent));
     child.schedule().started = true;
     if (const auto published = parent.runtime().publish_context(std::move(built)); !published) {
         return std::unexpected(creation_error(published.error()));

@@ -18,7 +18,8 @@ Nodes connect through OTP's handshake with all its statuses, `allow/1` and dynam
 connections](#making-connections), DIST4b2a, DIST4b2b), over IPv4 or IPv6 (DIST4b2c), messages move
 between them ([messages](#messages), DIST4b3a), processes monitor other nodes' processes and `net_adm:ping/1`
 answers ([process monitors](#process-monitors), DIST4b3b1), and they link and send exit signals to each other
-([links and exit signals](#links-and-exit-signals), DIST5a); group leaders and spawns do not yet. Clause and OTP 29 nodes
+([links and exit signals](#links-and-exit-signals), DIST5a), and lead each other's processes ([group
+leaders](#group-leaders), DIST5b1) and spawn processes on each other ([spawning](#spawning), DIST5b2). Clause and OTP 29 nodes
 connect, ping, monitor and message each other both ways on either kind of epmd ([testing](#testing), DIST4b4).
 The other libraries answer as OTP does without distribution (`{badrpc, nodedown}`, `not_alive`). The
 rest of this file is the contract for distribution. Each section becomes current behavior when its
@@ -234,8 +235,8 @@ speaking the protocol and with a test process as a connection's controller.
   their `_TT` forms (the trace token is ignored). The sender field is never checked; another node's
   receiver, a name no process has and a reference that is no alias get nothing. Process monitor
   signals ([process monitors](#process-monitors)) and link signals ([links and exit
-  signals](#links-and-exit-signals)) are taken; group leaders and spawns are read for their shape and wait for
-  DIST5b, and the old `UNLINK` (4) is an invalid distribution message, as since OTP 26. Bytes after the payload are
+  signals](#links-and-exit-signals)) are taken, group leaders set ([group leaders](#group-leaders)), spawns
+  served and answered ([spawning](#spawning)), and the old `UNLINK` (4) is an invalid distribution message, as since OTP 26. Bytes after the payload are
   ignored.
 - **Unreadable packets** kill the controller (`nodedown` reason `killed`) after OTP's report, `N`
   being the node's number in its printed pids:
@@ -317,6 +318,53 @@ connection's controller and between two nodes.
   pid of an earlier incarnation for `LINK` and `EXIT2`), or an `UNLINK_ID` of id 0, is an invalid distribution
   message ([messages](#messages)).
 - `process_info/2`'s `links` shows the other node's pids.
+
+## Group leaders
+
+Current since DIST5b1 (`builtins/erlang/dist_messages.cpp`), as OTP 29's.
+
+- **Another node's leader:** a process's group leader may be another node's pid, kept in a buffer beside the
+  process's links: `group_leader/0` and `process_info/2` return it, and the process's spawns inherit it.
+  `standard_io` still writes to this node's standard output ([plan 30](../.agents/30-dist.md) step DIST7).
+- **`group_leader(Leader, Pid)`:** `Leader` a pid of any node. For another node's `Pid` it queues `GROUP_LEADER`
+  `{7, Leader, Pid}` on that node's connection, auto-connecting an idle one, and returns `true`, also when the node
+  cannot be reached or this node is not alive; a pid of an earlier incarnation of this node is `badarg`.
+- **Taken from another node:** `GROUP_LEADER` makes its leader the group leader of the process here it names,
+  once that process does not run on another worker; one naming another node's process does nothing. A
+  `GROUP_LEADER` whose leader or member is no pid is an invalid distribution message ([messages](#messages)).
+
+## Spawning
+
+Current since DIST5b2 (`scheduler/remote_spawns.cpp`, `builtins/erlang/dist_spawns.cpp`,
+`library/kernel/clause_dist_spawn.erl`), as OTP 29's `dist.c` and `erlang.erl`, observed with a test process as a
+connection's controller and between two nodes.
+
+- **Requests:** `spawn_request/2..5` naming another node queue `SPAWN_REQUEST` `{29, ReqId, From, GroupLeader,
+  {Module, Function, Arity}, Options}` with the argument list as payload on its connection, auto-connecting an idle
+  one, and return the request id. The requester keeps `{reply_tag, Tag}`, `{reply, Mode}`, `{monitor,
+  MonitorOptions}` and `{link, LinkOptions}`; the node gets the other options, `monitor` and `link` first for those
+  tuple forms. An invalid kept option replies `badopt` at once; a node that cannot be reached, also from a node that
+  is not alive, replies `noconnection`, and an up node without the `SPAWN` flag `notsup`. Badarg for a node that is
+  no atom, or an improper argument or option list.
+- **Replies:** the node's `SPAWN_REPLY` `{31, ReqId, To, Flags, Result}` makes the link (flag 1) and the monitor
+  (flag 2, the request id as its reference, with its tag and alias) active, then brings `{Tag, ReqId, ok, Pid}` or
+  `{Tag, ReqId, error, Reason}` as `{reply, Mode}` asks. Until then `demonitor/1` of the id does nothing. A lost
+  connection fails pending requests with `noconnection`.
+- **Abandoned or orphaned:** `spawn_request_abandon/1` of a pending request returns `true` (`false` once replied
+  or for another process's); its child, once spawned, gets the link's exit `abandoned`. A requester that ended has
+  its child demonitored (`DEMONITOR_P`) and unlinked with the requester's exit reason. A reply to no pending request
+  does nothing.
+- **Blocking spawns:** `spawn/2,4`, `spawn_link/2,4`, `spawn_monitor/2,4` and `spawn_opt/3,5` naming another node
+  continue in `clause_dist_spawn:spawn/5`, a request and its reply as OTP's `spawn_opt/5`: the pid, or `{Pid, Ref}`
+  with `monitor`; `badopt` is `badarg`, as are the reply options; `noconnection` and `notsup` give OTP's useless
+  pid, a process here that exits with that reason. `spawn(Node, Fun)` runs `erlang:apply(Fun, [])` there.
+- **Served here:** another node's `SPAWN_REQUEST` starts `Module:Function(Args...)` with the request's group leader
+  ([group leaders](#group-leaders)), linked to and monitored by the requester as its options ask, and queues its
+  `SPAWN_REPLY` before the child can run, so the reply comes before anything the child sends. Options that are no
+  proper list or not spawn options are answered `badopt`. A `SPAWN_REQUEST` whose id is no reference of another
+  node, whose requester is no pid of another node, whose group leader is no pid or whose `{Module, Function,
+  Arity}` is malformed, and a `SPAWN_REPLY` whose id or receiver is not of this node, whose flags are not below
+  2^27 or whose result is no pid of another node or atom, are invalid distribution messages ([messages](#messages)).
 
 ## Node status messages
 

@@ -132,6 +132,10 @@ builtin and service calls), `RuntimeOptions` + `RuntimeExtension` for extension 
   Links between nodes (`scheduler/remote_links.cpp`, DIST5a) work the same way: `Signals` links hold the node's atom
   once, the connection's `RemoteLinks` the other pids with OTP's unlink id state; exit signals from another node
   reach their targets as `PortEvent::remote` events, so they wait for a target running on another worker.
+  Another node's group leader is a buffer in `Signals` (DIST5b1). Spawns across nodes (`scheduler/remote_spawns.cpp`,
+  `builtins/erlang/dist_spawns.cpp`, DIST5b2): pending requests in `Executor::spawn_requests_` until SPAWN_REPLY; a
+  served request's child is published by `launch_requested` under the lock, after its link, monitor and reply; the
+  blocking spawns continue in Erlang (`clause_dist_spawn:spawn/5`, a builtin continuation).
 - **Memory / GC**: per-process generational heaps, copying collector at safepoints, message and
   persistent-term copies, off-heap binaries (`docs/runtime-heap.md`).
 - **Scheduler**: multi-worker executor with run queues, handed-over wakes and stealing, mailboxes,

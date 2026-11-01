@@ -1,10 +1,10 @@
-%% Links and exit signals across nodes (plan 30 step DIST5a). Node a controls connections to a node that does not
+%% Links and exit signals across nodes (plan 30 step DIST5a), group leaders (DIST5b1) and spawns (DIST5b2). Node a controls connections to a node that does not
 %% exist (setnode/3 with its own process): the LINK, UNLINK_ID and EXIT2 packets of its links and exits, the fake
 %% node's links, unlinks, link exits and exit signals put back, the links a lost connection ends, and the data OTP
 %% calls an invalid distribution message. Then links and exits between a's processes and b's agents, and b's node
 %% going down.
 -module(dist_signals).
--export([main/1]).
+-export([main/1, served/1, report/1, ready/0]).
 
 % The flags Clause offers: OTP's own add the atom cache, whose packets this test does not read.
 -define(FLAGS, 16#D075F5FBC).
@@ -16,6 +16,9 @@ main(["a"]) ->
     fake_linked(),
     fake_exits(),
     fake_down(),
+    fake_leaders(),
+    fake_requests(),
+    fake_served(),
     faults(),
     B = peer("dsb"),
     wait_registered("dsb_ready"),
@@ -23,6 +26,8 @@ main(["a"]) ->
     links(B),
     linked_here(B),
     exits(B),
+    leaders(B),
+    spawns(B),
     node_down(B),
     done();
 main(["b"]) ->
@@ -61,6 +66,16 @@ agent(Owner) ->
             Owner ! {agent, self(), Links};
         {exit_signal, Pid, Reason} ->
             Owner ! {agent, self(), exit(Pid, Reason)};
+        leader ->
+            Owner ! {agent, self(), group_leader()};
+        spawned_leader ->
+            Self = self(),
+            spawn(fun() -> Self ! {leader, group_leader()} end),
+            receive
+                {leader, Leader} -> Owner ! {agent, self(), Leader}
+            end;
+        {group_leader, Leader, Pid} ->
+            Owner ! {agent, self(), group_leader(Leader, Pid)};
         {exit, Reason} ->
             exit(Reason);
         {'EXIT', From, Reason} ->
@@ -241,14 +256,121 @@ watch(Main) ->
     First = next(),
     Main ! {watched, [named(First), named(next())]}.
 
-%% Data the controller cannot read kills it, after OTP's report (on standard error): the old UNLINK, and link
-%% signals naming what OTP's dist.c refuses.
+%% Group leaders (plan 30 step DIST5b1): group_leader/2 of the fake node's pid sends GROUP_LEADER, with a leader of
+%% either node; the fake node's GROUP_LEADER makes its pid the group leader of a process here, which that process's
+%% spawns inherit, and one for another node's pid does nothing. Another node's pid can lead this process too; a pid
+%% of an earlier incarnation of this node cannot be led.
+fake_leaders() ->
+    controlled(fun(_) ->
+        DH = erlang:setnode(?FAKE, self(), {?FLAGS, 77}),
+        show("group_leader/2", [group_leader(self(), remote_pid(1)), group_leader(remote_pid(2), remote_pid(1))]),
+        show("leader packets", [decoded(Packet) || Packet <- take(DH)]),
+        Member = agent_of(this),
+        [ok = deliver(DH, Put) || Put <- [{7, remote_pid(3), Member}, {7, remote_pid(3), remote_pid(4)}]],
+        {group_leader, Leader} = process_info(Member, group_leader),
+        show("led", [named(Leader), named(ask(Member, leader)), named(ask(Member, spawned_leader))]),
+        Old = group_leader(),
+        true = group_leader(remote_pid(5), self()),
+        Led = group_leader(),
+        true = group_leader(Old, self()),
+        show("own leader", [named(Led), group_leader() =:= Old]),
+        show(
+            "earlier incarnation",
+            try
+                group_leader(self(), old_self())
+            catch
+                error:Reason -> Reason
+            end
+        )
+    end).
+
+%% Spawn requests to the fake node (plan 30 step DIST5b2): SPAWN_REQUEST with the caller's group leader and the
+%% options it does not keep (monitor and link first for their tuple forms); the fake node's SPAWN_REPLY activates the
+%% link and monitor and brings the reply the options ask for. An abandoned request, or one whose requester ended,
+%% demonitors and unlinks the child once it is spawned.
+fake_requests() ->
+    controlled(fun(_) ->
+        process_flag(trap_exit, true),
+        Self = self(),
+        DH = erlang:setnode(?FAKE, self(), {?FLAGS, 77}),
+        Options = [link, {monitor, [{tag, t}]}, {reply_tag, tag}, {priority, high}],
+        First = spawn_request(?FAKE, m, f, [a, 1], Options),
+        Second = spawn_request(?FAKE, m, f, [], [{reply, error_only}]),
+        Third = spawn_request(?FAKE, m, f, [], [{reply, success_only}]),
+        show("requests", [decoded(Packet) || Packet <- take(DH)]),
+        show("pending", [demonitor(First), links()]),
+        Replies = [{31, First, Self, 3, remote_pid(7)}, {31, Second, Self, 0, badarg}, {31, Third, Self, 0, badarg}],
+        [ok = deliver(DH, Reply) || Reply <- Replies],
+        show("replies", [named(Message) || Message <- flush()]),
+        show("spawned", [links(), named(element(2, process_info(self(), monitors)))]),
+        ok = deliver(DH, {{28, remote_pid(7), Self, First}, gone}),
+        ok = deliver(DH, {{24, remote_pid(7), Self}, gone}),
+        show("child ended", [named(Message) || Message <- flush()]),
+        Abandoned = spawn_request(?FAKE, m, f, [], [link, monitor]),
+        _ = take(DH),
+        show("abandon", [spawn_request_abandon(Abandoned), spawn_request_abandon(Abandoned)]),
+        ok = deliver(DH, {31, Abandoned, Self, 3, remote_pid(8)}),
+        % OTP's requester takes the reply as a signal of its own, when it next receives.
+        Flushed = flush(),
+        show("abandoned", [[decoded(Packet) || Packet <- take(DH)], Flushed]),
+        {Requester, Ref} = spawn_monitor(fun() ->
+            Self ! {request, spawn_request(?FAKE, m, f, [], [link, monitor])},
+            exit({shutdown, gone})
+        end),
+        Request =
+            receive
+                {request, R} -> R
+            end,
+        {shutdown, gone} = down(Ref),
+        _ = take(DH),
+        ok = deliver(DH, {31, Request, Requester, 3, remote_pid(9)}),
+        show("requester ended", [decoded(Packet) || Packet <- taken(DH, 2)]),
+        show("stale", [deliver(DH, {31, make_ref(), Self, 0, remote_pid(9)}), take(DH), flush()])
+    end).
+
+%% The fake node's spawn requests (plan 30 step DIST5b2): the child runs here linked to and monitored by the
+%% requester, with the request's group leader, after SPAWN_REPLY; its end sends both their exits. Bad options are
+%% answered with badopt.
+fake_served() ->
+    controlled(fun(_) ->
+        Self = self(),
+        DH = erlang:setnode(?FAKE, self(), {?FLAGS, 77}),
+        Request = {29, remote_ref(1), remote_pid(10), remote_pid(11), {dist_signals, served, 1}, [link, monitor]},
+        ok = deliver(DH, {Request, [Self]}),
+        Child =
+            receive
+                {served, C, Leader, Links} ->
+                    show("served", [named(Leader), named(Links), named(process_info(C, monitored_by))]),
+                    C
+            after 30000 -> timeout
+            end,
+        show("served reply", [decoded(Packet) || Packet <- take(DH)]),
+        Child ! stop,
+        show("served ends", [decoded(Packet) || Packet <- taken(DH, 2)]),
+        Bad = {29, remote_ref(2), remote_pid(10), remote_pid(11), {m, f, 0}, [bogus]},
+        ok = deliver(DH, {Bad, []}),
+        show("bad options", [decoded(Packet) || Packet <- taken(DH, 1)])
+    end).
+
+% A process the fake node spawns: it tells the test its group leader and links, and ends when told.
+served(Test) ->
+    {links, Links} = process_info(self(), links),
+    Test ! {served, self(), group_leader(), Links},
+    receive
+        stop -> ok
+    end.
+
+%% Data the controller cannot read kills it, after OTP's report (on standard error): the old UNLINK, and link,
+%% group leader and spawn signals naming what OTP's dist.c refuses.
 faults() ->
     Faults = [
         {"unlink", fun(Self) -> {4, remote_pid(1), Self} end},
         {"link from here", fun(Self) -> {1, Self, Self} end},
         {"unlink id 0", fun(Self) -> {35, 0, remote_pid(1), Self} end},
-        {"exit to there", fun(_) -> {3, remote_pid(1), remote_pid(2), x} end}
+        {"exit to there", fun(_) -> {3, remote_pid(1), remote_pid(2), x} end},
+        {"group leader", fun(Self) -> {7, x, Self} end},
+        {"spawn request", fun(Self) -> {29, make_ref(), Self, Self, {m, f, 0}, []} end},
+        {"spawn reply", fun(Self) -> {31, make_ref(), Self, -1, remote_pid(1)} end}
     ],
     [
         controlled(Label, fun(_) ->
@@ -338,6 +460,73 @@ exits(B) ->
     show("exit from there", [ask(Trapper, {exit_signal, self(), normal}), exit_of(Trapper)]),
     true = ask(Trapper, {exit_signal, Here, {from, b}}),
     show("ended here", down(HereRef)).
+
+%% Group leaders between a and b: a's process leads b's agent and the processes it spawns, and b's agent makes
+%% itself the group leader of a's process (plan 30 step DIST5b1).
+leaders(B) ->
+    Agent = agent_of(B),
+    true = group_leader(self(), Agent),
+    show("leader there", [ask(Agent, leader) =:= self(), ask(Agent, spawned_leader) =:= self()]),
+    Here = agent_of(this),
+    true = ask(Agent, {group_leader, Agent, Here}),
+    show("leader here", ask(Here, leader) =:= Agent).
+
+%% Spawns on b (plan 30 step DIST5b2): spawn/2,4, spawn_link/4, spawn_monitor/4, spawn_opt/5 and spawn_request/5
+%% run their processes there with this process's group leader; bad options, and a node that cannot be reached, as
+%% OTP's.
+spawns(B) ->
+    Main = self(),
+    First = spawn(B, dist_signals, report, [Main]),
+    show("spawn", [node(First), reported(First)]),
+    Linked = spawn_link(B, dist_signals, report, [Main]),
+    show("spawn_link", [reported(Linked), exit_of(Linked)]),
+    {Monitored, Ref} = spawn_monitor(B, erlang, exit, [bye]),
+    show("spawn_monitor", [node(Monitored), down(Ref)]),
+    {Opted, OptRef} = spawn_opt(B, erlang, exit, [opt], [monitor, {priority, high}]),
+    show("spawn_opt", [node(Opted), down(OptRef)]),
+    FunPid = spawn(B, fun dist_signals:ready/0),
+    show("spawn fun", node(FunPid)),
+    Request = spawn_request(B, dist_signals, report, [Main], [link, monitor, {reply_tag, rt}]),
+    Requested =
+        receive
+            {rt, Request, ok, P} -> P
+        after 30000 -> timeout
+        end,
+    show("spawn_request", [node(Requested), reported(Requested), exit_of(Requested), down(Request)]),
+    Bad = spawn_request(B, m, f, [], [bogus]),
+    show("badopt", [
+        receive
+            {spawn_reply, Bad, error, Reason} -> Reason
+        after 30000 -> timeout
+        end,
+        try
+            spawn_opt(B, m, f, [], [bogus])
+        catch
+            error:Error -> Error
+        end
+    ]),
+    Nobody = 'nobody@localhost',
+    {_, NobodyRef} = spawn_monitor(Nobody, m, f, []),
+    Unreached = spawn_request(Nobody, m, f, []),
+    show("unreachable", [
+        down(NobodyRef),
+        receive
+            {spawn_reply, Unreached, error, Why} -> Why
+        after 30000 -> timeout
+        end
+    ]).
+
+% What a process spawned on b tells: its group leader is the caller's.
+report(Main) -> Main ! {report, self(), group_leader()}.
+
+ready() -> ok.
+
+% Whether the spawned process reported the caller's group leader.
+reported(Pid) ->
+    receive
+        {report, Pid, Leader} -> Leader =:= group_leader()
+    after 30000 -> timeout
+    end.
 
 %% b's node goes down: a process here linked to b's process and monitoring it gets the link's noconnection, then the
 %% 'DOWN', then nodedown; a process that does not trap exits ends with noconnection.
@@ -466,6 +655,7 @@ named(Term) ->
 % A pid and an alias of the fake node, as its creation 77 makes them.
 remote_pid(N) -> binary_to_term(<<131, 88, 119, 11, "fake@nohost", N:32, 0:32, 77:32>>).
 remote_alias() -> binary_to_term(<<131, 90, 3:16, 119, 11, "fake@nohost", 77:32, 1:32, 2:32, 3:32>>).
+remote_ref(N) -> binary_to_term(<<131, 90, 3:16, 119, 11, "fake@nohost", 77:32, N:32, 0:32, 0:32>>).
 
 % A pid of an earlier incarnation of this node.
 old_self() ->

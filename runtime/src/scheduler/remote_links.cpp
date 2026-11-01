@@ -127,6 +127,11 @@ void Executor::exit_remote(ProcessContext &sender, const Term &pid, const Term &
     }
 }
 
+std::vector<std::byte> Executor::link_exit_packet(ProcessContext &builder, const Connection &connection,
+                                                  const std::array<Term, 3> &parts) {
+    return exit_packet(builder, connection.flags, true, parts);
+}
+
 void Executor::signal_self(ProcessContext &process, const Term &from, const Term &reason) {
     const Running running(process);
     signal(process, from.word(), reason, SignalKind::link);

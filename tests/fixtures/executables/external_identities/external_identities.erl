@@ -251,6 +251,46 @@ builtins(#{pid := P, port := Po, ref := R}) ->
         ]
     ]),
     % Another node's process cannot be reached from a node that is not alive (plan 30 step DIST4b3b1).
+    % A group leader of another node is set, or told nothing, on a node that is not alive (plan 30 step DIST5b1).
+    io:format("group_leader: ~p~n", [
+        [
+            safe(fun() -> group_leader(self(), id(P)) end),
+            safe(fun() ->
+                Old = group_leader(),
+                true = group_leader(id(P), self()),
+                New = group_leader(),
+                true = group_leader(Old, self()),
+                New =:= P
+            end)
+        ]
+    ]),
+    % Spawns on another node give a process that exits noconnection, and spawn_request the error reply (plan 30 step
+    % DIST5b2).
+    io:format("spawn: ~p~n", [
+        [
+            safe(fun() ->
+                {_, Ref} = spawn_monitor(node(id(P)), m, f, []),
+                receive
+                    {'DOWN', Ref, process, _, Why} -> Why
+                end
+            end),
+            safe(fun() ->
+                {Pid, Ref} = spawn_opt(node(id(P)), fun() -> ok end, [monitor]),
+                receive
+                    {'DOWN', Ref, process, Pid, Why} -> {node(Pid) =:= node(), Why}
+                end
+            end),
+            safe(fun() ->
+                Ref = spawn_request(node(id(P)), m, f, [], [{reply_tag, tag}]),
+                receive
+                    {tag, Ref, error, Why} -> Why
+                end
+            end),
+            safe(fun() -> spawn_request(node(id(P)), m, f, [], [{reply, no}]) end) =/= error,
+            safe(fun() -> spawn_request(node(id(P)), m, f, improper) end),
+            safe(fun() -> spawn_request_abandon(make_ref()) end)
+        ]
+    ]),
     io:format("monitor: ~p~n", [
         [
             safe(fun() ->

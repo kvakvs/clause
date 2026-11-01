@@ -1,6 +1,7 @@
 #include "../../scheduler/executor.hpp"
 #include "../../terms/identities.hpp"
 #include "../typed.hpp"
+#include "dist_messages.hpp"
 #include "terms.hpp"
 #include <algorithm>
 #include <array>
@@ -42,10 +43,14 @@ Term integer(const Inspection &inspection, std::size_t value) {
     return need(TermFactory(inspection.caller).integer(static_cast<std::int64_t>(value)));
 }
 
-// The group leader of a process: its own pid when it leads itself.
-Word leader(ProcessContext &process) {
+// The group leader of a process as a term of `builder`: its own pid when it leads itself, another node's pid copied
+// from its buffer (plan 30 step DIST5b1).
+Term leader(ProcessContext &process, ProcessContext &builder) {
+    if (const auto &remote = process.signals().remote_group_leader()) {
+        return need(remote->copy_to(builder));
+    }
     const auto leader = process.signals().group_leader();
-    return leader != 0 ? leader : detail::pid_of(process);
+    return need(Term::from_word(leader != 0 ? leader : detail::pid_of(process), builder));
 }
 
 Term registered_name(const Inspection &inspection) {
@@ -130,7 +135,7 @@ Term trap_exit(const Inspection &inspection) {
     return need(TermFactory(inspection.caller).boolean(inspection.target.signals().trap_exit()));
 }
 
-Term group_leader(const Inspection &inspection) { return immediate(inspection, leader(inspection.target)); }
+Term group_leader(const Inspection &inspection) { return leader(inspection.target, inspection.caller); }
 
 Term heap_size(const Inspection &inspection) { return integer(inspection, inspection.target.heap().capacity_words()); }
 
@@ -287,12 +292,29 @@ TermResult<Term> processes(ProcessContext &context) {
     return TermFactory(context).list(items);
 }
 
-TermResult<Term> group_leader0(ProcessContext &context) { return Term::from_word(leader(context), context); }
+TermResult<Term> group_leader0(ProcessContext &context) { return leader(context, context); }
 
-// group_leader(Leader, Pid): badarg unless both are pids and Pid is alive.
-TermResult<Term> group_leader2(ProcessContext &context, const PidArgument &leader_pid, const Term &pid) {
+// Whether a pid of another node names an earlier incarnation of this node.
+bool earlier_incarnation(ProcessContext &context, const Term &pid) {
+    return detail::is_this_node(need(Term::from_word(need(detail::ExternalAccess::read(pid)).node, context)));
+}
+
+// group_leader(Leader, Pid): badarg unless both are pids and Pid is alive. Either may be another node's pid (plan 30
+// step DIST5b1): its process is told over its connection, also nothing when it cannot be reached; a pid of an
+// earlier incarnation of this node is badarg.
+TermResult<Term> group_leader2(ProcessContext &context, const Term &leader_pid, const Term &pid) {
+    if (!leader_pid.is_pid() && !leader_pid.is_external_pid()) {
+        bad_argument();
+    }
+    if (pid.is_external_pid()) {
+        if (earlier_incarnation(context, pid)) {
+            bad_argument();
+        }
+        send_group_leader(context, leader_pid, pid);
+        return TermFactory(context).boolean(true);
+    }
     const auto set = Executor::inspect(context, local_pid(pid), [&](ProcessContext &target, Executor &) {
-        target.signals().set_group_leader(leader_pid.term.word());
+        lead(target, leader_pid, context);
         return true;
     });
     if (!set) {

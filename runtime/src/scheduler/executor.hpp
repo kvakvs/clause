@@ -18,6 +18,7 @@
 #include <clause/runtime/runtime.hpp>
 #include <condition_variable>
 #include <deque>
+#include <functional>
 #include <map>
 #include <mutex>
 #include <string_view>
@@ -52,9 +53,43 @@ struct MonitorOptions final {
     std::shared_ptr<const MessageBuffer> tag = nullptr;
 };
 
+// A SPAWN_REQUEST of another node's process that this node serves (plan 30 step DIST5b2): the node, the request id,
+// the requester and the group leader the child gets (terms of the controller's heap), and whether the requester links
+// to and monitors the child.
+struct RemoteSpawnRequest final {
+    Word node = 0;
+    Term reference;
+    Term requester;
+    Term leader;
+    bool link = false;
+    bool monitor = false;
+};
+
+// A spawn request of a process here to another node, waiting for its SPAWN_REPLY (plan 30 step DIST5b2): the node,
+// the requester's pid word, the reply tag, which replies it wants, the link and monitor it asked for, and once the
+// requester ended or abandoned the request the reason the child's link exits with, in the external format, and
+// whether it was abandoned (OTP then sends no DEMONITOR_P).
+struct PendingSpawn final {
+    Word node = 0;
+    Word requester = 0;
+    std::shared_ptr<const MessageBuffer> tag;
+    bool success_message = true;
+    bool error_message = true;
+    bool link = false;
+    bool monitor = false;
+    MonitorOptions monitor_options = {};
+    std::optional<std::string> orphaned = std::nullopt;
+    bool abandoned = false;
+};
+
+// What became of a spawn request to another node: sent, or failed at once (noconnection, notsup).
+enum class SpawnSent : std::uint8_t { queued, noconnection, notsup };
+
 struct SpawnOptions final {
     bool link = false;
     bool monitor = false;
+    // Another node's request this spawn serves (plan 30 step DIST5b2), or null.
+    const RemoteSpawnRequest *request = nullptr;
     // Options of the spawn's monitor, and the reference it uses (spawn_request/1..5 reuses its request id).
     MonitorOptions monitor_options = {};
     std::optional<ReferenceIdentity> monitor_reference = std::nullopt;
@@ -406,6 +441,17 @@ class Executor final {
     // The other side of a monitor whose Signals entry names `node`, built in `builder`'s heap, as process_info/2
     // shows it: the monitored pid or {Name, Node}, or the watcher's pid with `watcher`; the executor's lock is held.
     Term remote_item(ProcessContext &builder, Word node, const ReferenceIdentity &reference, bool watcher) const;
+
+    // Spawning on other nodes (plan 30 step DIST5b2, remote_spawns.cpp, docs/distribution.md#spawning). Queue the
+    // caller's SPAWN_REQUEST with the id `reference` on `node`'s connection, auto-connected, and keep `pending` until
+    // the reply; noconnection or notsup when it cannot be sent. `packet` encodes the request once it can be sent.
+    SpawnSent request_spawn(ProcessContext &requester, const Term &node, const ReferenceIdentity &reference,
+                            const std::function<std::vector<std::byte>()> &packet, PendingSpawn pending);
+    // SPAWN_REPLY of `node`'s connection: the requester's link and monitor become active and it gets its reply; an
+    // ended requester's or abandoned request's child is unlinked with its reason and demonitored.
+    void spawn_replied(ProcessContext &controller, Word node, const std::array<Term, 4> &reply);
+    // spawn_request_abandon/1 of a request to another node: whether the caller's request was still pending.
+    bool abandon_spawn(ProcessContext &requester, const ReferenceIdentity &reference);
 
     // Links and exit signals between nodes (plan 30 step DIST5a, remote_links.cpp,
     // docs/distribution.md#links-and-exit-signals). link/1 of another node's pid or of a pid or port of an earlier
@@ -760,6 +806,12 @@ class Executor final {
     TermResult<Term> create(ProcessContext &parent, Prepare prepare, const SpawnOptions &options) noexcept;
     // Publish and queue a new process that neither links nor monitors, without the executor's lock; returns its pid.
     TermResult<Term> launch(ProcessContext &parent, std::unique_ptr<ProcessContext> built, const Term &pid) noexcept;
+    // Publish and queue the child of another node's spawn request, under the lock, after its group leader, link,
+    // monitor and SPAWN_REPLY (plan 30 step DIST5b2, remote_spawns.cpp).
+    TermResult<Term> launch_requested(ProcessContext &controller, std::unique_ptr<ProcessContext> built,
+                                      const Term &pid, const RemoteSpawnRequest &request) noexcept;
+    void serve_request(ProcessContext &controller, ProcessContext &child, const Term &pid,
+                       const RemoteSpawnRequest &request);
     // Publish, link or monitor and queue a new process under the executor's lock; its pid, or {Pid, Ref}.
     TermResult<Term> launch_linked(ProcessContext &parent, std::unique_ptr<ProcessContext> built, const Term &pid,
                                    const SpawnOptions &options) noexcept;
@@ -885,6 +937,32 @@ class Executor final {
     void end_remote_links(ProcessContext &process, Word node, const Term &reason);
     // A connection goes down: each link to the node's processes exits noconnection.
     void drop_remote_links(ProcessContext &builder, Word node, const RemoteLinks &links);
+
+    // A SPAWN_REPLY's child of `node` (plan 30 step DIST5b2): the request id, the pid or error atom, and whether it
+    // is linked to and monitored by the requester.
+    struct SpawnedChild final {
+        Word node = 0;
+        Term reference;
+        Term pid;
+        bool link = false;
+        bool monitor = false;
+    };
+
+    // The child of an ended requester or abandoned request loses its monitor and link; a live requester's becomes
+    // linked and monitored as asked and the requester gets its reply.
+    void orphan_child(ProcessContext &controller, const PendingSpawn &pending, const Term &parent,
+                      const SpawnedChild &child);
+    void adopt_child(ProcessContext &controller, ProcessContext &requester, const PendingSpawn &pending,
+                     const SpawnedChild &child);
+    // A connection goes down: its pending spawn requests fail with noconnection (plan 30 step DIST5b2).
+    void fail_spawn_requests(ProcessContext &builder, Word node);
+    // An ended requester's pending spawn requests keep its exit reason for their children's links.
+    void orphan_spawn_requests(ProcessContext &process);
+    // The exit reason of an ended process in the external format; notsup when that cannot hold it.
+    static std::string orphan_reason(ProcessContext &process);
+    // The EXIT or PAYLOAD_EXIT packet of a link's exit {From, To, Reason} on `connection` (remote_links.cpp).
+    static std::vector<std::byte> link_exit_packet(ProcessContext &builder, const Connection &connection,
+                                                   const std::array<Term, 3> &parts);
     // Queue a monitor signal on `connection` unless the node is up without OTP's monitor flags.
     void queue_monitor_signal(ProcessContext &builder, Connection &connection, const Term &control,
                               const std::optional<Term> &payload = std::nullopt);
@@ -987,6 +1065,8 @@ class Executor final {
     Word node_down_reason_ = 0;
     // The last UNLINK_ID id given to unlink/1 of another node's process (plan 30 step DIST5a).
     std::uint64_t unlink_ids_ = 0;
+    // Spawn requests to other nodes waiting for their replies, by request id (plan 30 step DIST5b2).
+    std::map<ReferenceIdentity, PendingSpawn> spawn_requests_;
     // Active aliases by reference: the owner's pid and the mode (step 41G2).
     std::map<ReferenceIdentity, std::pair<Word, AliasMode>> aliases_;
     // Message timers by reference number (step 41F); the wheel links their embedded timers.

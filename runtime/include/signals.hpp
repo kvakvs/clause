@@ -130,10 +130,28 @@ class Signals final {
     // The monitors this process holds (process_info/2 monitors, step 41G1).
     const Monitors &monitors() const noexcept { return monitors_; }
 
-    // The group leader's pid word, or 0 for the process itself (group_leader/0,2, step 41G1).
+    // The group leader's pid word, or 0 for the process itself or another node's leader (group_leader/0,2, step
+    // 41G1).
     Word group_leader() const noexcept { return group_leader_; }
 
-    void set_group_leader(Word pid) noexcept { group_leader_ = pid; }
+    void set_group_leader(Word pid) noexcept {
+        group_leader_ = pid;
+        remote_leader_ = nullptr;
+    }
+
+    // Another node's pid as the group leader, in a buffer of its own (plan 30 step DIST5b1), else null.
+    const std::shared_ptr<const detail::MessageBuffer> &remote_group_leader() const noexcept { return remote_leader_; }
+
+    void set_remote_group_leader(std::shared_ptr<const detail::MessageBuffer> leader) noexcept {
+        group_leader_ = 0;
+        remote_leader_ = std::move(leader);
+    }
+
+    // Take the group leader of the spawning `parent`, whose pid word is `parent_pid` for a parent leading itself.
+    void inherit_group_leader(const Signals &parent, Word parent_pid) noexcept {
+        group_leader_ = parent.remote_leader_ || parent.group_leader_ != 0 ? parent.group_leader_ : parent_pid;
+        remote_leader_ = parent.remote_leader_;
+    }
 
     // Remove and return the monitors held on this process, as it ends: each gets a 'DOWN' message.
     Monitors take_watchers() noexcept { return std::exchange(watchers_, {}); }
@@ -161,6 +179,8 @@ class Signals final {
     bool trap_exit_ = false;
     // The group leader inherited from the spawning process; 0 means the process leads itself. Added for 41G1.
     Word group_leader_ = 0;
+    // Another node's pid as the group leader (remote spawns, group_leader/2), plan 30 step DIST5b1.
+    std::shared_ptr<const detail::MessageBuffer> remote_leader_ = nullptr;
     // process_flag(save_calls, N); nothing is saved (plan 21 step LIB9A).
     std::size_t save_calls_ = 0;
 };

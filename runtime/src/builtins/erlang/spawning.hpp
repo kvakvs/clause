@@ -7,4 +7,7 @@ namespace clause::runtime::builtins {
 // The options of monitor/3 or {monitor, Options}: {alias, explicit_unalias | demonitor | reply_demonitor} and
 // {tag, Tag}; badarg for an improper list or any other option.
 detail::MonitorOptions monitor_options(ProcessContext &context, const Term &list);
+// The spawn options of another node's SPAWN_REQUEST (plan 30 step DIST5b2); none when they are no proper list or one
+// is invalid (badopt).
+std::optional<detail::SpawnOptions> served_spawn_options(ProcessContext &context, const Term &list);
 } // namespace clause::runtime::builtins

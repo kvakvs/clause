@@ -1,6 +1,7 @@
 #include "../../scheduler/executor.hpp"
 #include "../../terms/identities.hpp"
 #include "dist_messages.hpp"
+#include "dist_spawns.hpp"
 #include "processes.hpp"
 #include <array>
 
@@ -98,45 +99,46 @@ bool local_node(const Term &node) { return detail::is_this_node(node); }
 // What a spawn naming a node does besides starting the process.
 detail::SpawnOptions spawn_options(bool link, bool monitor) { return {.link = link, .monitor = monitor}; }
 
-// The useless pid of a spawn on another node: a process that ends at once with reason noconnection, so a link or a
-// monitor reports noconnection, as OTP's crasher process does on a node that is not alive.
-Term remote_spawn(ProcessContext &context, const detail::SpawnOptions &options) {
-    const std::array arguments{atom(context, "noconnection"_atom)};
-    const detail::InitialCall call{atom(context, "erlang"_atom), atom(context, "exit"_atom),
-                                   need(TermFactory(context).list(arguments))};
-    return need(detail::Executor::of(context).spawn(context, call, options));
+// The spawn_opt options of a spawn on another node: [link], [monitor] or [] (plan 30 step DIST5b2).
+Term remote_options(ProcessContext &context, bool link, bool monitor) {
+    if (!link && !monitor) {
+        return need(TermFactory(context).nil());
+    }
+    const std::array options{atom(context, link ? "link"_atom : "monitor"_atom)};
+    return need(TermFactory(context).list(options));
 }
 
-// spawn(Node, Fun) and its link and monitor variants: Fun runs here when Node is this node.
-template <bool Link, bool Monitor> Term spawn_node_fun(ProcessContext &context, const NodeArg &node, const Term &fun) {
-    const auto options = spawn_options(Link, Monitor);
+// spawn(Node, Fun) and its link and monitor variants: Fun runs here when Node is this node; another node's spawn
+// continues in clause_dist_spawn:spawn/5, also when the node cannot be reached (plan 30 step DIST5b2).
+template <bool Link, bool Monitor> Word spawn_node_fun(ProcessContext &context, const NodeArg &node, const Term &fun) {
     if (local_node(node.term)) {
         if (!fun.is_function()) {
             bad_argument();
         }
-        return need(detail::Executor::of(context).spawn(context, fun, options));
+        return need(detail::Executor::of(context).spawn(context, fun, spawn_options(Link, Monitor))).word();
     }
-    if (!node.term.is_atom() || !fun.is_function()) {
+    if (!node.term.is_atom() || !fun.is_function(0)) {
         bad_argument();
     }
-    return remote_spawn(context, options);
+    return spawn_remote(context, node.term, fun_call(context, fun), remote_options(context, Link, Monitor));
 }
 
 // spawn(Node, Module, Function, Args) and its link and monitor variants.
 template <bool Link, bool Monitor>
-Term spawn_node_call(ProcessContext &context, const NodeArg &node, const AtomArgument &module,
+Word spawn_node_call(ProcessContext &context, const NodeArg &node, const AtomArgument &module,
                      const AtomArgument &function, const Term &arguments) {
-    const auto options = spawn_options(Link, Monitor);
     if (!node.term.is_atom()) {
         bad_argument();
     }
     if (!local_node(node.term)) {
-        return remote_spawn(context, options);
+        return spawn_remote(context, node.term, {module.term, function.term, arguments},
+                            remote_options(context, Link, Monitor));
     }
     if (!arguments.is_list()) {
         bad_argument();
     }
-    return need(detail::Executor::of(context).spawn(context, {module.term, function.term, arguments}, options));
+    const auto options = spawn_options(Link, Monitor);
+    return need(detail::Executor::of(context).spawn(context, {module.term, function.term, arguments}, options)).word();
 }
 
 // process_flag(Pid, save_calls, N): the previous setting; save_calls is the only flag of another process.

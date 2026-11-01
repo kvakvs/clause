@@ -274,7 +274,9 @@ five 32-bit words.
   `send/3` option), a message to another node's port is `badarg`, `exit/2` and
   `unlink/1` return `true`, `link/1` returns `true` and exits the caller with
   `noconnection` (plan 30 step DIST5a), `link/1`, `unlink/1` and `exit/2` of
-  another node's port are `badarg`, `cancel_timer/1` and `read_timer/1` return
+  another node's port are `badarg`, `group_leader/2` returns `true` and may make
+  another node's pid the caller's group leader (DIST5b1), `cancel_timer/1` and
+  `read_timer/1` return
   `false`, and local-only builtins (`is_process_alive/1`, `process_info/1,2`,
   `register/2`, port builtins, timers aimed at the pid) are `badarg`.
 
