@@ -824,3 +824,10 @@ gotchas and user directions not recorded elsewhere.
   for remote calls: unqualified auto-imported calls (spawn/4, get_cookie/0, disconnect_node/1) now bring the target
   module too (calls.cpp called_builtin). Keep continuation targets in small modules: clause_dist calls net_kernel,
   so continuing in it linked all of distribution into every spawn/4 program (2 s -> 55 s tests).
+- DIST6 (2026-11-01): Clause's library has no `inet_parse` (use `inet:ntoa/1`; an unknown module is a compile error
+  only once a program links the caller). `standard_io` output ignores a local custom group leader (DIST7 gap), so a
+  fixture cannot capture io:format output through a collector process: print it and mask with golden `stdout_masks`
+  (applied to oracle and Clause alike). OTP's logger trims a message's trailing blank (`** ... ** ` -> `**`): OTP node
+  stderr patterns need ` ?`. OTP's node_info/nodes_info/i raise badarg without distribution (missing sys_dist ets).
+  OTP's cookie is the printable run up to the first other character, trailing blanks kept. build/ had been wiped: a
+  fresh configure + Debug build took ~25 min at affinity FFFFFF.

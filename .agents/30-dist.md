@@ -10,7 +10,9 @@ direction); formerly backlog item F38.
   ping (DIST4b3b1), link and send exit signals (DIST5a), lead each other's processes (DIST5b1) and spawn on each
   other (DIST5b2), every signal in order and with OTP 29 nodes (DIST5c); the program's end loses queued packets as
   OTP's `halt` (DIST4b3b2).
-  Clause and OTP 29 nodes interoperate on either epmd (DIST4b4).
+  Clause and OTP 29 nodes interoperate on either epmd (DIST4b4). `net_kernel` changes tick times, reports and tunes
+  connections, bars nodes under `dist_auto_connect once` and connects passively; `auth` keeps cookies with OTP's
+  requests and cookie-file checks (DIST6a, DIST6b).
   - The runtime has other nodes' pids, ports and references as terms (DIST1), a nameable node
     (`erlang:setnode/2`, DIST2a), connection entries with node status messages (`setnode/3`,
     DIST2b), node monitors with auto-connect (DIST2c) and the controller data path (`dist_ctrl_*`,
@@ -50,6 +52,8 @@ direction); formerly backlog item F38.
     `global_group` (one node, locker internals declined), `pg` (no peers), `peer`/`slave`
     (`not_alive`), `pool` (collector declined), `application` (`takeover/2` exits `noproc`, no
     `dist_ac`).
+  - `net_kernel:i/0,1` and other output through `standard_io` ignore a local group leader that is not `user`
+    (DIST7's I/O criterion), so goldens mask such output instead of capturing it (DIST6a).
 - **Goal:** a Clause executable is a distributed Erlang node that connects to OTP 29 nodes and to
   other Clause nodes over OTP's protocol, and those libraries behave as OTP's distributed ones.
 - **Contract:** [distribution.md](../docs/distribution.md), decided in DIST0 (2026-10-30, user
@@ -81,7 +85,7 @@ direction); formerly backlog item F38.
 
 ## Steps
 
-DIST0 to DIST5 are done ([30-finished](30-finished.md)).
+DIST0 to DIST6 are done ([30-finished](30-finished.md)).
 
 <a id="step-dist5-followups"></a>
 
@@ -100,33 +104,11 @@ on their own:
 - [ ] `UNLINK_ID`/`UNLINK_ID_ACK` ids above small integers (OTP accepts any below 2^64; `docs/differences.md`).
 - [ ] The useless pid's warning report `** Can not start M:F,A on Node **` (`docs/differences.md`).
 
-<a id="step-dist6"></a>
-
-## DIST6. `net_kernel` and `auth` complete
-
-Depends on: DIST5 ([30-finished](30-finished.md)).
-
-- Success criteria
-  - [ ] `net_kernel`: `monitor_nodes/1,2` (with `nodeup`/`nodedown` info options), `allow/1`,
-        hidden nodes and `connect_all`, `set_net_ticktime/1,2`, `get_net_ticktime/0`,
-        `getopts/2`, `setopts/2`, `get_state/0`, `node_info/1,2`, `nodes_info/0`, `i/0,1`,
-        `hidden_connect_node/1`; its declined internals implemented.
-    - `setopts(new, ...)` calls the carriers' `setopts/2` on their listen sockets (DIST4b2c) and merges the
-      options into `inet_dist_listen_options` and `inet_dist_connect_options`; a connected node's options go
-      through `#hs_data{}`'s `mf_setopts`/`mf_getopts`, which `inet_tcp_dist` does not fill yet.
-  - [ ] `auth`'s declined server functions implemented.
-  - [ ] `kernel` environment: `net_ticktime`, `dist_auto_connect`, `connect_all`,
-        `inet_dist_listen_min`/`max`, `inet_dist_use_interface`, `inet_dist_listen_options`,
-        `inet_dist_connect_options`.
-- Tests
-  - [ ] Golden `dist_net_kernel`: node monitoring, hidden nodes, `allow/1`, tick time changes and a
-        stopped node's `nodedown`.
-
 <a id="step-dist7"></a>
 
 ## DIST7. `rpc`, `erpc`, `gen` and I/O across nodes
 
-Depends on: [DIST6](#step-dist6).
+Depends on: DIST6 ([30-finished](30-finished.md)).
 
 - Success criteria
   - [ ] `rex` runs while distribution runs; `rpc` remote `call`, `cast`, `multicall`,
@@ -149,7 +131,7 @@ Depends on: [DIST6](#step-dist6).
 
 ## DIST8. `global` and `global_group` across nodes
 
-Depends on: [DIST6](#step-dist6).
+Depends on: DIST6 ([30-finished](30-finished.md)).
 
 - Success criteria
   - [ ] OTP's `global` protocol between nodes: replicated registrations, name conflicts resolved by
@@ -168,7 +150,7 @@ Depends on: [DIST6](#step-dist6).
 
 ## DIST9. `pg` across nodes
 
-Depends on: [DIST6](#step-dist6).
+Depends on: DIST6 ([30-finished](30-finished.md)).
 
 - Success criteria
   - [ ] Scope processes discover peers on `nodeup`, exchange memberships, relay joins and leaves,

@@ -117,3 +117,11 @@ Compact record of the network distribution plan, one bullet per step;
 - **DIST5c** Signal order (pending and up connections, between nodes), aliases and send options checked across nodes;
   `dist_signals` with OTP 29 nodes as a and as b (`host_otp`), no runtime change needed; DIST5 closed, follow-ups
   in the plan — d0e00ea5
+- **DIST6a** `net_kernel` complete: tick time changes (aux ticker, `{ongoing_change_to, T}`), `node_info/1,2`,
+  `nodes_info/0`, `i/0,1`, `getopts/2`/`setopts/2` (also `new`; `mf_setopts`/`mf_getopts` in `inet_tcp_dist`),
+  `dist_auto_connect once`, passive connects, `net_setuptime`, `net_tickintensity`, `verbose/1`, `kernel_apply/3`,
+  the old spawn protocol; `dist_util` ticks every idle interval as OTP; golden `dist_net_kernel` with OTP nodes both
+  ways — b415095e
+- **DIST6b** `auth` as OTP's server (requests, `print/3`, `sync_cookie`, cookie-file checks, configuration-directory
+  fallback, `--setcookie` before `--nocookie`); `global` checks `connect_all` and `prevent_overlapping_partitions`;
+  golden `dist_cookie` extended — 7dbfe4af
