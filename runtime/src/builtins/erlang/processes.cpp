@@ -187,42 +187,61 @@ TermResult<Term> demonitor(ProcessContext &context, const Term &reference) {
                                   ListArgument{.term = need(TermFactory(context).nil()), .elements = {}});
 }
 
-// link(Pid): true once linked; error:noproc for an ended process unless the caller traps exits.
+// Whether another node's pid, port or reference names an earlier incarnation of this node (plan 30 step DIST5a).
+bool earlier_incarnation(ProcessContext &context, const Term &identity) {
+    return detail::is_this_node(need(Term::from_word(need(detail::ExternalAccess::read(identity)).node, context)));
+}
+
+// Whether the caller may link to an identity of another node: a pid, or a port of an earlier incarnation of this
+// node; other nodes' ports are badarg (plan 30 step DIST5a).
+bool remote_linkable(ProcessContext &context, const Term &pid) {
+    return pid.is_external_pid() || (pid.is_external_port() && earlier_incarnation(context, pid));
+}
+
+// link(Pid): true once linked; error:noproc for an ended process unless the caller traps exits. Another node's
+// process is linked over its connection (plan 30 step DIST5a).
 TermResult<Term> link(ProcessContext &context, const Term &pid) {
-    if (!pid.is_pid() && !pid.is_port()) {
+    auto &executor = detail::Executor::of(context);
+    bool linked = false;
+    if (pid.is_pid() || pid.is_port()) {
+        linked = executor.link(context, pid.word());
+    } else if (remote_linkable(context, pid)) {
+        linked = executor.link_remote(context, pid);
+    } else {
         bad_argument();
     }
-    if (!detail::Executor::of(context).link(context, pid.word())) {
+    if (!linked) {
         throw BuiltinFailure{.reason = abi::v1::ErrorReason::raised_error,
                              .payload = atom(context, "noproc"_atom).word()};
     }
     return atom(context, "true"_atom);
 }
 
-// Whether a term is a pid or port of another node, which a node that is not distributed has no link to and sends
-// nothing to (plan 30 step DIST1).
-bool external_process(const Term &value) { return value.is_external_pid() || value.is_external_port(); }
-
 // unlink(Pid): true; the link, if any, has no effect from now on.
 TermResult<Term> unlink(ProcessContext &context, const Term &pid) {
-    if (external_process(pid)) {
-        return atom(context, "true"_atom);
-    }
-    if (!pid.is_pid() && !pid.is_port()) {
+    if (pid.is_external_pid()) {
+        if (!earlier_incarnation(context, pid)) {
+            detail::Executor::of(context).unlink_remote(context, pid);
+        }
+    } else if (pid.is_pid() || pid.is_port()) {
+        detail::Executor::unlink(context, pid.word());
+    } else if (!remote_linkable(context, pid)) {
         bad_argument();
     }
-    detail::Executor::unlink(context, pid.word());
     return atom(context, "true"_atom);
 }
 
 // exit(Dest, Reason) and exit_signal(Dest, Reason): true after sending an exit signal to the process of a pid; a
-// reference names no alias here and another node's pid no process reachable, so nothing is sent. exit/2 to the
-// caller itself with reason normal ends it.
+// reference names no alias here, and an alias of another node gets nothing without ALTACT_SIG. Another node's pid
+// gets EXIT2 (plan 30 step DIST5a), its port is badarg. exit/2 to the caller itself with reason normal ends it.
 template <bool SelfNormal>
 TermResult<Term> exit_signal(ProcessContext &context, const Term &destination, const Term &reason) {
     if (destination.is_pid() || destination.is_port()) {
         detail::Executor::of(context).exit(context, destination.word(), reason, SelfNormal);
-    } else if (!destination.is_reference() && !detail::is_identity(destination)) {
+    } else if (destination.is_external_pid() && !earlier_incarnation(context, destination)) {
+        detail::Executor::of(context).exit_remote(context, destination, reason);
+    } else if (!destination.is_reference() && !destination.is_external_reference() &&
+               !remote_linkable(context, destination)) {
         bad_argument();
     }
     return atom(context, "true"_atom);

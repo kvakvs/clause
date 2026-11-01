@@ -807,3 +807,12 @@ gotchas and user directions not recorded elsewhere.
   runs it without --escript and exit 77 counts as failure. An OTP node logs `Time level: msg` single lines on stderr
   (oracle handler), so its stderr pattern differs from the Clause node's legacy reports. An OTP node starts ~1 s
   after a Clause program: fixtures must sync on epmd markers before relying on the peer's subscriptions.
+- DIST5a (2026-11-01): OTP 29 observations, all in golden dist_signals: link while unlinking makes it active (LINK
+  again, old ack ignored); an exit for a link being unlinked is dropped AND removes it; unlink(Pid) never linked sends
+  nothing; UNLINK_ID always acked (also no link/no process); LINK to a dead pid or an earlier incarnation answered at
+  once with PAYLOAD_EXIT noproc; EXIT2 {8, LocalPid, ...} from a fake node hung OTP's oracle node (undefined in
+  dist.c: from is not checked to be external), so fixtures avoid it; erlang:exit/3 [priority] to a node without
+  ALTACT_SIG is plain EXIT2, exit to another node's alias is dropped; process_info links hides unlinking links.
+  Connection loss order to one process: link exit, then 'DOWN', then nodedown. Fixture helper names must not clash
+  with BIFs (`put/2` is call_to_redefined_bif under warnings_as_errors). A scratch observe_case.py (imports
+  cases/nodes/regenerate, runs nodes under OTP, prints raw stdout/stderr) is the fast way to see an oracle failure.

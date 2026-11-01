@@ -7,7 +7,8 @@ direction); formerly backlog item F38.
 - **Today:** a Clause program is a non-distributed node until `net_kernel:start/1,2` (DIST4b1a) or
   `--sname`/`--name` (DIST4b1b), with OTP's cookies (DIST4b1c), under `kernel_sup` (DIST4b1d); started nodes
   connect over IPv4 or IPv6 (DIST4b2a to DIST4b2c), exchange messages (DIST4b3a), monitor each other's processes and
-  ping (DIST4b3b1), no other signal yet; the program's end loses queued packets as OTP's `halt` (DIST4b3b2).
+  ping (DIST4b3b1), link and send exit signals (DIST5a), no group leaders or spawns yet; the program's end loses
+  queued packets as OTP's `halt` (DIST4b3b2).
   Clause and OTP 29 nodes interoperate on either epmd (DIST4b4).
   - The runtime has other nodes' pids, ports and references as terms (DIST1), a nameable node
     (`erlang:setnode/2`, DIST2a), connection entries with node status messages (`setnode/3`,
@@ -106,6 +107,22 @@ Depends on: DIST4b4 ([30-finished](30-finished.md)).
 - Tests
   - [ ] Golden `dist_signals`: remote spawn, links, monitors, exits, group leaders, aliases and a
         node going down, between Clause nodes and with an OTP node (`host_otp`).
+
+Split (2026-11-01), each sub-step adds its part of `dist_signals`:
+
+- DIST5a (links and exit signals, golden `dist_signals` part one) is done ([30-finished](30-finished.md)).
+- **DIST5b Group leaders and spawning on other nodes.**
+  - `GROUP_LEADER`; `group_leader/2` of another node's pid (also not alive: `true`); a process here whose group
+    leader is another node's pid (remote spawns), its I/O requests go there.
+  - `SPAWN_REQUEST`/`SPAWN_REPLY` (link and monitor flags, options, errors `badarg`, `badopt`, `noconnection`,
+    `notsup`); `spawn/2,4`, `spawn_link/2,4`, `spawn_monitor/2,4`, `spawn_opt/3,5`, `spawn_request/2..5`,
+    `spawn_request_abandon/1` across nodes; the useless-pid row of `differences.md` goes.
+  - Golden `dist_signals` part two.
+- **DIST5c Ordering, send options and OTP peers.**
+  - Signals between a pair of processes in order across pending connections and auto-connect; `erlang:send/3`
+    `noconnect` and `nosuspend`, `send_nosuspend/2,3`.
+  - Aliases reachable from other nodes (`alias/0,1`, `monitor/3` aliases, `reply` mode) checked end to end.
+  - `dist_signals` repeated with OTP nodes (`host_otp`).
 
 <a id="step-dist6"></a>
 

@@ -674,10 +674,13 @@ void Executor::post(ProcessContext &target, PortEvent event) {
 }
 
 void Executor::apply(ProcessContext &target, const PortEvent &event) {
-    if (target.generated_calls().failure()) {
-        // The target has already ended.
-        return;
+    // A target that has already ended takes nothing.
+    if (!target.generated_calls().failure()) {
+        act(target, event);
     }
+}
+
+void Executor::act(ProcessContext &target, const PortEvent &event) {
     const auto reason = Term::from_word(event.reason, target);
     switch (event.kind) {
     case PortEvent::Kind::exit:
@@ -703,6 +706,9 @@ void Executor::apply(ProcessContext &target, const PortEvent &event) {
         break;
     case PortEvent::Kind::data:
         deliver(target, data_message(target, event));
+        break;
+    case PortEvent::Kind::remote_exit:
+        remote_signal(target, *event.signal, event.linked);
         break;
     }
 }

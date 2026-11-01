@@ -129,6 +129,9 @@ builtin and service calls), `RuntimeOptions` + `RuntimeExtension` for extension 
   Process monitors between nodes (`scheduler/remote_monitors.cpp`, DIST4b3b1): each side's `Signals` entry names the
   other node's atom in place of a pid; the connection's `ProcessMonitors` keep the other side's identities in the
   external format, so a watcher's or target's end, `demonitor` and the connection's end (`take_down`) find them.
+  Links between nodes (`scheduler/remote_links.cpp`, DIST5a) work the same way: `Signals` links hold the node's atom
+  once, the connection's `RemoteLinks` the other pids with OTP's unlink id state; exit signals from another node
+  reach their targets as `PortEvent::remote` events, so they wait for a target running on another worker.
 - **Memory / GC**: per-process generational heaps, copying collector at safepoints, message and
   persistent-term copies, off-heap binaries (`docs/runtime-heap.md`).
 - **Scheduler**: multi-worker executor with run queues, handed-over wakes and stealing, mailboxes,

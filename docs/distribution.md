@@ -17,7 +17,8 @@ entry ([node start options](#node-start-options), DIST4b1b), with OTP's cookies 
 Nodes connect through OTP's handshake with all its statuses, `allow/1` and dynamic names ([making
 connections](#making-connections), DIST4b2a, DIST4b2b), over IPv4 or IPv6 (DIST4b2c), messages move
 between them ([messages](#messages), DIST4b3a), processes monitor other nodes' processes and `net_adm:ping/1`
-answers ([process monitors](#process-monitors), DIST4b3b1); other signals do not yet. Clause and OTP 29 nodes
+answers ([process monitors](#process-monitors), DIST4b3b1), and they link and send exit signals to each other
+([links and exit signals](#links-and-exit-signals), DIST5a); group leaders and spawns do not yet. Clause and OTP 29 nodes
 connect, ping, monitor and message each other both ways on either kind of epmd ([testing](#testing), DIST4b4).
 The other libraries answer as OTP does without distribution (`{badrpc, nodedown}`, `not_alive`). The
 rest of this file is the contract for distribution. Each section becomes current behavior when its
@@ -115,8 +116,8 @@ Current since DIST2a (`builtins/erlang/node.cpp`, `scheduler/signals.cpp`), as i
 ## Connections
 
 Current since DIST2b (`scheduler/connections.cpp`, `builtins/erlang/connections.cpp`), as OTP's
-process-controller interface. No signal moves over a connection yet (DIST5); the controller reads
-and writes through the [controller data path](#controller-data-path). Node monitors hold entries
+process-controller interface. Signals move over it since DIST4b3a ([messages](#messages)); the controller
+reads and writes through the [controller data path](#controller-data-path). Node monitors hold entries
 too ([node monitors](#node-monitors)).
 
 - **Entries:** one per other node, made by `erts_internal:new_connection(Node)` (no name needed),
@@ -232,8 +233,10 @@ speaking the protocol and with a test process as a connection's controller.
 - **Delivery:** `dist_ctrl_put_data/2` delivers `SEND`, `REG_SEND`, `SEND_SENDER`, `ALIAS_SEND` and
   their `_TT` forms (the trace token is ignored). The sender field is never checked; another node's
   receiver, a name no process has and a reference that is no alias get nothing. Process monitor
-  signals are taken ([process monitors](#process-monitors)); the other operations of the protocol
-  are read for their shape and wait for DIST5. Bytes after the payload are ignored.
+  signals ([process monitors](#process-monitors)) and link signals ([links and exit
+  signals](#links-and-exit-signals)) are taken; group leaders and spawns are read for their shape and wait for
+  DIST5b, and the old `UNLINK` (4) is an invalid distribution message, as since OTP 26. Bytes after the payload are
+  ignored.
 - **Unreadable packets** kill the controller (`nodedown` reason `killed`) after OTP's report, `N`
   being the node's number in its printed pids:
   - fewer than three bytes: no report;
@@ -283,6 +286,37 @@ test process as a connection's controller and between two nodes.
 - **Ping:** `net_adm:ping/1` calls `{net_kernel, Node}` with `{is_auth, node()}`, which `net_kernel`
   answers `yes`: `pong`, else `disconnect_node/1` and `pang` (a wrong cookie fails the handshake with
   its log line first). `auth:is_auth/1` pings.
+
+## Links and exit signals
+
+Current since DIST5a (`scheduler/remote_links.cpp`), as OTP 29's `dist.c`, observed with a test process as a
+connection's controller and between two nodes.
+
+- **Linking:** `link/1` of another node's pid queues `LINK` `{1, From, To}` on its connection, auto-connecting an
+  idle one, also while it is pending; linking again sends nothing. A node that cannot be reached, also on a node that
+  is not alive, exits the link at once: `true`, and the caller gets `noconnection` (`{'EXIT', Pid, noconnection}`
+  when trapping exits). A pid or port of an earlier incarnation of this node raises `noproc`, or sends
+  `{'EXIT', Pid, noproc}` when trapping; another node's port is `badarg` for `link/1`, `unlink/1` and `exit/2`.
+- **Unlinking:** `unlink/1` queues `UNLINK_ID` `{35, Id, From, To}` and keeps the link, unseen by
+  `process_info/2`, until `UNLINK_ID_ACK` `{36, Id, To, From}` with that id; an exit that comes for it meanwhile
+  is dropped. Linking again before the acknowledgement makes the link active again (`LINK` once more), and the old
+  acknowledgement leaves it. Ids count up from 1 for the whole program; OTP's count per process.
+- **Exits:** a linked process's end sends `EXIT` `{3, From, To, Reason}` to each linked process of other nodes,
+  also for `normal`, or `PAYLOAD_EXIT` `{24, From, To}` with the reason as payload to a node with `EXIT_PAYLOAD`.
+  `exit/2,3` of another node's pid sends `EXIT2` `{8, From, To, Reason}` or `PAYLOAD_EXIT2` `{26, From, To}`; to
+  another node's alias nothing, as the node lacks `ALTACT_SIG`, and `priority` changes nothing.
+- **Taken from another node:** its `LINK` links the process here, or is answered at once by an exit `noproc` for
+  no process or a pid of an earlier incarnation; its `UNLINK_ID` ends a link not being unlinked here and is always
+  acknowledged; its link exits (`EXIT`, `PAYLOAD_EXIT` and their `_TT` forms) end the link and signal the process
+  as a link does, dropped without a link; its exit signals (`EXIT2`, `PAYLOAD_EXIT2`, `_TT` forms) act as `exit/2`
+  (`kill` ends a process that traps exits as `killed`), dropped for no process or an earlier incarnation. Exit
+  signals reach a process running on another worker when its slice ends.
+- **Connection loss:** every link to the node's processes exits `noconnection`, before the monitors' `'DOWN'`
+  messages and the `nodedown` of node monitors, as OTP orders them.
+- **Checks:** a link signal whose sender is no pid of the connection's node, whose receiver is no pid here (also a
+  pid of an earlier incarnation for `LINK` and `EXIT2`), or an `UNLINK_ID` of id 0, is an invalid distribution
+  message ([messages](#messages)).
+- `process_info/2`'s `links` shows the other node's pids.
 
 ## Node status messages
 

@@ -94,9 +94,10 @@ struct PortInfo final {
 };
 
 // A signal from a port to a process that holds no heap term, so it can wait while its target runs on another worker:
-// an exit signal or 'DOWN' with an atom reason, or a message of the port protocol or of its input.
+// an exit signal or 'DOWN' with an atom reason, or a message of the port protocol or of its input. Also an exit
+// signal from another node's process (plan 30 step DIST5a), its sender and reason in a buffer.
 struct PortEvent final {
-    enum class Kind : std::uint8_t { exit, down, closed, connected, data, eof, exit_status, value };
+    enum class Kind : std::uint8_t { exit, down, closed, connected, data, eof, exit_status, value, remote_exit };
     Kind kind = Kind::exit;
     // The port word, and the reason atom word of an exit signal or a 'DOWN'.
     Word port = 0;
@@ -112,6 +113,9 @@ struct PortEvent final {
     std::int64_t status = 0;
     // A message described by a driver (sockets), shared as events are copied.
     std::shared_ptr<const PortValue> value = nullptr;
+    // {From, Reason} of another node's exit signal, and whether a link sent it (else exit/2), plan 30 step DIST5a.
+    std::shared_ptr<const MessageBuffer> signal = nullptr;
+    bool linked = false;
 
     // An exit signal with an atom reason.
     static PortEvent exit(Word port, Word reason) noexcept { return {Kind::exit, port, reason, std::nullopt, 0, {}}; }
@@ -139,6 +143,14 @@ struct PortEvent final {
     // A message {Port, {data, Data}} of one input unit (data, eol or noeol).
     static PortEvent data(Word port, PortInput unit, bool binary) noexcept {
         return {Kind::data, port, 0, std::nullopt, 0, std::move(unit.bytes), unit.kind, binary};
+    }
+
+    // An exit signal {From, Reason} from another node's process, sent by a link or by exit/2.
+    static PortEvent remote(std::shared_ptr<const MessageBuffer> signal, bool linked) noexcept {
+        auto event = message(Kind::remote_exit, 0);
+        event.signal = std::move(signal);
+        event.linked = linked;
+        return event;
     }
 };
 
@@ -395,6 +407,21 @@ class Executor final {
     // shows it: the monitored pid or {Name, Node}, or the watcher's pid with `watcher`; the executor's lock is held.
     Term remote_item(ProcessContext &builder, Word node, const ReferenceIdentity &reference, bool watcher) const;
 
+    // Links and exit signals between nodes (plan 30 step DIST5a, remote_links.cpp,
+    // docs/distribution.md#links-and-exit-signals). link/1 of another node's pid or of a pid or port of an earlier
+    // incarnation of this node by the running `process`: LINK on the node's connection, an exit noconnection at once
+    // when the node cannot be reached; false for an earlier incarnation's while not trapping exits (noproc).
+    bool link_remote(ProcessContext &process, const Term &pid);
+    // unlink/1 of another node's pid: UNLINK_ID, the link kept until its acknowledgement.
+    void unlink_remote(ProcessContext &process, const Term &pid);
+    // exit/2 of another node's pid: EXIT2 on its connection, auto-connected; nothing when it cannot be reached.
+    void exit_remote(ProcessContext &sender, const Term &pid, const Term &reason);
+    // A link signal of `node`'s connection that `controller` takes, read and checked (dist_messages.cpp).
+    void remote_link_signal(ProcessContext &controller, Word node, const RemoteLinkSignal &signal);
+    // The pids of another node's processes `linked` is linked to, built in `builder`'s heap, as process_info/2
+    // shows them for its Signals entry naming `node`; the executor's lock is held.
+    std::vector<Term> remote_links(ProcessContext &linked, Word node, ProcessContext &builder) const;
+
     // Run `operation` on the connection table under the executor's lock: the controller data path (plan 30 step
     // DIST2d, builtins/erlang/connections.cpp) reads and changes connections this way.
     template <typename Operation> decltype(auto) with_connections(Operation &&operation) {
@@ -645,6 +672,8 @@ class Executor final {
     void accept_connection(Word listen, SocketEvent event);
     // Act on a port signal at a process that does not run elsewhere.
     void apply(ProcessContext &target, const PortEvent &event);
+    // Act on an event at a target that has not ended.
+    void act(ProcessContext &target, const PortEvent &event);
     // Deliver the 'DOWN' of a port monitor event with its `reason`; PortEvent::down always names the monitor.
     void deliver_down(ProcessContext &target, const PortEvent &event, const Term &reason);
     // link(Port), unlink(Port), monitor(port, Port), demonitor of a port monitor and exit/2 to a port of `process`.
@@ -836,6 +865,26 @@ class Executor final {
     // A connection goes down: each monitor of the node's processes gets 'DOWN' with noconnection, each of the node's
     // monitors here ends.
     void end_process_monitors(ProcessContext &builder, Word node, const ProcessMonitors &monitors);
+    // Links between nodes (plan 30 step DIST5a, remote_links.cpp). Signal the running `process` from `from` at once,
+    // as a link would.
+    void signal_self(ProcessContext &process, const Term &from, const Term &reason);
+    // The LINK, UNLINK_ID, UNLINK_ID_ACK and link exits `node`'s connection brings for processes here.
+    void take_link(ProcessContext &controller, Connection &connection, Word node, const RemoteLinkSignal &signal);
+    void take_unlink(ProcessContext &controller, Connection &connection, Word node, const RemoteLinkSignal &signal);
+    void take_unlink_ack(ProcessContext &controller, Connection &connection, Word node, const RemoteLinkSignal &signal);
+    void take_link_exit(ProcessContext &controller, Connection &connection, Word node, const RemoteLinkSignal &signal);
+    // Remove the link of the process of `pid` to another node's pid in the external format; the process's Signals
+    // entry of `node` goes with its last link there.
+    void forget_link(Connection &connection, Word pid, const std::string &other, Word node);
+    // Send `target` an exit signal from another node's `from`, built in `builder`'s heap: now, or when its slice ends.
+    void post_remote_exit(ProcessContext &builder, ProcessContext &target, const Term &from, const Term &reason,
+                          bool linked);
+    // Act on such a signal at `target` (a port event).
+    void remote_signal(ProcessContext &target, const MessageBuffer &event, bool linked);
+    // The ended `process` had links to `node`'s processes: EXIT to each one not being unlinked.
+    void end_remote_links(ProcessContext &process, Word node, const Term &reason);
+    // A connection goes down: each link to the node's processes exits noconnection.
+    void drop_remote_links(ProcessContext &builder, Word node, const RemoteLinks &links);
     // Queue a monitor signal on `connection` unless the node is up without OTP's monitor flags.
     void queue_monitor_signal(ProcessContext &builder, Connection &connection, const Term &control,
                               const std::optional<Term> &payload = std::nullopt);
@@ -936,6 +985,8 @@ class Executor final {
     // nodedown from net_kernel's end until the name goes after the last connection, else 0.
     ConnectionTable connections_;
     Word node_down_reason_ = 0;
+    // The last UNLINK_ID id given to unlink/1 of another node's process (plan 30 step DIST5a).
+    std::uint64_t unlink_ids_ = 0;
     // Active aliases by reference: the owner's pid and the mode (step 41G2).
     std::map<ReferenceIdentity, std::pair<Word, AliasMode>> aliases_;
     // Message timers by reference number (step 41F); the wheel links their embedded timers.

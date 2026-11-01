@@ -215,8 +215,41 @@ builtins(#{pid := P, port := Po, ref := R}) ->
         [safe(fun() -> erlang:send(id(P), hello, [noconnect]) end), safe(fun() -> erlang:send(id(P), hello, []) end)]
     ]),
     io:format("send_nosuspend: ~p~n", [safe(fun() -> erlang:send_nosuspend(id(P), hello, [noconnect]) end)]),
-    io:format("exit: ~p~n", [[safe(fun() -> exit(id(P), kill) end), safe(fun() -> exit(id(R), kill) end)]]),
+    io:format("exit: ~p~n", [
+        [
+            safe(fun() -> exit(id(P), kill) end),
+            safe(fun() -> exit(id(R), kill) end),
+            safe(fun() -> exit(id(Po), kill) end)
+        ]
+    ]),
     io:format("unlink: ~p~n", [safe(fun() -> unlink(id(P)) end)]),
+    % A link to another node's process from a node that is not alive exits noconnection (plan 30 step DIST5a); another
+    % node's port cannot be linked.
+    io:format("link: ~p~n", [
+        [
+            safe(fun() ->
+                process_flag(trap_exit, true),
+                Linked = link(id(P)),
+                receive
+                    {'EXIT', From, Why} -> {Linked, From =:= P, Why, process_flag(trap_exit, false)}
+                after 1000 -> none
+                end
+            end),
+            safe(fun() ->
+                {_, Ref} = spawn_monitor(fun() ->
+                    link(id(P)),
+                    receive
+                    after 1000 -> alive
+                    end
+                end),
+                receive
+                    {'DOWN', Ref, _, _, Why} -> Why
+                end
+            end),
+            safe(fun() -> link(id(Po)) end),
+            safe(fun() -> unlink(id(Po)) end)
+        ]
+    ]),
     % Another node's process cannot be reached from a node that is not alive (plan 30 step DIST4b3b1).
     io:format("monitor: ~p~n", [
         [

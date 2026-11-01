@@ -127,6 +127,30 @@ struct RemoteDown final {
     Term reason;
 };
 
+// A link between a process of this node and a process of the connection's node (plan 30 step DIST5a): the other pid
+// in the external format, and the id of the UNLINK_ID that unlink/1 sent while it waits for UNLINK_ID_ACK, else 0. A
+// link being unlinked drops the exits that come for it and is not shown, as OTP's.
+struct RemoteLink final {
+    std::string pid;
+    std::uint64_t unlinking = 0;
+};
+
+// The links between this node and the connection's node by the pid word of the process here, oldest first, ended
+// when the connection goes down. Each such process's Signals links name the node's atom once (plan 30 step DIST5a).
+using RemoteLinks = std::map<Word, std::vector<RemoteLink>>;
+
+// A link signal from the connection's node, as read (plan 30 step DIST5a): the operation, that node's pid, the pid
+// here (or of an earlier incarnation of this node), an UNLINK_ID's id and an exit's reason; terms of the
+// controller's heap.
+struct RemoteLinkSignal final {
+    enum class Kind : std::uint8_t { link, unlink, unlink_ack, link_exit, exit };
+    Kind kind = Kind::link;
+    Term from;
+    Term to;
+    std::uint64_t id = 0;
+    Term reason;
+};
+
 // One other node's connection entry, as OTP's dist entry: idle, pending (new_connection/1 or auto-connect) or up
 // (setnode/3).
 struct Connection final {
@@ -150,6 +174,8 @@ struct Connection final {
     DataPath data;
     // Process monitors to and from the node, made while pending or up (plan 30 step DIST4b3b1).
     ProcessMonitors processes;
+    // Links to and from the node's processes, made while pending or up (plan 30 step DIST5a).
+    RemoteLinks links;
 
     // Whether the connection is up and published (visible), not hidden.
     bool visible() const noexcept { return state == State::up && (flags & dflags::PUBLISHED) != 0; }

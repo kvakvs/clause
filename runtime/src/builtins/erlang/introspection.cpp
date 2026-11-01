@@ -74,16 +74,22 @@ Term messages(const Inspection &inspection) {
     return list(inspection, items);
 }
 
+// Whether a Signals entry names another node's process by its node's atom (plan 30 step DIST4b3b1).
+bool remote(Word pid) { return TermTag{pid}.get_kind() == TermKind::atom; }
+
+// The linked pids and ports; another node's pids as its connection keeps them (plan 30 step DIST5a).
 Term links(const Inspection &inspection) {
     std::vector<Term> items;
     for (const auto word : inspection.target.signals().links()) {
-        items.push_back(immediate(inspection, word));
+        if (!remote(word)) {
+            items.push_back(immediate(inspection, word));
+            continue;
+        }
+        const auto pids = inspection.executor.remote_links(inspection.target, word, inspection.caller);
+        items.insert(items.end(), pids.begin(), pids.end());
     }
     return list(inspection, items);
 }
-
-// Whether a Signals entry names another node's process by its node's atom (plan 30 step DIST4b3b1).
-bool remote(Word pid) { return TermTag{pid}.get_kind() == TermKind::atom; }
 
 // {process, Pid}, or {process, {Name, Node}} with this node's name for a monitor made by name; another node's
 // process as its connection keeps it.

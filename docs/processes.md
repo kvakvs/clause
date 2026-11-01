@@ -359,6 +359,8 @@ pids in link order and the `trap_exit` flag).
 - When a process ends, every linked process gets an exit signal with its exit
   reason ([exits](#exits)) and the link is gone. Linked processes are signalled
   in the order the links were made.
+- Links to another node's processes go over its connection
+  ([links and exit signals](distribution.md#links-and-exit-signals)).
 
 ## Monitors
 
@@ -583,7 +585,7 @@ not suspend.
 | `spawn_link(Fun)`, `spawn_link(M, F, Args)` | As `spawn`, and the new process is linked to the caller ([links](#links)) |
 | `is_process_alive(Pid)` | `badarg` unless `Pid` is a pid; true while its process has not ended |
 | `spawn_monitor(Fun)`, `spawn_monitor(M, F, Args)` | As `spawn`, returning `{Pid, Ref}` of a new [monitor](#monitors) |
-| `link(Pid)`, `unlink(Pid)` | `badarg` unless `Pid` is a pid ([links](#links)) |
+| `link(Pid)`, `unlink(Pid)` | `badarg` unless `Pid` is a pid or port of this node, or another node's pid ([links](#links)) |
 | `monitor(process, Item)` | `badarg` for another type or item; a reference ([monitors](#monitors)); `Item` is a pid or a registered name |
 | `register(Name, Pid)`, `unregister(Name)`, `whereis(Name)`, `registered()` | See [registered names](#registered-names); `Name` must be an atom |
 | `demonitor(Ref)`, `demonitor(Ref, Options)` | `badarg` unless `Ref` is a reference and `Options` a proper list of `flush` and `info` |

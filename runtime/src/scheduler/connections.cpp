@@ -132,7 +132,9 @@ Connection &ConnectionTable::entry(Word node, std::uint64_t handle) {
     }
     handles_.emplace(handle, node);
     return entries_
-        .emplace(node, Connection{.handle = handle, .stamp = ++clock_, .monitors = {}, .data = {}, .processes = {}})
+        .emplace(
+            node,
+            Connection{.handle = handle, .stamp = ++clock_, .monitors = {}, .data = {}, .processes = {}, .links = {}})
         .first->second;
 }
 
@@ -178,6 +180,7 @@ void ConnectionTable::drop(Connection &connection) noexcept {
     connection.monitors.clear();
     connection.data = {};
     connection.processes = {};
+    connection.links = {};
 }
 
 void ConnectionTable::monitor(Connection &connection, Word pid) { ++connection.monitors[pid]; }
@@ -321,6 +324,8 @@ std::optional<bool> Executor::abort_connection(ProcessContext &context, const Te
     }
     if (connection->state == Connection::State::pending) {
         take_down(context, node.word());
+        // Links over it may have ended processes (plan 30 step DIST5a).
+        drain();
     }
     return connection->state != Connection::State::up;
 }
@@ -455,6 +460,8 @@ void Executor::queue_packet(ProcessContext &builder, Connection &connection, std
 
 void Executor::take_down(ProcessContext &builder, Word node) {
     auto &connection = *connections_.find(node);
+    // Links go first, then monitors and node monitors, as in OTP.
+    drop_remote_links(builder, node, connection.links);
     end_process_monitors(builder, node, connection.processes);
     if (!connection.monitors.empty()) {
         const std::array parts{atom(builder, "nodedown"_atom), built(Term::from_word(node, builder))};

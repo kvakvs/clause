@@ -348,7 +348,10 @@ void Executor::notify(ProcessContext &process, const Term &reason, const std::ve
     const auto from = pid_of(process);
     notify_ports(process, reason, links);
     for (const auto pid : links) {
-        if (auto *target = find(process, pid)) {
+        // Links to another node's processes name its atom (plan 30 step DIST5a).
+        if (TermTag{pid}.get_kind() == TermKind::atom) {
+            end_remote_links(process, pid, reason);
+        } else if (auto *target = find(process, pid)) {
             target->signals().unlink(from);
             signal(*target, from, reason, SignalKind::link);
         }

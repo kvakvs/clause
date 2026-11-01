@@ -16,8 +16,8 @@
 // Messages across nodes (plan 30 step DIST4b3a, docs/distribution.md#messages): a send to another node's process
 // becomes OTP's pass-through packet (112, then the control message and the payload, each in the external format) on
 // the node's connection. The packets a connection's input handler puts are read as OTP 29 reads them (observed):
-// messages are delivered, process monitor signals go to the executor (DIST4b3b1), other operations of the right shape
-// wait for DIST5, and unreadable packets kill the controller after OTP's report.
+// messages are delivered, process monitor signals (DIST4b3b1) and link signals (DIST5a) go to the executor, other
+// operations of the right shape wait for DIST5b, and unreadable packets kill the controller after OTP's report.
 namespace clause::runtime::builtins {
 namespace {
 using detail::DistSend;
@@ -66,11 +66,11 @@ std::pair<Term, Term> control_of(ProcessContext &context, const Term &destinatio
 // for the operations that bring no message to deliver.
 enum class Receiver : std::uint8_t { none, pid, name, alias };
 
-// The process monitor signal of an operation the executor acts on (DIST4b3b1), or none.
-enum class Signal : std::uint8_t { none, monitor, demonitor, monitor_exit };
+// The process monitor signal (DIST4b3b1) or link signal (DIST5a) of an operation the executor acts on, or none.
+enum class Signal : std::uint8_t { none, monitor, demonitor, monitor_exit, link, unlink, unlink_ack, link_exit, exit };
 
 // The shape of one of OTP's control messages: its operation, its tuple's arity, whether a payload follows, the
-// receiver of a message and its element, and its monitor signal.
+// receiver of a message and its element, its signal, and the element of an exit's reason when no payload brings it.
 struct Shape {
     std::int64_t operation = 0;
     std::size_t arity = 0;
@@ -78,31 +78,31 @@ struct Shape {
     Receiver receiver = Receiver::none;
     std::size_t element = 0;
     Signal signal = Signal::none;
+    std::size_t reason = 0;
 };
 
 // Every operation of OTP's protocol for the offered flags; the sends and their _TT forms (a trace token last) deliver.
 constexpr std::array SHAPES{
-    Shape{.operation = 1, .arity = 3},                                                           // LINK
+    Shape{.operation = 1, .arity = 3, .signal = Signal::link},                                   // LINK
     Shape{.operation = 2, .arity = 3, .payload = true, .receiver = Receiver::pid, .element = 2}, // SEND
-    Shape{.operation = 3, .arity = 4},                                                           // EXIT
-    Shape{.operation = 4, .arity = 3},                                                           // UNLINK
+    Shape{.operation = 3, .arity = 4, .signal = Signal::link_exit, .reason = 3},                 // EXIT
     Shape{.operation = 5, .arity = 1},                                                           // NODE_LINK
     Shape{.operation = REG_SEND, .arity = 4, .payload = true, .receiver = Receiver::name, .element = 3},
     Shape{.operation = 7, .arity = 3},                                                             // GROUP_LEADER
-    Shape{.operation = 8, .arity = 4},                                                             // EXIT2
+    Shape{.operation = 8, .arity = 4, .signal = Signal::exit, .reason = 3},                        // EXIT2
     Shape{.operation = 12, .arity = 4, .payload = true, .receiver = Receiver::pid, .element = 2},  // SEND_TT
-    Shape{.operation = 13, .arity = 5},                                                            // EXIT_TT
+    Shape{.operation = 13, .arity = 5, .signal = Signal::link_exit, .reason = 4},                  // EXIT_TT
     Shape{.operation = 16, .arity = 5, .payload = true, .receiver = Receiver::name, .element = 3}, // REG_SEND_TT
-    Shape{.operation = 18, .arity = 5},                                                            // EXIT2_TT
+    Shape{.operation = 18, .arity = 5, .signal = Signal::exit, .reason = 4},                       // EXIT2_TT
     Shape{.operation = 19, .arity = 4, .signal = Signal::monitor},                                 // MONITOR_P
     Shape{.operation = 20, .arity = 4, .signal = Signal::demonitor},                               // DEMONITOR_P
     Shape{.operation = 21, .arity = 5, .signal = Signal::monitor_exit},                            // MONITOR_P_EXIT
     Shape{.operation = SEND_SENDER, .arity = 3, .payload = true, .receiver = Receiver::pid, .element = 2},
     Shape{.operation = 23, .arity = 4, .payload = true, .receiver = Receiver::pid, .element = 2}, // SEND_SENDER_TT
-    Shape{.operation = 24, .arity = 3, .payload = true},                                          // PAYLOAD_EXIT
-    Shape{.operation = 25, .arity = 4, .payload = true},                                          // PAYLOAD_EXIT_TT
-    Shape{.operation = 26, .arity = 3, .payload = true},                                          // PAYLOAD_EXIT2
-    Shape{.operation = 27, .arity = 4, .payload = true},                                          // PAYLOAD_EXIT2_TT
+    Shape{.operation = 24, .arity = 3, .payload = true, .signal = Signal::link_exit},             // PAYLOAD_EXIT
+    Shape{.operation = 25, .arity = 4, .payload = true, .signal = Signal::link_exit},             // PAYLOAD_EXIT_TT
+    Shape{.operation = 26, .arity = 3, .payload = true, .signal = Signal::exit},                  // PAYLOAD_EXIT2
+    Shape{.operation = 27, .arity = 4, .payload = true, .signal = Signal::exit},                  // PAYLOAD_EXIT2_TT
     Shape{.operation = 28, .arity = 4, .payload = true, .signal = Signal::monitor_exit}, // PAYLOAD_MONITOR_P_EXIT
     Shape{.operation = 29, .arity = 6, .payload = true},                                 // SPAWN_REQUEST
     Shape{.operation = 30, .arity = 7, .payload = true},                                 // SPAWN_REQUEST_TT
@@ -110,8 +110,8 @@ constexpr std::array SHAPES{
     Shape{.operation = 32, .arity = 6},                                                  // SPAWN_REPLY_TT
     Shape{.operation = ALIAS_SEND, .arity = 3, .payload = true, .receiver = Receiver::alias, .element = 2},
     Shape{.operation = 34, .arity = 4, .payload = true, .receiver = Receiver::alias, .element = 2}, // ALIAS_SEND_TT
-    Shape{.operation = 35, .arity = 4},                                                             // UNLINK_ID
-    Shape{.operation = 36, .arity = 4},                                                             // UNLINK_ID_ACK
+    Shape{.operation = 35, .arity = 4, .signal = Signal::unlink},                                   // UNLINK_ID
+    Shape{.operation = 36, .arity = 4, .signal = Signal::unlink_ack},                               // UNLINK_ID_ACK
 };
 
 // Whether `term` can name the receiver of `kind`, a process or alias of any node.
@@ -141,13 +141,35 @@ bool pid_of_old_self(ProcessContext &context, const Term &term) {
     return term.is_external_pid() && detail::is_this_node(node_of(context, term));
 }
 
+// Whether a signal is a link signal (DIST5a), and whether it is UNLINK_ID or UNLINK_ID_ACK, whose id comes before
+// the sender and the receiver.
+bool links(Signal signal) { return signal >= Signal::link; }
+
+bool unlinks(Signal signal) { return signal == Signal::unlink || signal == Signal::unlink_ack; }
+
+// Whether the id of UNLINK_ID or UNLINK_ID_ACK is one OTP's dist.c accepts: not negative, UNLINK_ID's not 0.
+bool unlink_id(const Shape &shape, const Term &control) {
+    const auto id = small(control.tuple_element_unchecked(1).word());
+    return id && *id >= 0 && (*id != 0 || shape.signal == Signal::unlink_ack);
+}
+
+// Whether a link signal from `node` names what OTP's dist.c accepts: that node's pid as the sender and a pid here as
+// the receiver, LINK and EXIT2 also a pid of an earlier incarnation; an unlink a valid id.
+bool link_formed(ProcessContext &context, const Shape &shape, const Term &control, Word node) {
+    const std::size_t first = unlinks(shape.signal) ? 2 : 1;
+    const auto to = control.tuple_element_unchecked(first + 1);
+    if (!pid_of_node(context, control.tuple_element_unchecked(first), node) ||
+        (unlinks(shape.signal) && !unlink_id(shape, control))) {
+        return false;
+    }
+    const bool earlier = shape.signal == Signal::link || shape.signal == Signal::exit;
+    return to.is_pid() || (earlier && pid_of_old_self(context, to));
+}
+
 // Whether a monitor signal from `node` names what OTP's dist.c accepts: MONITOR_P and DEMONITOR_P a watcher of that
 // node and a pid or name here (or of an earlier incarnation), MONITOR_P_EXIT a pid or name there and a pid here.
-bool well_formed(ProcessContext &context, const Shape &shape, const Term &control, Word node) {
+bool monitor_formed(ProcessContext &context, const Shape &shape, const Term &control, Word node) {
     const auto element = [&](std::size_t index) { return control.tuple_element_unchecked(index); };
-    if (shape.signal == Signal::none) {
-        return true;
-    }
     if (!any_reference(element(3))) {
         return false;
     }
@@ -161,9 +183,18 @@ bool well_formed(ProcessContext &context, const Shape &shape, const Term &contro
            (watched.is_pid() || watched.is_atom() || pid_of_old_self(context, watched));
 }
 
-// Whether an operation's payload is read: a message to deliver, or a monitor's exit reason.
+// Whether a signal from `node` names what OTP's dist.c accepts, as monitor_formed and link_formed check.
+bool well_formed(ProcessContext &context, const Shape &shape, const Term &control, Word node) {
+    if (shape.signal == Signal::none) {
+        return true;
+    }
+    return links(shape.signal) ? link_formed(context, shape, control, node)
+                               : monitor_formed(context, shape, control, node);
+}
+
+// Whether an operation's payload is read: a message to deliver, or the exit reason of a monitor or a link.
 bool reads_payload(const Shape &shape) {
-    return shape.receiver != Receiver::none || (shape.payload && shape.signal == Signal::monitor_exit);
+    return shape.receiver != Receiver::none || (shape.payload && shape.signal != Signal::none);
 }
 
 // The shape of a control message, or null for anything OTP calls an invalid distribution message.
@@ -258,22 +289,56 @@ void deliver(ProcessContext &context, const Reading &reading) {
 void signal_monitor(ProcessContext &context, Word node, const Reading &reading) {
     const auto element = [&](std::size_t index) { return reading.control.tuple_element_unchecked(index); };
     auto &executor = Executor::of(context);
-    switch (reading.shape->signal) {
-    case Signal::monitor:
+    const auto signal = reading.shape->signal;
+    if (signal == Signal::monitor) {
         executor.watch_remote(context, node, {.watcher = element(1), .watched = element(2), .reference = element(3)});
-        break;
-    case Signal::demonitor:
+    } else if (signal == Signal::demonitor) {
         executor.unwatch_remote(context, node, {.watcher = element(1), .watched = element(2), .reference = element(3)});
-        break;
-    case Signal::monitor_exit:
-        if (element(2).is_pid()) {
-            const auto reason = reading.shape->payload ? reading.message : element(4);
-            executor.remote_down(context, node, {.reference = element(3), .watcher = element(2), .reason = reason});
-        }
-        break;
+    } else if (signal == Signal::monitor_exit && element(2).is_pid()) {
+        const auto reason = reading.shape->payload ? reading.message : element(4);
+        executor.remote_down(context, node, {.reference = element(3), .watcher = element(2), .reason = reason});
+    }
+}
+
+// The executor's kind of a link signal.
+detail::RemoteLinkSignal::Kind link_kind(Signal signal) {
+    using Kind = detail::RemoteLinkSignal::Kind;
+    switch (signal) {
+    case Signal::unlink:
+        return Kind::unlink;
+    case Signal::unlink_ack:
+        return Kind::unlink_ack;
+    case Signal::link_exit:
+        return Kind::link_exit;
+    case Signal::exit:
+        return Kind::exit;
     case Signal::none:
+    case Signal::monitor:
+    case Signal::demonitor:
+    case Signal::monitor_exit:
+    case Signal::link:
         break;
     }
+    return Kind::link;
+}
+
+// Hand a link signal to the executor (DIST5a): the sender, the receiver, an unlink's id, and an exit's reason from
+// the payload or the control message.
+void signal_link(ProcessContext &context, Word node, const Reading &reading) {
+    const auto &shape = *reading.shape;
+    const auto element = [&](std::size_t index) { return reading.control.tuple_element_unchecked(index); };
+    const std::size_t first = unlinks(shape.signal) ? 2 : 1;
+    detail::RemoteLinkSignal signal{
+        .kind = link_kind(shape.signal), .from = element(first), .to = element(first + 1), .id = 0, .reason = {}};
+    if (unlinks(shape.signal)) {
+        signal.id = static_cast<std::uint64_t>(small(element(1).word()).value_or(0));
+    }
+    if (shape.payload) {
+        signal.reason = reading.message;
+    } else if (shape.reason != 0) {
+        signal.reason = element(shape.reason);
+    }
+    Executor::of(context).remote_link_signal(context, node, signal);
 }
 
 // A term as OTP's runtime prints it in its reports (erlang:display's form).
@@ -337,8 +402,11 @@ void take_packet(ProcessContext &context, const PacketSource &source, std::span<
     if (reading.fault == Fault::none) {
         if (reading.shape->receiver != Receiver::none) {
             deliver(context, reading);
+        } else if (links(reading.shape->signal)) {
+            signal_link(context, source.node, reading);
+        } else {
+            signal_monitor(context, source.node, reading);
         }
-        signal_monitor(context, source.node, reading);
         return;
     }
     Executor::of(context).exit(context, source.controller, atom(context, "kill"_atom), false);
