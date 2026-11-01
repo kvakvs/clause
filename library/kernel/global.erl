@@ -69,10 +69,36 @@ call(Request) ->
 
 init([]) ->
     process_flag(trap_exit, true),
+    _ = connect_all(),
+    _ = boolean_parameter(prevent_overlapping_partitions, true),
     _ = ets:new(global_names, [set, named_table, protected]),
     _ = ets:new(global_pid_names, [bag, named_table, protected]),
     _ = ets:new(global_locks, [set, named_table, protected]),
     {ok, #{}}.
+
+%% The kernel parameter connect_all (plan 30 step DIST6), as OTP's server reads it: a boolean, else the server fails to
+%% start; when unset, false only under the emulator flag -connect_all false, and set so.
+connect_all() ->
+    case application:get_env(kernel, connect_all) of
+        undefined ->
+            Value =
+                case init:get_argument(connect_all) of
+                    {ok, [["false" | _] | _]} -> false;
+                    _ -> true
+                end,
+            ok = application:set_env(kernel, connect_all, Value, [{timeout, infinity}]),
+            Value;
+        _ ->
+            boolean_parameter(connect_all, true)
+    end.
+
+% A boolean kernel parameter, Default when unset; another value fails the start, as OTP's.
+boolean_parameter(Name, Default) ->
+    case application:get_env(kernel, Name) of
+        {ok, Value} when is_boolean(Value) -> Value;
+        {ok, Value} -> erlang:error({invalid_parameter_value, Name, Value});
+        undefined -> Default
+    end.
 
 %% The state maps a monitor reference to the process it watches.
 handle_call({register, Name, Pid, Method}, _, Monitors) ->

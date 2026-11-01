@@ -31,6 +31,17 @@ main(["existing" = Mode]) ->
     started(Mode),
     show("cookie", erlang:get_cookie()),
     done();
+% The cookie file's checks (plan 30 step DIST6): printable characters up to the first other one, then only line ends
+% and blanks; a file failing them stops distribution's start.
+main(["trailing" = Mode]) ->
+    show("cookie", file_cookie(Mode, "Trailing  \r\n\n  ")),
+    done();
+main(["bad" = Mode]) ->
+    show("cookie", file_cookie(Mode, "Bad\tCookie\n")),
+    done();
+main(["short" = Mode]) ->
+    show("cookie", file_cookie(Mode, "\n")),
+    done();
 main(["given" = Mode]) ->
     started(Mode),
     show("cookie", erlang:get_cookie()),
@@ -88,7 +99,19 @@ setting() ->
         raised(fun() -> erlang:set_cookie(x@y, "s") end),
         raised(fun() -> erlang:get_cookie(1) end)
     ]),
-    show("auth server", [is_pid(whereis(auth)), auth:sync_cookie()]).
+    show("auth server", [is_pid(whereis(auth)), auth:sync_cookie(), gen_server:call(auth, echo)]),
+    % An error report of this node's auth server, logged after the call that follows it (DIST6).
+    show("print", [auth:print(node(), "printed ~p~n", [1]), gen_server:call(auth, echo)]).
+
+% This node's cookie from a cookie file of Text, or error when distribution cannot start with it.
+file_cookie(Mode, Text) ->
+    File = cookie_file(),
+    ok = file:write_file(File, Text),
+    ok = file:change_mode(File, 8#400),
+    case net_kernel:start([list_to_atom("cookie_" ++ Mode), shortnames]) of
+        {ok, _} -> erlang:get_cookie();
+        {error, _} -> error
+    end.
 
 % Each node of the run registers a name of its own with the shared epmd.
 started(Mode) ->

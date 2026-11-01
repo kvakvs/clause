@@ -10,9 +10,9 @@
           "args": [
             "created"
           ],
-          "stderr": "^$",
+          "stderr": "^(=ERROR REPORT==== .* ===\\nprinted 1\\n\\n)?$",
           "exit_status": 0,
-          "stdout": "off: [nocookie,nocookie,\n      {error,distribution_not_started},\n      {error,distribution_not_started},\n      {error,badarg},\n      nocookie,nocookie,\n      {error,distribution_not_started},\n      no]\nbad arguments: [{error,badarg},{error,badarg},{error,badarg}]\nfile before: false\ncookie from file: {true,20,true}\nfile writable: false\nother node: true\nauth: true\nset: true\ncookie after set: newc\nset other: true\nother cookies: [nodec,newc]\nset this node: true\nthis node's cookies: [selfc,selfc,selfc]\nauth functions: [true,viaauth,viaauth,true,c2,no,no,nc,nc2]\nbad arguments: [{error,badarg},{error,badarg},{error,badarg}]\nauth server: [true,true]\nstopped: [nocookie,{error,distribution_not_started}]\nagain from file: true\ndist_cookie: ok\n"
+          "stdout": "off: [nocookie,nocookie,\n      {error,distribution_not_started},\n      {error,distribution_not_started},\n      {error,badarg},\n      nocookie,nocookie,\n      {error,distribution_not_started},\n      no]\nbad arguments: [{error,badarg},{error,badarg},{error,badarg}]\nfile before: false\ncookie from file: {true,20,true}\nfile writable: false\nother node: true\nauth: true\nset: true\ncookie after set: newc\nset other: true\nother cookies: [nodec,newc]\nset this node: true\nthis node's cookies: [selfc,selfc,selfc]\nauth functions: [true,viaauth,viaauth,true,c2,no,no,nc,nc2]\nbad arguments: [{error,badarg},{error,badarg},{error,badarg}]\nauth server: [true,true,hello]\nprint: [ok,hello]\nstopped: [nocookie,{error,distribution_not_started}]\nagain from file: true\ndist_cookie: ok\n"
         },
         {
           "name": "existing",
@@ -51,6 +51,36 @@
           "stderr": "^$",
           "exit_status": 0,
           "stdout": "cookie: [nocookie,nocookie]\nset: true\ncookie after set: later\nfile: false\ndist_cookie: ok\n"
+        },
+        {
+          "name": "trailing",
+          "home": true,
+          "args": [
+            "trailing"
+          ],
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "cookie: 'Trailing  '\ndist_cookie: ok\n"
+        },
+        {
+          "name": "bad",
+          "home": true,
+          "args": [
+            "bad"
+          ],
+          "stderr": "^[\\s\\S]*Bad characters in cookie[\\s\\S]*$",
+          "exit_status": 0,
+          "stdout": "cookie: error\ndist_cookie: ok\n"
+        },
+        {
+          "name": "short",
+          "home": true,
+          "args": [
+            "short"
+          ],
+          "stderr": "^[\\s\\S]*Too short cookie string[\\s\\S]*$",
+          "exit_status": 0,
+          "stdout": "cookie: error\ndist_cookie: ok\n"
         }
       ]
     }
@@ -64,6 +94,6 @@
     "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
   },
   "inputs": {
-    "dist_cookie.erl": "13a8af6b110de4272d718323d59845b84127549460d7b0fb68e7ddb48ebac828"
+    "dist_cookie.erl": "3f47563c7e3a786da7fe597adef56f903a1c312b08e15a3725a42724c2c76748"
   }
 }
