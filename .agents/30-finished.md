@@ -108,3 +108,9 @@ Compact record of the network distribution plan, one bullet per step;
 - **DIST5a** Links and exit signals: `LINK`, `UNLINK_ID`/`UNLINK_ID_ACK` with OTP's unlinking state, `EXIT`/`EXIT2`
   and payload forms both ways (`scheduler/remote_links.cpp`), noconnection on connection loss and when not alive,
   noproc for no process or an earlier incarnation, exits as port events; golden `dist_signals` part one — b3e33a15
+- **DIST5b1** Group leaders: another node's pid as a process's group leader (a buffer in `Signals`, inherited by
+  spawns), `group_leader/2` of another node's pid as `GROUP_LEADER`, the other node's `GROUP_LEADER` taken — eded4f16
+- **DIST5b2** Spawning on other nodes: `spawn_request/2..5` as `SPAWN_REQUEST` with pending requests until
+  `SPAWN_REPLY` (`scheduler/remote_spawns.cpp`, `builtins/erlang/dist_spawns.cpp`), served requests' children,
+  abandoned and orphaned requests as OTP 29, blocking spawns in `clause_dist_spawn:spawn/5`; continuations of
+  unqualified auto-imported calls; golden `dist_signals` part two — eded4f16
