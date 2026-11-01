@@ -214,15 +214,21 @@ make-benchmark.bat --baseline HEAD           # performance work: HEAD vs the wor
 make benchmark BENCH_ARGS="--repeat 9"         # other hosts
 ```
 
-- Both configure and build a Release `clau` and runtime in `build/bench`, then
-  run `benchmarks/run.py` (`--help` lists its options).
+- Both configure and build `build/bench` in Release (the default target, with
+  testing off: `clau`, the runtime archives, the bundled epmd and the generated
+  library modules), then run `benchmarks/run.py` (`--help` lists its options).
 - Programs: `benchmarks/bench_*.erl` with `bench_util.erl`, built unchanged by
   `erlc` and `clau -O2`. Each times its kernels with `erlang:monotonic_time/1`
   after one warm-up call and prints `BENCH <name> <nanoseconds>`: data
   generation, data processing, garbage collection, message passing, file I/O (in
   an empty temporary working directory under `build/bench/runs`, inside the
   repository so that a repository antivirus exclusion covers it), loopback
-  sockets and libraries (`libraries.qlc`: `qlc_pt` transforms of queries and
+  sockets, loopback TLS 1.3 (`ssl.`: echo round trips, handshakes, a bulk
+  transfer), distribution (`dist.`: ping-pong, data exchange, remote spawns and
+  reconnects against a peer node the program starts, a copy of its executable
+  or OTP's `erl`; `dist_tls.`: the same over `inet_tls_dist` between two started
+  nodes, OTP only until Clause's TLS distribution, plan 30 step DIST12) and
+  libraries (`libraries.qlc`: `qlc_pt` transforms of queries and
   modules shaped like `qlc_SUITE` cases, timed together) and float loops
   (`float.`: accumulators, mandelbrot, comparisons with a parameter, unary minus
   and `float/1`, `is_float/1` guards, floats crossing calls). Iteration counts make every kernel last 1-2 s on OTP, so timer
@@ -232,6 +238,11 @@ make benchmark BENCH_ARGS="--repeat 9"         # other hosts
   error after 10 s). Each kernel runs in its own fresh process, which exits
   before the next kernel starts, so no kernel pays for heaps an earlier one
   grew.
+- `run.py` gives the runs their own epmd port (`ERL_EPMD_PORT`, a free port,
+  unless set) on loopback (`ERL_EPMD_ADDRESS`): another epmd may hold 4369
+  (WSL forwards it on Windows), and loopback listeners raise no firewall
+  prompts. `bench_dist` starts OTP's epmd itself and stops it with `-kill`;
+  Clause's bundled epmd starts with the first registration.
 - Every program run is its own Windows job object or POSIX session; the next run
   starts once all its processes are gone, and leftovers still alive 30 s after
   exit are killed and reported as a failure.

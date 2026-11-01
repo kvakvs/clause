@@ -19,6 +19,7 @@ import platform
 import shlex
 import shutil
 import signal
+import socket
 import statistics
 import subprocess
 import sys
@@ -205,8 +206,9 @@ def build_baseline(info, config, jobs):
                  *shlex.split(os.environ.get("CLAUSE_CONFIGURE_ARGS", "")),
                  f"-DCMAKE_BUILD_TYPE={config}", "-DBUILD_TESTING=OFF",
                  "-DCLAUSE_BUILD_COMPILER=ON", "-DCLAUSE_BUILD_RUNTIME=ON"]
-    build = ["cmake", "--build", str(build_dir), "--config", config, "--target", "clau", "clause_runtime",
-             "--parallel", *([jobs] if jobs else [])]
+    # The default target, not clau and clause_runtime alone: programs also link the bundled epmd archive and the
+    # generated library modules (testing is off, so it builds no tests).
+    build = ["cmake", "--build", str(build_dir), "--config", config, "--parallel", *([jobs] if jobs else [])]
     print(f"benchmark: building baseline {info['short']} in {root}", file=sys.stderr)
     for command in (configure, build):
         code, out, err, _ = run_command(command)
@@ -801,6 +803,19 @@ def prepare_clause(args, head_dir):
     return builds, base, executable_sizes(size_builds, claus)
 
 
+def private_epmd():
+    """Give the runs an epmd port of their own on loopback, inherited by every program and the nodes they start.
+
+    Added for the distribution benchmarks (bench_dist): another epmd may hold the default port 4369 (on Windows, WSL
+    forwards it), and listening on loopback only keeps firewalls from asking about each new executable.
+    """
+    if "ERL_EPMD_PORT" not in os.environ:
+        with socket.socket() as probe:
+            probe.bind(("127.0.0.1", 0))
+            os.environ["ERL_EPMD_PORT"] = str(probe.getsockname()[1])
+    os.environ.setdefault("ERL_EPMD_ADDRESS", "127.0.0.1,::1")
+
+
 def main():
     """Build, measure, report and record."""
     args = parse_args()
@@ -816,6 +831,7 @@ def main():
     head["dirty"] = bool(git("status", "--porcelain", "--", *SOURCE_PATHS))
     names = programs(args.only)
     cpus = benchmark_cpus(args.cpus)
+    private_epmd()
     samples, walls, failures = measure(names, lambda n: commands_for(otp, otp_dir, erl, builds, n),
                                        args.repeat, args.timeout, cpus)
     summary = summarize(samples)

@@ -200,6 +200,8 @@ Depends on: DIST5 ([30-finished](30-finished.md)).
 - Success criteria
   - [ ] `inet_tls_dist` and `inet6_tls_dist` over Clause's `ssl` (`-proto_dist inet_tls`,
         `ssl_dist_optfile`, `ssl_dist_opt`), certificate checks as OTP's.
+  - [ ] `benchmarks/bench_dist.erl`'s `dist_tls.` kernels run on Clause too: `tls_distribution/0` and
+        `start_node/3` give Clause nodes the TLS flags (OTP only so far).
   - [ ] A user carrier written against OTP's `dist_util` interface (the carrier guide's
         `gen_tcp`-based example shape, own code) runs with `--proto-dist`.
 - Tests
