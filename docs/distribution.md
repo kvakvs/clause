@@ -22,7 +22,8 @@ answers ([process monitors](#process-monitors), DIST4b3b1), and they link and se
 leaders](#group-leaders), DIST5b1) and spawn processes on each other ([spawning](#spawning), DIST5b2), every
 signal of a pair of processes in the order sent ([signal order](#signal-order), DIST5c). Clause and OTP 29 nodes
 connect, ping, monitor, message, link, lead and spawn on each other both ways on either kind of epmd
-([testing](#testing), DIST4b4, DIST5c).
+([testing](#testing), DIST4b4, DIST5c). `net_kernel` changes tick times, reports and tunes connections, and
+`auth` keeps cookies as OTP's ([managing connections](#managing-connections), [cookies](#cookies), DIST6).
 The other libraries answer as OTP does without distribution (`{badrpc, nodedown}`, `not_alive`). The
 rest of this file is the contract for distribution. Each section becomes current behavior when its
 step lands.
@@ -484,13 +485,15 @@ statuses other than `ok`, `allow/1` and dynamic names since DIST4b2b.
     Intensity}}`, and the ticks `{Kernel, tick}`. Carriers receive `allow/1`'s list as `Allowed`, and a node
     waiting for its dynamic name passes itself to `setup/5` as `undefined@Host`.
 - **Ticks:** a linked ticker spawned at `max` priority sends `net_kernel` `tick` every `net_ticktime` × 1000 /
-  `net_tickintensity` milliseconds, and `net_kernel` ticks each up connection's supervisor. The supervisor reads
-  `mf_getstat`: `net_tickintensity` ticks without input end the connection with
+  `net_tickintensity` milliseconds (the tick time rounded up to a multiple of the intensity, the `kernel` parameter
+  `net_tickintensity` kept within 4 to 1000), and `net_kernel` ticks each up connection's supervisor. The
+  supervisor reads `mf_getstat`: `net_tickintensity` ticks without input end the connection with
   `** Node N not responding **` / `** Removing (timedout) connection **` and the reason `net_tick_timeout`; a
-  tick without output since the last one calls `mf_tick`.
+  tick without output since the last one calls `mf_tick`, as does a hidden connection's tick without input, and
+  the tick sent counts as output (DIST6).
 - **Setup timer:** `dist_util:start_timer/1` links a process that ends the handshake with `setup_timer_timeout`
-  unless a received handshake message resets it within `net_kernel:connecttime/0` (7 seconds); it is cancelled
-  when the connection comes up.
+  unless a received handshake message resets it within `net_kernel:connecttime/0` (7 seconds, or the `kernel`
+  parameter `net_setuptime` in seconds, at most 120, since DIST6); it is cancelled when the connection comes up.
 - **`inet_tcp_dist`:** `accept/1` links an acceptor at `max` priority; `accept_connection/5` and `setup/5` spawn
   the supervisor with `dist_util:net_ticker_spawn_options/0`. Setup asks the `epmd_module`'s `port_please/2` and
   connects with `inet_dist_connect_options` under the carrier's own family, `binary`, `{active, false}` and
@@ -501,7 +504,48 @@ statuses other than `ok`, `allow/1` and dynamic names since DIST4b2b.
   switches to `{packet, 4}` before the connection is up; then it reads with `{active, once}` and puts each packet
   with `dist_ctrl_put_data/2` (an empty one is a tick), sends the queued packets on `dist_data` and sends ticks
   as empty packets. A closed socket, a failed send or refused data ends it with `connection_closed`, the other
-  node's `nodedown` reason.
+  node's `nodedown` reason. Since DIST6 `mf_setopts` and `mf_getopts` ask the controller, which answers while the
+  connection is up: `setopts/2` refuses `active`, `deliver` and `packet` (`{error, {badopts, Options}}`) as for
+  listen sockets, and `getopts/2` reports `{active, true}` as OTP's port does while the controller reads with
+  `{active, once}`.
+
+## Managing connections
+
+Current since DIST6 (`library/kernel/net_kernel.erl`, `dist_util.erl`), as OTP's `net_kernel`:
+
+- **Tick time changes:** `set_net_ticktime(T, Period)` (`Period` 60 seconds by default) answers `unchanged` for the
+  current tick time, `change_initiated`, or `{ongoing_change_to, T}` while a change runs; `get_net_ticktime/0`
+  answers `T` or `{ongoing_change_to, T}`, `ignored` without distribution. The new tick time keeps the intensity
+  and is rounded up to a multiple of it. An aux ticker sends `aux_tick` (the supervisors tick unless a visible
+  connection has output pending) at once and every shorter interval of the two until `Period` is covered; a longer
+  tick time takes effect at the start, a shorter one at the end of the period. A ticker that ends starts again.
+- **Connection information:** `node_info(Node)` gives `{ok, [{owner, Pid}, {state, up | pending}, {address,
+  #net_address{}}, {type, normal | hidden}, {in, N}, {out, N}]}`, the packet counts of an up connection read by its
+  supervisor (`{Kernel, get_status}`), `0` for a pending one; `node_info(Node, Key)` one of them or
+  `{error, invalid_key}`; `{error, bad_node}` without a connection, `badarg` without distribution (OTP's
+  `sys_dist` table is missing then). `nodes_info/0` lists every connection; `i/0` prints them as OTP's table with
+  totals, `i/1` one connection.
+- **Socket options:** `getopts(Node, Options)` and `setopts(Node, Options)` go through the up connection's
+  supervisor to the carrier's `mf_getopts` and `mf_setopts` (`{error, enotsup}` without them), `{error,
+  noconnection}` without an up connection or when it ends first. `setopts(new, Options)` calls each listening
+  carrier's `setopts/2` on its listen socket (its error is the answer; `enotsup` when the carrier has none), then
+  puts each option in front of `inet_dist_listen_options` and `inet_dist_connect_options` in place of options of
+  its key (an option that is no pair crashes `net_kernel`, as OTP's), sets `dist_nodelay` for `{nodelay, B}`, and
+  answers once each pending connection's supervisor applied them when it came up. A node name or option list of
+  another type is `function_clause`, also without distribution, which answers `ignored`.
+- **`dist_auto_connect once`:** an up connection's end bars its node from auto-connects (node monitors abort at
+  once); `connect_node/1` and an accepted connection lift the bar.
+- **Passive connects:** `{passive_cnct, Node}` sets up a connection as an auto-connect does and answers once it is
+  up, `true` at once for an up connection or this node, `false` when the setup fails or under `dist_auto_connect
+  never`; for a barred node `passive_connect_monitor/2` waits up to `connecttime()` for the node to connect.
+- **Disconnects:** `disconnect/1` and `async_disconnect/1` (a cast, not waiting) end up connections only; a pending
+  connection answers `false`.
+- **Other requests:** `verbose(Level)` answers the level before and logs OTP's info reports of connects,
+  disconnects and exits at that level; `kernel_apply/3` answers `not_implemented`. The old spawn protocol's
+  `{spawn, M, F, A, Leader}`, `{spawn_link, ...}` and `{spawn_opt, M, F, A, Options, Link, Leader}` calls spawn
+  `spawn_func/6`, which answers the caller with its pid, sets the leader and applies the function (`do_spawn/3`).
+  `{From, registered_send, Name, Message}` is passed to a registered name, `{From, badcookie, ...}` logs
+  `** Got OLD cookie from N` and disconnects the node. Other calls are never answered, as OTP's.
 
 ## epmd
 
@@ -693,18 +737,30 @@ Current since DIST4b1c (`library/kernel/auth.erl`, `runtime/src/builtins/erlang/
 - **Without distribution:** `erlang:get_cookie/0,1` and `auth:get_cookie/0,1` answer `nocookie`;
   `erlang:set_cookie/1,2` and `auth:set_cookie/1,2` raise `distribution_not_started`, and
   `erlang:set_cookie(node(), C)` raises `badarg`. A cookie or node that is no atom is `badarg`.
-- **This node's cookie:** the `auth` server under `net_sup` starts with `--nocookie` (`nocookie`), else
-  `--setcookie COOKIE`, else `.erlang.cookie` in the home directory (`init:get_argument(home)`: `HOME`, on Windows
-  `HOMEDRIVE` and `HOMEPATH`, else the user profile). The file's first line is the cookie, without its line end and
-  trailing blanks. A missing file is created with 20 random letters `A` to `Z` and made readable by its owner alone
-  (mode 400; read-only on Windows). On Unix, a file others may read stops `auth` with `Cookie file F must be
-  accessible by owner only`, and a start without a home with `No home for cookie file`, so distribution fails to
-  start.
+- **This node's cookie:** the `auth` server under `net_sup` starts with `--setcookie COOKIE`, else `--nocookie`
+  (`nocookie`), else `.erlang.cookie` in the home directory (`init:get_argument(home)`: `HOME`, on Windows
+  `HOMEDRIVE` and `HOMEPATH`, else the user profile), else in `filename:basedir(user_config, "erlang")`. The cookie
+  is the file's printable characters (space to `~`) up to the first other one, blanks included; only line ends and
+  blanks may follow (`Bad characters in cookie` otherwise, `Too short cookie string` for none), as OTP checks it
+  since DIST6. A missing file is created in the home directory (the configuration directory without a home) with 20
+  random letters `A` to `Z` and made readable by its owner alone (mode 400; read-only on Windows). On Unix, a file
+  others may read stops `auth` with `Cookie file F must be accessible by owner only`, and a start without a home
+  whose configuration directory cannot be read with `No home for cookie file`, so distribution fails to start.
+  `--setcookie NODE COOKIE` forms, where the runtime passes them, set other nodes' cookies as OTP's (a node given
+  twice keeps none).
 - **Alive:** the `erlang` functions continue in `auth`'s. `get_cookie/0` is this node's cookie; `get_cookie(Node)`
   the cookie set for `Node`, else this node's. `set_cookie(C)` and `set_cookie(node(), C)` set this node's cookie,
   `set_cookie(Node, C)` the cookie of `Node`; each answers `true`. `auth:cookie/0,1`, `node_cookie/1,2` and
-  `sync_cookie/0` (`true`) as OTP's; `is_auth/1` and `node_cookie/1,2` ping the node
-  ([process monitors](#process-monitors)).
+  `sync_cookie/0` (`true`; a cookie given for this node's name becomes its cookie) as OTP's; `is_auth/1` and
+  `node_cookie/1,2` ping the node ([process monitors](#process-monitors)). Since DIST6 the server takes OTP's
+  requests (`get_our_cookie`, `{get_cookie, Node}`, `{set_our_cookie, C}`, `{set_cookie, Node, C}`,
+  `sync_cookie`, `echo` answered `hello`), `auth:set_cookie/1,2` and `get_cookie/1` take any term as OTP's (the
+  `erlang` functions check atoms), and `print(Node, Format, Arguments)` casts `{print, Format, Arguments}` to
+  `Node`'s `auth`, which logs it with `error_logger:error_msg/2`. OTP's answers to `badcookie` messages are left
+  out: no runtime sends them.
+- **`global`:** checks the `kernel` parameters `connect_all` and `prevent_overlapping_partitions` at its start as
+  OTP's (`{invalid_parameter_value, Name, Value}` for a value that is no boolean); an unset `connect_all` becomes
+  `false` only under the emulator flag `-connect_all false`.
 - **End:** the cookies end with `net_sup`; a later start reads the file again.
 
 ## Node start options

@@ -1,0 +1,177 @@
+{
+  "schema": 1,
+  "entry": "dist_net_kernel",
+  "stdout_masks": [
+    [
+      "^nkb@localhost +up +normal .*$",
+      "nkb@localhost up normal IN OUT ADDRESS"
+    ],
+    [
+      "^Total .*$",
+      "Total IN OUT"
+    ],
+    [
+      "^(In|Out)( +)= [0-9]+$",
+      "\\1\\2= N"
+    ],
+    [
+      "^Address  = .*$",
+      "Address  = ADDRESS"
+    ]
+  ],
+  "host_otp": true,
+  "runs": [
+    {
+      "nodes": [
+        {
+          "name": "a",
+          "args": [
+            "a"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname nka@localhost --setcookie nk --env kernel net_ticktime 3 --env kernel dist_auto_connect once"
+          },
+          "otp_flags": "-sname nka@localhost -setcookie nk -kernel net_ticktime 3 -kernel dist_auto_connect once",
+          "stderr": "^=ERROR REPORT==== .* ===\\n\\*\\* Connection attempt with disallowed node nkz@localhost \\*\\* \\n\\n$",
+          "exit_status": 0,
+          "stdout": "connect: [true,[nkb@localhost]]\nstatus: [{nodeup,nkb@localhost},{nodeup,nkb@localhost,[{node_type,visible}]}]\nnode_info: [[owner,state,address,type,in,out],\n            true,\n            [{127,0,0,1},true,\"localhost\",tcp,inet],\n            [true,true]]\nnode_info keys: [{ok,up},{ok,normal},{error,invalid_key}]\nnode_info nodes: [{error,bad_node},{error,bad_node},{error,bad_node}]\nnodes_info: [nkb@localhost]\nNode                 State   Type         In      Out Address\nnkb@localhost up normal IN OUT ADDRESS\nTotal IN OUT\nNode     = nkb@localhost\nState    = up\nType     = normal\nIn       = N\nOut      = N\nAddress  = ADDRESS\ni: [ok,ok]\ni none: {error,bad_node}\ngetopts: {ok,[{active,true},{packet,4},{mode,binary},{nodelay,true}]}\nsetopts: [ok,\n          {ok,[{nodelay,false}]},\n          {error,{badopts,[{packet,2}]}},\n          {error,noconnection},\n          {error,noconnection},\n          {error,function_clause}]\nsetopts new: [ok,{error,{badopts,[{active,true}]}},ok]\nkernel: [{ok,[{sndbuf,10000},{nodelay,false}]},\n         {ok,[{sndbuf,10000},{nodelay,false}]},\n         {ok,false}]\nspawn: [true,nkb@localhost]\nverbose: [0,1]\nkernel_apply: not_implemented\nticktime: [3,unchanged]\nlonger: [change_initiated,{ongoing_change_to,4},{ongoing_change_to,4}]\nlonger after: 4\nshorter: change_initiated\nshorter after: 3\ndisconnect: [true,\n             [{nodedown,nkb@localhost},\n              {nodedown,nkb@localhost,\n                        [{nodedown_reason,disconnect},{node_type,visible}]}]]\nbarred: [true,{nodedown,nkb@localhost},[]]\nexplicit: [true,\n           [{nodeup,nkb@localhost},\n            {nodeup,nkb@localhost,[{node_type,visible}]}]]\nasync: [ok,\n        [{nodedown,nkb@localhost},\n         {nodedown,nkb@localhost,\n                   [{nodedown_reason,disconnect},{node_type,visible}]}]]\npassive: [[{nodeup,nkb@localhost},\n           {nodeup,nkb@localhost,[{node_type,visible}]}],\n          [nkb@localhost]]\nhidden: [true,[nkb@localhost],[nkh@localhost]]\nstatus: {nodeup,nkh@localhost,[{node_type,hidden}]}\nnodes_info: [{nkb@localhost,normal},{nkh@localhost,hidden}]\nallow: [ok,{ok,[nkb@localhost,nkh@localhost]},false]\nstopped: [{nodedown,nkb@localhost},\n          {nodedown,nkb@localhost,\n                    [{nodedown_reason,connection_closed},\n                     {node_type,visible}]}]\nstopped: {nodedown,nkh@localhost,\n                   [{nodedown_reason,connection_closed},{node_type,hidden}]}\ndist_net_kernel: ok\n"
+        },
+        {
+          "name": "b",
+          "args": [
+            "b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname nkb@localhost --setcookie nk --env kernel net_ticktime 3"
+          },
+          "otp_flags": "-sname nkb@localhost -setcookie nk -kernel net_ticktime 3",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "status: {nodeup,nka@localhost,[]}\nstatus: {nodedown,nka@localhost,[{nodedown_reason,connection_closed}]}\nstatus: {nodeup,nka@localhost,[]}\nstatus: {nodedown,nka@localhost,[{nodedown_reason,connection_closed}]}\npassive: [true,[nka@localhost]]\nstatus: {nodeup,nka@localhost,[]}\ndist_net_kernel: ok\n"
+        },
+        {
+          "name": "h",
+          "args": [
+            "h"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname nkh@localhost --setcookie nk --hidden --env kernel net_ticktime 3"
+          },
+          "otp_flags": "-sname nkh@localhost -setcookie nk -hidden -kernel net_ticktime 3",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "status: {nodeup,nka@localhost,[{node_type,hidden}]}\nnodes: [[],[nka@localhost]]\ndist_net_kernel: ok\n"
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "name": "a",
+          "kind": "otp",
+          "args": [
+            "a"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname nka@localhost --setcookie nk --env kernel net_ticktime 3 --env kernel dist_auto_connect once"
+          },
+          "otp_flags": "-sname nka@localhost -setcookie nk -kernel net_ticktime 3 -kernel dist_auto_connect once",
+          "stderr": "^\\S+ error: \\*\\* Connection attempt with disallowed node nkz@localhost \\*\\* ?\\n$",
+          "exit_status": 0,
+          "stdout": "connect: [true,[nkb@localhost]]\nstatus: [{nodeup,nkb@localhost},{nodeup,nkb@localhost,[{node_type,visible}]}]\nnode_info: [[owner,state,address,type,in,out],\n            true,\n            [{127,0,0,1},true,\"localhost\",tcp,inet],\n            [true,true]]\nnode_info keys: [{ok,up},{ok,normal},{error,invalid_key}]\nnode_info nodes: [{error,bad_node},{error,bad_node},{error,bad_node}]\nnodes_info: [nkb@localhost]\nNode                 State   Type         In      Out Address\nnkb@localhost up normal IN OUT ADDRESS\nTotal IN OUT\nNode     = nkb@localhost\nState    = up\nType     = normal\nIn       = N\nOut      = N\nAddress  = ADDRESS\ni: [ok,ok]\ni none: {error,bad_node}\ngetopts: {ok,[{active,true},{packet,4},{mode,binary},{nodelay,true}]}\nsetopts: [ok,\n          {ok,[{nodelay,false}]},\n          {error,{badopts,[{packet,2}]}},\n          {error,noconnection},\n          {error,noconnection},\n          {error,function_clause}]\nsetopts new: [ok,{error,{badopts,[{active,true}]}},ok]\nkernel: [{ok,[{sndbuf,10000},{nodelay,false}]},\n         {ok,[{sndbuf,10000},{nodelay,false}]},\n         {ok,false}]\nspawn: [true,nkb@localhost]\nverbose: [0,1]\nkernel_apply: not_implemented\nticktime: [3,unchanged]\nlonger: [change_initiated,{ongoing_change_to,4},{ongoing_change_to,4}]\nlonger after: 4\nshorter: change_initiated\nshorter after: 3\ndisconnect: [true,\n             [{nodedown,nkb@localhost},\n              {nodedown,nkb@localhost,\n                        [{nodedown_reason,disconnect},{node_type,visible}]}]]\nbarred: [true,{nodedown,nkb@localhost},[]]\nexplicit: [true,\n           [{nodeup,nkb@localhost},\n            {nodeup,nkb@localhost,[{node_type,visible}]}]]\nasync: [ok,\n        [{nodedown,nkb@localhost},\n         {nodedown,nkb@localhost,\n                   [{nodedown_reason,disconnect},{node_type,visible}]}]]\npassive: [[{nodeup,nkb@localhost},\n           {nodeup,nkb@localhost,[{node_type,visible}]}],\n          [nkb@localhost]]\nhidden: [true,[nkb@localhost],[nkh@localhost]]\nstatus: {nodeup,nkh@localhost,[{node_type,hidden}]}\nnodes_info: [{nkb@localhost,normal},{nkh@localhost,hidden}]\nallow: [ok,{ok,[nkb@localhost,nkh@localhost]},false]\nstopped: [{nodedown,nkb@localhost},\n          {nodedown,nkb@localhost,\n                    [{nodedown_reason,connection_closed},\n                     {node_type,visible}]}]\nstopped: {nodedown,nkh@localhost,\n                   [{nodedown_reason,connection_closed},{node_type,hidden}]}\ndist_net_kernel: ok\n"
+        },
+        {
+          "name": "b",
+          "args": [
+            "b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname nkb@localhost --setcookie nk --env kernel net_ticktime 3"
+          },
+          "otp_flags": "-sname nkb@localhost -setcookie nk -kernel net_ticktime 3",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "status: {nodeup,nka@localhost,[]}\nstatus: {nodedown,nka@localhost,[{nodedown_reason,connection_closed}]}\nstatus: {nodeup,nka@localhost,[]}\nstatus: {nodedown,nka@localhost,[{nodedown_reason,connection_closed}]}\npassive: [true,[nka@localhost]]\nstatus: {nodeup,nka@localhost,[]}\ndist_net_kernel: ok\n"
+        },
+        {
+          "name": "h",
+          "args": [
+            "h"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname nkh@localhost --setcookie nk --hidden --env kernel net_ticktime 3"
+          },
+          "otp_flags": "-sname nkh@localhost -setcookie nk -hidden -kernel net_ticktime 3",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "status: {nodeup,nka@localhost,[{node_type,hidden}]}\nnodes: [[],[nka@localhost]]\ndist_net_kernel: ok\n"
+        }
+      ]
+    },
+    {
+      "epmd": "otp",
+      "nodes": [
+        {
+          "name": "a",
+          "args": [
+            "a"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname nka@localhost --setcookie nk --env kernel net_ticktime 3 --env kernel dist_auto_connect once"
+          },
+          "otp_flags": "-sname nka@localhost -setcookie nk -kernel net_ticktime 3 -kernel dist_auto_connect once",
+          "stderr": "^=ERROR REPORT==== .* ===\\n\\*\\* Connection attempt with disallowed node nkz@localhost \\*\\* \\n\\n$",
+          "exit_status": 0,
+          "stdout": "connect: [true,[nkb@localhost]]\nstatus: [{nodeup,nkb@localhost},{nodeup,nkb@localhost,[{node_type,visible}]}]\nnode_info: [[owner,state,address,type,in,out],\n            true,\n            [{127,0,0,1},true,\"localhost\",tcp,inet],\n            [true,true]]\nnode_info keys: [{ok,up},{ok,normal},{error,invalid_key}]\nnode_info nodes: [{error,bad_node},{error,bad_node},{error,bad_node}]\nnodes_info: [nkb@localhost]\nNode                 State   Type         In      Out Address\nnkb@localhost up normal IN OUT ADDRESS\nTotal IN OUT\nNode     = nkb@localhost\nState    = up\nType     = normal\nIn       = N\nOut      = N\nAddress  = ADDRESS\ni: [ok,ok]\ni none: {error,bad_node}\ngetopts: {ok,[{active,true},{packet,4},{mode,binary},{nodelay,true}]}\nsetopts: [ok,\n          {ok,[{nodelay,false}]},\n          {error,{badopts,[{packet,2}]}},\n          {error,noconnection},\n          {error,noconnection},\n          {error,function_clause}]\nsetopts new: [ok,{error,{badopts,[{active,true}]}},ok]\nkernel: [{ok,[{sndbuf,10000},{nodelay,false}]},\n         {ok,[{sndbuf,10000},{nodelay,false}]},\n         {ok,false}]\nspawn: [true,nkb@localhost]\nverbose: [0,1]\nkernel_apply: not_implemented\nticktime: [3,unchanged]\nlonger: [change_initiated,{ongoing_change_to,4},{ongoing_change_to,4}]\nlonger after: 4\nshorter: change_initiated\nshorter after: 3\ndisconnect: [true,\n             [{nodedown,nkb@localhost},\n              {nodedown,nkb@localhost,\n                        [{nodedown_reason,disconnect},{node_type,visible}]}]]\nbarred: [true,{nodedown,nkb@localhost},[]]\nexplicit: [true,\n           [{nodeup,nkb@localhost},\n            {nodeup,nkb@localhost,[{node_type,visible}]}]]\nasync: [ok,\n        [{nodedown,nkb@localhost},\n         {nodedown,nkb@localhost,\n                   [{nodedown_reason,disconnect},{node_type,visible}]}]]\npassive: [[{nodeup,nkb@localhost},\n           {nodeup,nkb@localhost,[{node_type,visible}]}],\n          [nkb@localhost]]\nhidden: [true,[nkb@localhost],[nkh@localhost]]\nstatus: {nodeup,nkh@localhost,[{node_type,hidden}]}\nnodes_info: [{nkb@localhost,normal},{nkh@localhost,hidden}]\nallow: [ok,{ok,[nkb@localhost,nkh@localhost]},false]\nstopped: [{nodedown,nkb@localhost},\n          {nodedown,nkb@localhost,\n                    [{nodedown_reason,connection_closed},\n                     {node_type,visible}]}]\nstopped: {nodedown,nkh@localhost,\n                   [{nodedown_reason,connection_closed},{node_type,hidden}]}\ndist_net_kernel: ok\n"
+        },
+        {
+          "name": "b",
+          "kind": "otp",
+          "args": [
+            "b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname nkb@localhost --setcookie nk --env kernel net_ticktime 3"
+          },
+          "otp_flags": "-sname nkb@localhost -setcookie nk -kernel net_ticktime 3",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "status: {nodeup,nka@localhost,[]}\nstatus: {nodedown,nka@localhost,[{nodedown_reason,connection_closed}]}\nstatus: {nodeup,nka@localhost,[]}\nstatus: {nodedown,nka@localhost,[{nodedown_reason,connection_closed}]}\npassive: [true,[nka@localhost]]\nstatus: {nodeup,nka@localhost,[]}\ndist_net_kernel: ok\n"
+        },
+        {
+          "name": "h",
+          "kind": "otp",
+          "args": [
+            "h"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname nkh@localhost --setcookie nk --hidden --env kernel net_ticktime 3"
+          },
+          "otp_flags": "-sname nkh@localhost -setcookie nk -hidden -kernel net_ticktime 3",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "status: {nodeup,nka@localhost,[{node_type,hidden}]}\nnodes: [[],[nka@localhost]]\ndist_net_kernel: ok\n"
+        }
+      ]
+    },
+    {
+      "args": [
+        "unalive"
+      ],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "ticktime: [ignored,ignored,ignored]\nticktime errors: [{error,function_clause},\n                  {error,function_clause},\n                  {error,function_clause}]\noptions: [ignored,ignored,{error,function_clause},{error,function_clause}]\nverbose: [ignored,{error,function_clause}]\ncalls: [ignored,ok]\nNode                 State   Type         In      Out Address\ninfo: [{error,badarg},\n       {error,badarg},\n       {error,badarg},\n       {error,badarg},\n       {error,badarg}]\nconnecttime: [7000,2000,500,120000,7000,7000]\ndist_net_kernel: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
+  },
+  "inputs": {
+    "dist_net_kernel.erl": "d842f1e194d1ff7a32bd6266eb6924d8e10e1bf0073cf918db7b66be67751c8e"
+  }
+}

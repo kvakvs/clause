@@ -336,24 +336,65 @@ handshake_complete(#hs_data{f_handshake_complete = Complete, socket = Socket, ot
 handshake_complete(#hs_data{f_handshake_complete = Complete, socket = Socket, other_node = Node}, DHandle) ->
     Complete(Socket, Node, DHandle).
 
-% The connection supervisor: net_kernel's ticks check the connection; anything else is dropped.
+% The connection supervisor: net_kernel's ticks check the connection; it answers net_kernel's status and socket
+% option requests (DIST6); anything else is dropped.
 con_loop(#hs_data{kernel_pid = Kernel} = HSData, Tick) ->
     receive
-        {Kernel, tick} -> con_loop(HSData, tick(HSData, Tick));
-        _ -> con_loop(HSData, Tick)
+        {Kernel, tick} ->
+            con_loop(HSData, tick(HSData, Tick));
+        {Kernel, aux_tick} ->
+            aux_tick(HSData),
+            con_loop(HSData, Tick);
+        {From, get_status} ->
+            From ! {self(), get_status, status(HSData)},
+            con_loop(HSData, Tick);
+        {From, Request, {Operation, Options}} when Operation =:= setopts; Operation =:= getopts ->
+            From ! {Request, socket_options(HSData, Operation, Options)},
+            con_loop(HSData, Tick);
+        _ ->
+            con_loop(HSData, Tick)
     end.
 
-% A tick: Intensity ticks without input end the connection; a tick without output since the last one sends one.
-tick(#hs_data{mf_getstat = GetStat, mf_tick = SendTick, socket = Socket, other_node = Node}, Tick) ->
+%% Status and socket options of an up connection (plan 30 step DIST6), as OTP's dist_util answers them.
+status(#hs_data{mf_getstat = GetStat, socket = Socket, other_node = Node}) ->
+    case GetStat(Socket) of
+        {ok, Read, Write, _} -> {ok, Read, Write};
+        _ -> ?shutdown2(Node, get_status_failed)
+    end.
+
+% A tick of a tick time change: sent unless a visible connection has output waiting.
+aux_tick(#hs_data{mf_getstat = GetStat, mf_tick = SendTick, socket = Socket} = HSData) ->
+    case GetStat(Socket) of
+        {ok, _, _, Pending} when Pending =/= false, Pending =/= 0 ->
+            type(HSData) =:= hidden andalso SendTick(Socket);
+        {ok, _, _, _} ->
+            SendTick(Socket);
+        _ ->
+            ok
+    end.
+
+socket_options(#hs_data{mf_setopts = undefined}, setopts, _) -> {error, enotsup};
+socket_options(#hs_data{mf_getopts = undefined}, getopts, _) -> {error, enotsup};
+socket_options(#hs_data{mf_setopts = SetOptions, socket = Socket}, setopts, Options) -> SetOptions(Socket, Options);
+socket_options(#hs_data{mf_getopts = GetOptions, socket = Socket}, getopts, Options) -> GetOptions(Socket, Options).
+
+% A tick: Intensity ticks without input end the connection. A tick without output since the last one sends one, as does
+% a hidden connection's tick without input; the tick sent counts as written, as OTP's (DIST6).
+tick(#hs_data{mf_getstat = GetStat, mf_tick = SendTick, socket = Socket, other_node = Node} = HSData, Tick) ->
     case GetStat(Socket) of
         {ok, Read, Write, Pending} ->
             Quiet = quiet(Read, Tick),
             Quiet >= Tick#tick.intensity andalso not_responding(Node),
-            case Write =:= Tick#tick.write andalso (Pending =:= 0 orelse Pending =:= false) of
-                true -> SendTick(Socket);
-                false -> ok
-            end,
-            Tick#tick{read = Read, write = Write, quiet = Quiet};
+            Idle = Write =:= Tick#tick.write andalso (Pending =:= 0 orelse Pending =:= false),
+            Written =
+                case Idle orelse (Quiet > 0 andalso type(HSData) =:= hidden) of
+                    true ->
+                        SendTick(Socket),
+                        Write + 1;
+                    false ->
+                        Write
+                end,
+            Tick#tick{read = Read, write = Written, quiet = Quiet};
         _ ->
             ?shutdown2(Node, get_status_failed)
     end.

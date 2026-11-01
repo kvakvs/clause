@@ -339,7 +339,9 @@ hs_data(Controller, Socket, Family) ->
         f_address = fun(Ctrl, Node) -> call(Ctrl, {address, Node, Family}) end,
         f_handshake_complete = fun(Ctrl, _, DHandle) -> call(Ctrl, {handshake_complete, DHandle}) end,
         mf_tick = fun(Ctrl) -> Ctrl ! tick end,
-        mf_getstat = fun(_) -> stat(inet:getstat(Socket, [recv_cnt, send_cnt, send_pend])) end
+        mf_getstat = fun(_) -> stat(inet:getstat(Socket, [recv_cnt, send_cnt, send_pend])) end,
+        mf_setopts = fun(Ctrl, Options) -> call(Ctrl, {setopts, Options}) end,
+        mf_getopts = fun(Ctrl, Options) -> call(Ctrl, {getopts, Options}) end
     }.
 
 stat({ok, [{recv_cnt, Read}, {send_cnt, Written}, {send_pend, Pending}]}) -> {ok, Read, Written, Pending};
@@ -383,7 +385,17 @@ request(Socket, socket) -> Socket;
 request(Socket, {send, Data}) -> gen_tcp:send(Socket, Data);
 request(Socket, {recv, Length, Timeout}) -> gen_tcp:recv(Socket, Length, Timeout);
 request(Socket, pre_nodeup) -> inet:setopts(Socket, [{packet, 4}]);
-request(Socket, {address, Node, Family}) -> peer_address(Socket, Node, Family).
+request(Socket, {address, Node, Family}) -> peer_address(Socket, Node, Family);
+request(Socket, {setopts, Options}) -> setopts(Socket, Options);
+request(Socket, {getopts, Options}) -> active_options(inet:getopts(Socket, Options)).
+
+% An up connection's socket options as OTP's port reads them: active, while this controller reads {active, once}
+% (DIST6).
+active_options({ok, Options}) -> {ok, [active_option(Option) || Option <- Options]};
+active_options(Error) -> Error.
+
+active_option({active, _}) -> {active, true};
+active_option(Option) -> Option.
 
 peer_address(Socket, Node, Family) ->
     {ok, Address} = inet:peername(Socket),
@@ -400,6 +412,8 @@ data_loop(Socket, DHandle) ->
             ok = inet:setopts(Socket, [{active, once}]);
         tick ->
             send_packet(Socket, <<>>);
+        {Ref, From, {Operation, _} = Request} when Operation =:= setopts; Operation =:= getopts ->
+            From ! {Ref, request(Socket, Request)};
         {tcp_closed, Socket} ->
             exit(connection_closed);
         {tcp_error, Socket, _} ->
