@@ -139,4 +139,4 @@ Compact record of the network distribution plan, one bullet per step;
   group leader unless it is this node's standard I/O (a per-process flag; the main process or `user`); `user` started
   by `net_kernel` and reported as other nodes' leader; application masters relay to the leader they started under;
   `logger_std_h` writes `user`; `io` devices of other nodes' pids; `dist_rpc` extended. DIST6's masks stay: captured
-  `net_kernel:i/0,1` output still holds counts and ports — HASH
+  `net_kernel:i/0,1` output still holds counts and ports — f930bd69
