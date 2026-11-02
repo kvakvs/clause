@@ -158,6 +158,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   instead of 85 MB; public headers `assert.hrl`, `ms_transform.hrl`, `inet.hrl` — `4f2d7449`
 - **LIB76** OTP-free manifests: luerl builds from the library alone (97 modules instead of 174),
   `test-emqx.toml` drops OTP include dirs — `85fbfdbd`
+- **OTP-free builds (status after LIB77D):** the luerl manifests use no OTP paths; `test-emqx.toml`
+  keeps `eunit`, `common_test`, `public_key` and `ssl` as OTP roots (`ssl` also for emqx's includes
+  of OTP-internal `ssl_handshake.hrl`/`ssl_internal.hrl`). `.yrl`/`.xrl` need OTP's `yecc`/`leex`
+  (LIB78 declined); the host `erl` runs only `.beam` transforms without `debug_info` or with `--erl`.
 - **LIB79A** `crypto` foundation over a pinned OpenSSL 4.1.0 in a separate archive linked only
   into programs that use it; hashes, MACs, PBKDF2, rand plugins; `crypto_digests` golden —
   `dda50d1e`
@@ -195,6 +199,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **LIB80E5** public_key PBKDF1 rounds in C++ (2048 rounds 15.9 -> 0.84 ms Release) — `b8282d39`
 - **LIB80E2/E3 reverted**: otp form walk and name functions back to Erlang (C++ was slower); PEM,
   policy tree and PBKDF1 ports kept — `3a3bed22`
+- **LIB81 design** (user 2026-10-27): a hybrid over libssl. Each connection is an Erlang process
+  with OTP's owner, active modes, messages, option checks and error terms; libssl runs records and
+  handshake over memory BIOs through the `cb_info` transport; certificate checks pause in libssl's
+  verify callback for `public_key:pkix_path_validation/3`
 - **LIB81A** ssl application and utilities (PARTIAL): suite tables, `format_error/1`, `ssl_sup`;
   `ssl_suites` golden identical to OTP — `e16028cf`
 - **LIB81B** ssl engine over libssl in a separate archive; `ssl_engine` golden — `448a0c12`

@@ -94,21 +94,7 @@ runs a process protocol or is glue. C++ reproduces OTP's exact result shapes for
 
 ## Open steps
 
-### Phase: OTP-free builds
-
-`test-luerl-euler.toml` and `test-luerl-benchmark.toml` use no Erlang/OTP paths since LIB76: all
-non-luerl modules resolve from `library/`. `test-emqx.toml` keeps only the OTP applications outside
-erts/kernel/stdlib (`eunit`, `common_test`, `public_key`, `ssl`) as `applications` roots; its
-preprocessing diagnostics are unchanged (the rest are emqx's missing dependencies).
-
-- **What still ties programs to OTP** (counted over `references/emqx/apps`): parse transforms run in
-  Clause's transform host since LIB77D (the host `erl` only for `.beam`s without `debug_info`, OTP
-  modules the library lacks such as `eunit_autoexport`, or `--erl PATH`); `.yrl`/`.xrl` sources need
-  OTP's `yecc`/`leex`, which Clause will not provide (LIB78 cancelled; luerl ships generated
-  `luerl_parse.erl`/`luerl_scan.erl`). The public headers emqx includes (`assert.hrl`,
-  `ms_transform.hrl`, `inet.hrl`) are provided since LIB75.
-
-#### Applications beyond erts/kernel/stdlib (survey 2026-10-26)
+### Phase: applications beyond erts/kernel/stdlib (survey 2026-10-26)
 
 What `test-emqx.toml` still takes from OTP. Documented API from the OTP 29 doc chunks of the host's
 `ssl-11.7.7`, `eunit-2.11`, `common_test-1.31.2` (full lists in the appendix; re-observe them into
@@ -117,26 +103,13 @@ are over `references/emqx/apps`, non-test sources unless noted. The same rules a
 core: whole module or nothing in `library/`, OTP's terms and records, goldens from OTP, own headers
 written from the documented records and macros.
 
-- **LIB81 `ssl` (`ssl` 52 functions, `ssl_crl_cache` 3, callback-only `ssl_crl_cache_api`,
-  `ssl_session_cache_api`).** Decided 2026-10-27 (user): a hybrid over OpenSSL's libssl. Each
-  connection is an Erlang process with OTP's semantics: owner and `controlling_process`, active
-  modes, `{ssl, S, Data}`/`{ssl_closed, S}`/`{ssl_error, S, R}` messages, OTP's option validation,
-  error and alert terms. libssl does the record layer and handshake over memory BIOs, and the
-  process moves bytes through the `cb_info` transport (`gen_tcp` by default). Certificate checks
-  stay OTP's: the handshake pauses in libssl's verify callback (`SSL_set_retry_verify`) and the
-  process runs `public_key:pkix_path_validation/3` with `verify_fun`, `partial_chain` and CRL
-  options. TLS 1.2 and 1.3 come first. emqx's non-test code only calls the data functions
-  (`cipher_suites`, `versions`, `str_to_suite`, `suite_to_str`). Its tests call `connect` 70 times,
-  `close` 55, `send` 17 and `recv` 15. emqx's `emqx_ocsp_cache` and `emqx_ssl_crl_cache` include
-  OTP-internal `ssl_handshake.hrl` and `ssl_internal.hrl`. These are not public and are not
-  provided, so projects keep OTP's `ssl` application root for them.
-  - **LIB81D TLS features:** done but these optional steps (`ssl` is complete, not PARTIAL).
-    - **LIB81D3c (optional, on request)** `log_level` output: OTP's `debug` protocol traces of
-      records and handshake messages (`ssl_logger`); libssl's messages differ from OTP's, so the
-      traces cannot match.
-    - **LIB81D4b (optional, skipped for now 2026-10-28)** OCSP stapling: the client `stapling`
-      option (`staple | no_staple | #{ocsp_nonce, ...}`), the staple checked as OTP's
-      `ssl_certificate` checks it (`public_key:pkix_ocsp_validate/5`), `missing_ocsp_staple`.
+- **LIB81 `ssl` optional steps** (`ssl` is complete; design in `21-finished.md`):
+  - **LIB81D3c (optional, on request)** `log_level` output: OTP's `debug` protocol traces of
+    records and handshake messages (`ssl_logger`); libssl's messages differ from OTP's, so the
+    traces cannot match.
+  - **LIB81D4b (optional, skipped for now 2026-10-28)** OCSP stapling: the client `stapling`
+    option (`staple | no_staple | #{ocsp_nonce, ...}`), the staple checked as OTP's
+    `ssl_certificate` checks it (`public_key:pkix_ocsp_validate/5`), `missing_ocsp_staple`.
   - **LIB81E (optional) TLS 1.0/1.1 and DTLS 1.0/1.2** over `gen_udp` with libssl's DTLS methods.
 - **LIB82 (far back: test support) `eunit` (4 functions: `eunit:test/1,2`, `start/0`, `stop/0`):**
   `eunit.hrl` (49 `-define`s: `?assert*`, `?_test`, `?_assert*`, `?debug*`, `?LET`, `?IF`, `NOTEST`)
@@ -312,8 +285,8 @@ dependencies, non-test sources.
 
 ### Order
 
-1. MIM1A–MIM1G (paused 2026-10-30 for plan 30, network distribution in `30-dist.md`; revisit the
-   single-node design after it), then MIM9's record wildcard fix, MIM6, MIM7
+1. MIM1A–MIM1G (paused 2026-10-30 for plan 30, network distribution in `30-dist.md`; the design
+   was revised for named nodes in DIST13), then MIM9's record wildcard fix, MIM6, MIM7
    (small), MIM3, MIM4, MIM2, MIM5; MIM8 after a user decision.
 2. LIB81D3c, LIB81D4b and LIB81E on request.
 3. LIB82, LIB83 last (test support).
