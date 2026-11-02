@@ -1,7 +1,7 @@
-%% Clause's mnesia (plan 21 step MIM1A, docs/libraries/mnesia.md): a database of ets tables owned by mnesia_monitor,
+%% Clause's mnesia (plan 21 step MIM1, docs/libraries/mnesia.md): a database of ets tables owned by mnesia_monitor,
 %% with OTP's results, errors and table properties. Step MIM1A provides starting and stopping, the RAM schema and its
-%% information, dirty access and indexes; transactions, disc storage, events, backups and fragments follow in
-%% MIM1B-MIM1G, and their functions raise not_implemented until then.
+%% information, dirty access and indexes; MIM1B transactions, activities and access modules. Disc storage, events,
+%% backups and fragments follow in MIM1C-MIM1G, and their functions raise not_implemented until then.
 -module(mnesia).
 -export([
     start/0,
@@ -48,49 +48,21 @@
     dirty_rpc/4,
     remote_dirty_match_object/2,
     remote_dirty_select/2,
-    remote_dirty_select_reverse/2
-]).
-%% OTP 29 exports implemented natively or not yet: catalog builtins, whose clause_builtin_placeholder body the runtime's
-%% builtin replaces, and stubs raising error({not_implemented, F, A}) (docs/libraries/library.md#runtime-module-replacements).
--export([
-    activate_checkpoint/1,
+    remote_dirty_select_reverse/2,
     activity/2,
     activity/3,
     activity/4,
-    add_backend_type/2,
-    add_table_copy/3,
     all_keys/1,
     all_keys/4,
     async_dirty/1,
     async_dirty/2,
-    backup/1,
-    backup/2,
-    backup_checkpoint/2,
-    backup_checkpoint/3,
-    change_config/2,
-    change_table_access_mode/2,
-    change_table_copy_type/3,
-    change_table_frag/2,
-    change_table_load_order/2,
-    change_table_majority/2,
-    clear_table/1,
-    clear_table/4,
-    create_schema/1,
-    create_schema/2,
-    deactivate_checkpoint/1,
-    del_table_copy/2,
     delete/1,
     delete/3,
     delete/5,
     delete_object/1,
     delete_object/3,
     delete_object/5,
-    delete_schema/1,
-    delete_table_property/2,
     dirty_sel_init/5,
-    dump_log/0,
-    dump_tables/1,
-    dump_to_textfile/1,
     ets/1,
     ets/2,
     first/1,
@@ -101,7 +73,6 @@
     foldr/3,
     foldr/4,
     foldr/6,
-    force_load_table/1,
     fun_select/7,
     fun_select/10,
     get_activity_id/0,
@@ -110,23 +81,15 @@
     index_match_object/6,
     index_read/3,
     index_read/6,
-    info/0,
-    install_fallback/1,
-    install_fallback/2,
     is_transaction/0,
-    kill/0,
     last/1,
     last/3,
-    lkill/0,
-    load_textfile/1,
     lock/2,
     lock/4,
     lock_table/2,
     match_object/1,
     match_object/3,
     match_object/5,
-    move_table_copy/3,
-    ms/0,
     next/2,
     next/4,
     prev/2,
@@ -137,9 +100,6 @@
     read/3,
     read/5,
     read_lock_table/1,
-    read_table_property/2,
-    report_event/1,
-    restore/2,
     s_delete/1,
     s_delete_object/1,
     s_write/1,
@@ -156,6 +116,59 @@
     select_reverse/4,
     select_reverse/5,
     select_reverse/6,
+    sync_dirty/1,
+    sync_dirty/2,
+    sync_transaction/1,
+    sync_transaction/2,
+    sync_transaction/3,
+    transaction/1,
+    transaction/2,
+    transaction/3,
+    wread/1,
+    write/1,
+    write/3,
+    write/5,
+    write_lock_table/1
+]).
+%% OTP 29 exports implemented natively or not yet: catalog builtins, whose clause_builtin_placeholder body the runtime's
+%% builtin replaces, and stubs raising error({not_implemented, F, A}) (docs/libraries/library.md#runtime-module-replacements).
+-export([
+    activate_checkpoint/1,
+    add_backend_type/2,
+    add_table_copy/3,
+    backup/1,
+    backup/2,
+    backup_checkpoint/2,
+    backup_checkpoint/3,
+    change_config/2,
+    change_table_access_mode/2,
+    change_table_copy_type/3,
+    change_table_frag/2,
+    change_table_load_order/2,
+    change_table_majority/2,
+    clear_table/1,
+    clear_table/4,
+    create_schema/1,
+    create_schema/2,
+    deactivate_checkpoint/1,
+    del_table_copy/2,
+    delete_schema/1,
+    delete_table_property/2,
+    dump_log/0,
+    dump_tables/1,
+    dump_to_textfile/1,
+    force_load_table/1,
+    info/0,
+    install_fallback/1,
+    install_fallback/2,
+    kill/0,
+    lkill/0,
+    load_textfile/1,
+    move_table_copy/3,
+    ms/0,
+    read_table_property/2,
+    report_event/1,
+    restore/2,
     set_debug_level/1,
     set_master_nodes/1,
     set_master_nodes/2,
@@ -165,18 +178,10 @@
     snmp_get_row/2,
     snmp_open_table/2,
     subscribe/1,
-    sync_dirty/1,
-    sync_dirty/2,
     sync_log/0,
-    sync_transaction/1,
-    sync_transaction/2,
-    sync_transaction/3,
     system_info/0,
     table/1,
     table/2,
-    transaction/1,
-    transaction/2,
-    transaction/3,
     transform_table/3,
     transform_table/4,
     traverse_backup/4,
@@ -184,11 +189,6 @@
     uninstall_fallback/0,
     uninstall_fallback/1,
     unsubscribe/1,
-    wread/1,
-    write/1,
-    write/3,
-    write/5,
-    write_lock_table/1,
     write_table_property/2
 ]).
 
@@ -236,7 +236,7 @@ stop() ->
 abort(Reason = {aborted, _}) -> exit(Reason);
 abort(Reason) -> exit({aborted, Reason}).
 
-%% Schema changes, each a schema transaction run by mnesia_monitor.
+%% Schema changes, each a schema transaction: never inside an activity.
 
 create_table(Name, Options) when is_list(Options) ->
     create_table([{name, Name} | Options]);
@@ -258,14 +258,29 @@ del_table_index(Tab, Attribute) ->
     schema_operation({del_index, Tab, Attribute}).
 
 schema_operation(Operation) ->
-    case clause_mnesia_monitor:schema_operation(Operation) of
-        {not_implemented, Feature} -> erlang:error({not_implemented, Feature});
-        Result -> Result
+    case get(mnesia_activity_state) of
+        undefined -> schema_result(clause_mnesia_monitor:schema_transaction(Operation));
+        _ -> {aborted, nested_transaction}
     end.
+
+schema_result({atomic, {not_implemented, Feature}}) -> erlang:error({not_implemented, Feature});
+schema_result(Result) -> Result.
 
 %% Information.
 
-table_info(Tab, Item) when is_atom(Tab) ->
+% A table's information; an activity with another access module answers through it.
+table_info(Tab, Item) ->
+    case get(mnesia_activity_state) of
+        undefined -> any_table_info(Tab, Item);
+        {mnesia, _, _} -> any_table_info(Tab, Item);
+        {Mod, Tid, Ts} -> Mod:table_info(Tid, Ts, Tab, Item);
+        _ -> abort(no_transaction)
+    end.
+
+table_info(_Tid, _Ts, Tab, Item) ->
+    any_table_info(Tab, Item).
+
+any_table_info(Tab, Item) when is_atom(Tab) ->
     case Item of
         master_nodes -> [];
         size -> raw_table_info(Tab, Item);
@@ -275,11 +290,8 @@ table_info(Tab, Item) when is_atom(Tab) ->
         name -> Tab;
         _ -> gvar({Tab, Item}, {no_exists, Tab, Item})
     end;
-table_info(Tab, _) ->
+any_table_info(Tab, _) ->
     abort({bad_type, Tab}).
-
-table_info(_Tid, _Ts, Tab, Item) ->
-    table_info(Tab, Item).
 
 % A table's properties, its type under the name type.
 all_properties(Tab) ->
@@ -361,15 +373,18 @@ running_info(checkpoints) ->
 running_info(subscribers) ->
     val({schema, tables}),
     [whereis(mnesia_event)];
-running_info(Item) when Item =:= held_locks; Item =:= lock_queue ->
+running_info(held_locks) ->
     counter(trans_commits),
-    [];
+    clause_mnesia_locker:held_locks();
+running_info(lock_queue) ->
+    counter(trans_commits),
+    clause_mnesia_locker:lock_queue();
 running_info(transaction_log_writes) ->
     counter(trans_commits),
     0;
 running_info(transactions) ->
     {ok, _} = running(),
-    [];
+    clause_mnesia_tm:transactions();
 running_info(transaction_commits) ->
     counter(trans_commits);
 running_info(transaction_failures) ->
@@ -603,6 +618,259 @@ has_var(_) -> false.
 variable_name([$$ | Digits]) -> lists:all(fun(C) -> C >= $0 andalso C =< $9 end, Digits);
 variable_name(_) -> false.
 
+%% Transactions and activities (MIM1B): the caller's activity is {AccessModule, ActivityId, Opaque} in its process
+%% dictionary under mnesia_activity_state, as in OTP.
+
+is_transaction() ->
+    case get(mnesia_activity_state) of
+        {_, Tid, _} when element(1, Tid) =:= tid -> true;
+        _ -> false
+    end.
+
+transaction(Fun) ->
+    transaction(get(mnesia_activity_state), Fun, [], infinity, mnesia, async).
+
+transaction(Fun, Retries) when is_integer(Retries), Retries >= 0; Retries =:= infinity ->
+    transaction(get(mnesia_activity_state), Fun, [], Retries, mnesia, async);
+transaction(Fun, Args) ->
+    transaction(get(mnesia_activity_state), Fun, Args, infinity, mnesia, async).
+
+transaction(Fun, Args, Retries) ->
+    transaction(get(mnesia_activity_state), Fun, Args, Retries, mnesia, async).
+
+sync_transaction(Fun) ->
+    transaction(get(mnesia_activity_state), Fun, [], infinity, mnesia, sync).
+
+sync_transaction(Fun, Retries) when is_integer(Retries), Retries >= 0; Retries =:= infinity ->
+    transaction(get(mnesia_activity_state), Fun, [], Retries, mnesia, sync);
+sync_transaction(Fun, Args) ->
+    transaction(get(mnesia_activity_state), Fun, Args, infinity, mnesia, sync).
+
+sync_transaction(Fun, Args, Retries) ->
+    transaction(get(mnesia_activity_state), Fun, Args, Retries, mnesia, sync).
+
+transaction(State, Fun, Args, Retries, Mod, Kind) when
+    is_function(Fun), is_list(Args), is_atom(Mod), Retries =:= infinity;
+    is_function(Fun), is_list(Args), is_atom(Mod), is_integer(Retries), Retries >= 0
+->
+    clause_mnesia_tm:transaction(State, Fun, Args, Retries, Mod, Kind);
+transaction(_, Fun, Args, Retries, Mod, _) ->
+    {aborted, {badarg, Fun, Args, Retries, Mod}}.
+
+non_transaction(State, Fun, Args, Kind, Mod) when is_function(Fun), is_list(Args), is_atom(Mod) ->
+    clause_mnesia_tm:non_transaction(State, Fun, Args, Kind, Mod);
+non_transaction(_, Fun, Args, _, _) ->
+    {aborted, {badarg, Fun, Args}}.
+
+async_dirty(Fun) ->
+    async_dirty(Fun, []).
+
+async_dirty(Fun, Args) ->
+    non_transaction(get(mnesia_activity_state), Fun, Args, async_dirty, mnesia).
+
+sync_dirty(Fun) ->
+    sync_dirty(Fun, []).
+
+sync_dirty(Fun, Args) ->
+    non_transaction(get(mnesia_activity_state), Fun, Args, sync_dirty, mnesia).
+
+ets(Fun) ->
+    ets(Fun, []).
+
+ets(Fun, Args) ->
+    non_transaction(get(mnesia_activity_state), Fun, Args, ets, mnesia).
+
+activity(Kind, Fun) ->
+    activity(Kind, Fun, []).
+
+activity(Kind, Fun, Args) when is_list(Args) ->
+    activity(Kind, Fun, Args, clause_mnesia_monitor:get_env(access_module));
+activity(Kind, Fun, Mod) ->
+    activity(Kind, Fun, [], Mod).
+
+% An activity whose mnesia functions go through the access module Mod; a transaction's abort is an exit here.
+activity(Kind, Fun, Args, Mod) ->
+    State = get(mnesia_activity_state),
+    case Kind of
+        _ when Kind =:= ets; Kind =:= async_dirty; Kind =:= sync_dirty -> non_transaction(State, Fun, Args, Kind, Mod);
+        transaction -> unwrapped(State, Fun, Args, infinity, Mod, async);
+        {transaction, Retries} -> unwrapped(State, Fun, Args, Retries, Mod, async);
+        sync_transaction -> unwrapped(State, Fun, Args, infinity, Mod, sync);
+        {sync_transaction, Retries} -> unwrapped(State, Fun, Args, Retries, Mod, sync);
+        _ -> {aborted, {bad_type, Kind}}
+    end.
+
+unwrapped(State, Fun, Args, Retries, Mod, Kind) ->
+    case transaction(State, Fun, Args, Retries, Mod, Kind) of
+        {atomic, Result} -> Result;
+        Aborted -> exit(Aborted)
+    end.
+
+get_activity_id() ->
+    get(mnesia_activity_state).
+
+put_activity_id(undefined) ->
+    erase(mnesia_activity_state);
+put_activity_id(State) ->
+    put(mnesia_activity_state, State).
+
+% A function of the caller's activity, through its access module.
+access(Function, Args) ->
+    case get(mnesia_activity_state) of
+        {Mod, Tid, Ts} -> apply(Mod, Function, [Tid, Ts | Args]);
+        _ -> abort(no_transaction)
+    end.
+
+%% Access in activities: each function reaches the activity's access module, whose default is this module.
+
+lock(Item, Kind) ->
+    access(lock, [Item, Kind]).
+
+lock_table(Tab, Kind) ->
+    lock({table, Tab}, Kind).
+
+read_lock_table(Tab) ->
+    lock({table, Tab}, read),
+    ok.
+
+write_lock_table(Tab) ->
+    lock({table, Tab}, write),
+    ok.
+
+write(Val) when is_tuple(Val), tuple_size(Val) > 2 -> write(element(1, Val), Val, write);
+write(Val) -> abort({bad_type, Val}).
+
+s_write(Val) when is_tuple(Val), tuple_size(Val) > 2 -> write(element(1, Val), Val, sticky_write).
+
+write(Tab, Val, Kind) ->
+    access(write, [Tab, Val, Kind]).
+
+delete({Tab, Key}) -> delete(Tab, Key, write);
+delete(Oid) -> abort({bad_type, Oid}).
+
+s_delete({Tab, Key}) -> delete(Tab, Key, sticky_write);
+s_delete(Oid) -> abort({bad_type, Oid}).
+
+delete(Tab, Key, Kind) ->
+    access(delete, [Tab, Key, Kind]).
+
+delete_object(Val) when is_tuple(Val), tuple_size(Val) > 2 -> delete_object(element(1, Val), Val, write);
+delete_object(Val) -> abort({bad_type, Val}).
+
+s_delete_object(Val) when is_tuple(Val), tuple_size(Val) > 2 -> delete_object(element(1, Val), Val, sticky_write);
+s_delete_object(Val) -> abort({bad_type, Val}).
+
+delete_object(Tab, Val, Kind) ->
+    access(delete_object, [Tab, Val, Kind]).
+
+read({Tab, Key}) -> read(Tab, Key, read);
+read(Oid) -> abort({bad_type, Oid}).
+
+read(Tab, Key) ->
+    read(Tab, Key, read).
+
+wread({Tab, Key}) -> read(Tab, Key, write);
+wread(Oid) -> abort({bad_type, Oid}).
+
+read(Tab, Key, Kind) ->
+    access(read, [Tab, Key, Kind]).
+
+match_object(Pat) when is_tuple(Pat), tuple_size(Pat) > 2 -> match_object(element(1, Pat), Pat, read);
+match_object(Pat) -> abort({bad_type, Pat}).
+
+match_object(Tab, Pat, Kind) ->
+    access(match_object, [Tab, Pat, Kind]).
+
+all_keys(Tab) ->
+    access(all_keys, [Tab, read]).
+
+first(Tab) -> access(first, [Tab]).
+last(Tab) -> access(last, [Tab]).
+next(Tab, Key) -> access(next, [Tab, Key]).
+prev(Tab, Key) -> access(prev, [Tab, Key]).
+
+foldl(Fun, Acc, Tab) ->
+    foldl(Fun, Acc, Tab, read).
+
+foldl(Fun, Acc, Tab, Kind) when is_function(Fun) ->
+    access(foldl, [Fun, Acc, Tab, Kind]).
+
+foldr(Fun, Acc, Tab) ->
+    foldr(Fun, Acc, Tab, read).
+
+foldr(Fun, Acc, Tab, Kind) when is_function(Fun) ->
+    access(foldr, [Fun, Acc, Tab, Kind]).
+
+select(Tab, Spec) ->
+    select(Tab, Spec, read).
+
+select(Tab, Spec, Kind) when is_atom(Tab), Tab =/= schema, is_list(Spec) -> access(select, [Tab, Spec, Kind]);
+select(Tab, Spec, _) -> abort({badarg, Tab, Spec}).
+
+select(Tab, Spec, N, Kind) when is_atom(Tab), Tab =/= schema, is_list(Spec), is_integer(N) ->
+    access(select, [Tab, Spec, N, Kind]);
+select(Tab, Spec, N, _) ->
+    abort({badarg, Tab, Spec, N}).
+
+select(Cont) ->
+    access(select_cont, [Cont]).
+
+select_reverse(Tab, Spec) ->
+    select_reverse(Tab, Spec, read).
+
+select_reverse(Tab, Spec, Kind) when is_atom(Tab), Tab =/= schema, is_list(Spec) ->
+    access(select_reverse, [Tab, Spec, Kind]);
+select_reverse(Tab, Spec, _) ->
+    abort({badarg, Tab, Spec}).
+
+select_reverse(Tab, Spec, N, Kind) when is_atom(Tab), Tab =/= schema, is_list(Spec), is_integer(N) ->
+    access(select_reverse, [Tab, Spec, N, Kind]);
+select_reverse(Tab, Spec, N, _) ->
+    abort({badarg, Tab, Spec, N}).
+
+select_reverse(Cont) ->
+    select(Cont).
+
+index_match_object(Pat, Attr) when is_tuple(Pat), tuple_size(Pat) > 2 ->
+    index_match_object(element(1, Pat), Pat, Attr, read);
+index_match_object(Pat, _) ->
+    abort({bad_type, Pat}).
+
+index_match_object(Tab, Pat, Attr, Kind) ->
+    access(index_match_object, [Tab, Pat, Attr, Kind]).
+
+index_read(Tab, Key, Attr) ->
+    access(index_read, [Tab, Key, Attr, read]).
+
+%% The default access module's functions (clause_mnesia_access), which other access modules call back.
+
+lock(Tid, Ts, Item, Kind) -> clause_mnesia_access:lock(Tid, Ts, Item, Kind).
+write(Tid, Ts, Tab, Val, Kind) -> clause_mnesia_access:write(Tid, Ts, Tab, Val, Kind).
+delete(Tid, Ts, Tab, Key, Kind) -> clause_mnesia_access:delete(Tid, Ts, Tab, Key, Kind).
+delete_object(Tid, Ts, Tab, Val, Kind) -> clause_mnesia_access:delete_object(Tid, Ts, Tab, Val, Kind).
+read(Tid, Ts, Tab, Key, Kind) -> clause_mnesia_access:read(Tid, Ts, Tab, Key, Kind).
+match_object(Tid, Ts, Tab, Pat, Kind) -> clause_mnesia_access:match_object(Tid, Ts, Tab, Pat, Kind).
+all_keys(Tid, Ts, Tab, Kind) -> clause_mnesia_access:all_keys(Tid, Ts, Tab, Kind).
+first(Tid, Ts, Tab) -> clause_mnesia_access:first(Tid, Ts, Tab).
+last(Tid, Ts, Tab) -> clause_mnesia_access:last(Tid, Ts, Tab).
+next(Tid, Ts, Tab, Key) -> clause_mnesia_access:next(Tid, Ts, Tab, Key).
+prev(Tid, Ts, Tab, Key) -> clause_mnesia_access:prev(Tid, Ts, Tab, Key).
+foldl(Tid, Ts, Fun, Acc, Tab, Kind) -> clause_mnesia_access:foldl(Tid, Ts, Fun, Acc, Tab, Kind).
+foldr(Tid, Ts, Fun, Acc, Tab, Kind) -> clause_mnesia_access:foldr(Tid, Ts, Fun, Acc, Tab, Kind).
+select(Tid, Ts, Tab, Spec, Kind) -> clause_mnesia_access:select(Tid, Ts, Tab, Spec, Kind).
+select(Tid, Ts, Tab, Spec, N, Kind) -> clause_mnesia_access:select(Tid, Ts, Tab, Spec, N, Kind).
+select_cont(Tid, Ts, Cont) -> clause_mnesia_access:select_cont(Tid, Ts, Cont).
+select_reverse(Tid, Ts, Tab, Spec, Kind) -> clause_mnesia_access:select_reverse(Tid, Ts, Tab, Spec, Kind).
+select_reverse(Tid, Ts, Tab, Spec, N, Kind) -> clause_mnesia_access:select_reverse(Tid, Ts, Tab, Spec, N, Kind).
+index_read(Tid, Ts, Tab, Key, Attr, Kind) -> clause_mnesia_access:index_read(Tid, Ts, Tab, Key, Attr, Kind).
+index_match_object(Tid, Ts, Tab, Pat, Attr, Kind) ->
+    clause_mnesia_access:index_match_object(Tid, Ts, Tab, Pat, Attr, Kind).
+fun_select(Tid, Ts, Tab, Spec, Kind, TabPat, Select) ->
+    clause_mnesia_access:fun_select(Tid, Ts, Tab, Spec, Kind, TabPat, Select).
+fun_select(Tid, Ts, Tab, Spec, Kind, TabPat, Init, N, Node, Storage) ->
+    clause_mnesia_access:fun_select(Tid, Ts, Tab, Spec, Kind, TabPat, Init, N, Node, Storage).
+dirty_sel_init(Node, Tab, Spec, N, Storage) -> clause_mnesia_access:dirty_sel_init(Node, Tab, Spec, N, Storage).
+
 %% Dirty writes: checked here, then applied to this node's replica.
 
 dirty_write(Val) when is_tuple(Val), tuple_size(Val) > 2 ->
@@ -611,7 +879,7 @@ dirty_write(Val) ->
     abort({bad_type, Val}).
 
 dirty_write(Tab, Val) when is_atom(Tab), Tab =/= schema, is_tuple(Val), tuple_size(Val) > 2 ->
-    validate_record(Tab, Val),
+    _ = clause_mnesia_access:validate_record(Tab, Val),
     commit(Tab, element(2, Val), {write, Val});
 dirty_write(Tab, Val) ->
     abort({bad_type, Tab, Val}).
@@ -647,13 +915,6 @@ dirty_update_counter(Tab, Key, Incr) when is_atom(Tab), Tab =/= schema, is_integ
 dirty_update_counter(Tab, _, Incr) ->
     abort({bad_type, Tab, Incr}).
 
-% A record of the table's record name and arity.
-validate_record(Tab, Val) ->
-    case gvar({Tab, record_validation}, {no_exists, Tab}) of
-        {RecordName, Arity, _} when tuple_size(Val) =:= Arity, element(1, Val) =:= RecordName -> ok;
-        _ -> abort({bad_type, Val})
-    end.
-
 % An update applied where the table is committed on this node; none without writable replicas.
 commit(Tab, Key, Update) ->
     case val({Tab, where_to_commit}) of
@@ -667,43 +928,12 @@ commit(Tab, Key, Update) ->
 % An update of this node's replica; a failed one leaves the result as it was, as OTP's commit does.
 replica_update({Node, _Storage}, Tab, Key, Update, Result) when Node =:= node() ->
     try
-        update(Tab, Key, Update)
+        clause_mnesia_access:update(Tab, Key, Update)
     catch
         _:_ -> Result
     end;
 replica_update(_, _, _, _, Result) ->
     Result.
-
-update(Tab, Key, {write, Val}) ->
-    clause_mnesia_index:written(Tab, Key, Val, undefined),
-    true = ets:insert(Tab, Val),
-    ok;
-update(Tab, Key, delete) ->
-    clause_mnesia_index:deleted(Tab, Key),
-    true = ets:delete(Tab, Key),
-    ok;
-update(Tab, Key, {delete_object, Val}) ->
-    clause_mnesia_index:object_deleted(Tab, Key, Val),
-    true = ets:match_delete(Tab, Val),
-    ok;
-update(Tab, Key, {update_counter, RecordName, Incr}) ->
-    {New, Old} = counted(Tab, Key, RecordName, Incr),
-    clause_mnesia_index:written(Tab, Key, New, Old),
-    element(3, New).
-
-% The counter's new record and the one it replaced; a counter that is missing, not an integer or would go below zero
-% becomes the increment, or zero.
-counted(Tab, Key, RecordName, Incr) ->
-    try ets:update_counter(Tab, Key, Incr) of
-        Value when is_integer(Value), Value >= 0 -> {{RecordName, Key, Value}, [{RecordName, Key, Value - Incr}]};
-        _ -> reset(Tab, {RecordName, Key, max(Incr, 0)})
-    catch
-        error:_ -> reset(Tab, {RecordName, Key, max(Incr, 0)})
-    end.
-
-reset(Tab, Record) ->
-    true = ets:insert(Tab, Record),
-    {Record, []}.
 
 %% Dirty reads, each run on the replica this node reads.
 
@@ -794,7 +1024,7 @@ dirty_all_keys(Tab) when is_atom(Tab), Tab =/= schema ->
     Pattern = setelement(2, gvar({Tab, wild_pattern}, {no_exists, Tab}), '$1'),
     Keys = dirty_select(Tab, [{Pattern, [], ['$1']}]),
     case val({Tab, setorbag}) of
-        bag -> lists:usort(Keys);
+        bag -> clause_mnesia_access:uniq(Keys);
         _ -> Keys
     end;
 dirty_all_keys(Tab) ->
@@ -878,15 +1108,8 @@ local(Tab, Args, Read) ->
 val(Name) -> clause_mnesia_monitor:val(Name).
 
 activate_checkpoint(_) -> erlang:error({not_implemented, activate_checkpoint, 1}).
-activity(_, _) -> erlang:error({not_implemented, activity, 2}).
-activity(_, _, _) -> erlang:error({not_implemented, activity, 3}).
-activity(_, _, _, _) -> erlang:error({not_implemented, activity, 4}).
 add_backend_type(_, _) -> erlang:error({not_implemented, add_backend_type, 2}).
 add_table_copy(_, _, _) -> erlang:error({not_implemented, add_table_copy, 3}).
-all_keys(_) -> erlang:error({not_implemented, all_keys, 1}).
-all_keys(_, _, _, _) -> erlang:error({not_implemented, all_keys, 4}).
-async_dirty(_) -> erlang:error({not_implemented, async_dirty, 1}).
-async_dirty(_, _) -> erlang:error({not_implemented, async_dirty, 2}).
 backup(_) -> erlang:error({not_implemented, backup, 1}).
 backup(_, _) -> erlang:error({not_implemented, backup, 2}).
 backup_checkpoint(_, _) -> erlang:error({not_implemented, backup_checkpoint, 2}).
@@ -903,83 +1126,23 @@ create_schema(_) -> erlang:error({not_implemented, create_schema, 1}).
 create_schema(_, _) -> erlang:error({not_implemented, create_schema, 2}).
 deactivate_checkpoint(_) -> erlang:error({not_implemented, deactivate_checkpoint, 1}).
 del_table_copy(_, _) -> erlang:error({not_implemented, del_table_copy, 2}).
-delete(_) -> erlang:error({not_implemented, delete, 1}).
-delete(_, _, _) -> erlang:error({not_implemented, delete, 3}).
-delete(_, _, _, _, _) -> erlang:error({not_implemented, delete, 5}).
-delete_object(_) -> erlang:error({not_implemented, delete_object, 1}).
-delete_object(_, _, _) -> erlang:error({not_implemented, delete_object, 3}).
-delete_object(_, _, _, _, _) -> erlang:error({not_implemented, delete_object, 5}).
 delete_schema(_) -> erlang:error({not_implemented, delete_schema, 1}).
 delete_table_property(_, _) -> erlang:error({not_implemented, delete_table_property, 2}).
-dirty_sel_init(_, _, _, _, _) -> erlang:error({not_implemented, dirty_sel_init, 5}).
 dump_log() -> erlang:error({not_implemented, dump_log, 0}).
 dump_tables(_) -> erlang:error({not_implemented, dump_tables, 1}).
 dump_to_textfile(_) -> erlang:error({not_implemented, dump_to_textfile, 1}).
-ets(_) -> erlang:error({not_implemented, ets, 1}).
-ets(_, _) -> erlang:error({not_implemented, ets, 2}).
-first(_) -> erlang:error({not_implemented, first, 1}).
-first(_, _, _) -> erlang:error({not_implemented, first, 3}).
-foldl(_, _, _) -> erlang:error({not_implemented, foldl, 3}).
-foldl(_, _, _, _) -> erlang:error({not_implemented, foldl, 4}).
-foldl(_, _, _, _, _, _) -> erlang:error({not_implemented, foldl, 6}).
-foldr(_, _, _) -> erlang:error({not_implemented, foldr, 3}).
-foldr(_, _, _, _) -> erlang:error({not_implemented, foldr, 4}).
-foldr(_, _, _, _, _, _) -> erlang:error({not_implemented, foldr, 6}).
 force_load_table(_) -> erlang:error({not_implemented, force_load_table, 1}).
-fun_select(_, _, _, _, _, _, _) -> erlang:error({not_implemented, fun_select, 7}).
-fun_select(_, _, _, _, _, _, _, _, _, _) -> erlang:error({not_implemented, fun_select, 10}).
-get_activity_id() -> erlang:error({not_implemented, get_activity_id, 0}).
-index_match_object(_, _) -> erlang:error({not_implemented, index_match_object, 2}).
-index_match_object(_, _, _, _) -> erlang:error({not_implemented, index_match_object, 4}).
-index_match_object(_, _, _, _, _, _) -> erlang:error({not_implemented, index_match_object, 6}).
-index_read(_, _, _) -> erlang:error({not_implemented, index_read, 3}).
-index_read(_, _, _, _, _, _) -> erlang:error({not_implemented, index_read, 6}).
 info() -> erlang:error({not_implemented, info, 0}).
 install_fallback(_) -> erlang:error({not_implemented, install_fallback, 1}).
 install_fallback(_, _) -> erlang:error({not_implemented, install_fallback, 2}).
-is_transaction() -> erlang:error({not_implemented, is_transaction, 0}).
 kill() -> erlang:error({not_implemented, kill, 0}).
-last(_) -> erlang:error({not_implemented, last, 1}).
-last(_, _, _) -> erlang:error({not_implemented, last, 3}).
 lkill() -> erlang:error({not_implemented, lkill, 0}).
 load_textfile(_) -> erlang:error({not_implemented, load_textfile, 1}).
-lock(_, _) -> erlang:error({not_implemented, lock, 2}).
-lock(_, _, _, _) -> erlang:error({not_implemented, lock, 4}).
-lock_table(_, _) -> erlang:error({not_implemented, lock_table, 2}).
-match_object(_) -> erlang:error({not_implemented, match_object, 1}).
-match_object(_, _, _) -> erlang:error({not_implemented, match_object, 3}).
-match_object(_, _, _, _, _) -> erlang:error({not_implemented, match_object, 5}).
 move_table_copy(_, _, _) -> erlang:error({not_implemented, move_table_copy, 3}).
 ms() -> erlang:error({not_implemented, ms, 0}).
-next(_, _) -> erlang:error({not_implemented, next, 2}).
-next(_, _, _, _) -> erlang:error({not_implemented, next, 4}).
-prev(_, _) -> erlang:error({not_implemented, prev, 2}).
-prev(_, _, _, _) -> erlang:error({not_implemented, prev, 4}).
-put_activity_id(_) -> erlang:error({not_implemented, put_activity_id, 1}).
-read(_) -> erlang:error({not_implemented, read, 1}).
-read(_, _) -> erlang:error({not_implemented, read, 2}).
-read(_, _, _) -> erlang:error({not_implemented, read, 3}).
-read(_, _, _, _, _) -> erlang:error({not_implemented, read, 5}).
-read_lock_table(_) -> erlang:error({not_implemented, read_lock_table, 1}).
 read_table_property(_, _) -> erlang:error({not_implemented, read_table_property, 2}).
 report_event(_) -> erlang:error({not_implemented, report_event, 1}).
 restore(_, _) -> erlang:error({not_implemented, restore, 2}).
-s_delete(_) -> erlang:error({not_implemented, s_delete, 1}).
-s_delete_object(_) -> erlang:error({not_implemented, s_delete_object, 1}).
-s_write(_) -> erlang:error({not_implemented, s_write, 1}).
-select(_) -> erlang:error({not_implemented, select, 1}).
-select(_, _) -> erlang:error({not_implemented, select, 2}).
-select(_, _, _) -> erlang:error({not_implemented, select, 3}).
-select(_, _, _, _) -> erlang:error({not_implemented, select, 4}).
-select(_, _, _, _, _) -> erlang:error({not_implemented, select, 5}).
-select(_, _, _, _, _, _) -> erlang:error({not_implemented, select, 6}).
-select_cont(_, _, _) -> erlang:error({not_implemented, select_cont, 3}).
-select_reverse(_) -> erlang:error({not_implemented, select_reverse, 1}).
-select_reverse(_, _) -> erlang:error({not_implemented, select_reverse, 2}).
-select_reverse(_, _, _) -> erlang:error({not_implemented, select_reverse, 3}).
-select_reverse(_, _, _, _) -> erlang:error({not_implemented, select_reverse, 4}).
-select_reverse(_, _, _, _, _) -> erlang:error({not_implemented, select_reverse, 5}).
-select_reverse(_, _, _, _, _, _) -> erlang:error({not_implemented, select_reverse, 6}).
 set_debug_level(_) -> erlang:error({not_implemented, set_debug_level, 1}).
 set_master_nodes(_) -> erlang:error({not_implemented, set_master_nodes, 1}).
 set_master_nodes(_, _) -> erlang:error({not_implemented, set_master_nodes, 2}).
@@ -989,18 +1152,10 @@ snmp_get_next_index(_, _) -> erlang:error({not_implemented, snmp_get_next_index,
 snmp_get_row(_, _) -> erlang:error({not_implemented, snmp_get_row, 2}).
 snmp_open_table(_, _) -> erlang:error({not_implemented, snmp_open_table, 2}).
 subscribe(_) -> erlang:error({not_implemented, subscribe, 1}).
-sync_dirty(_) -> erlang:error({not_implemented, sync_dirty, 1}).
-sync_dirty(_, _) -> erlang:error({not_implemented, sync_dirty, 2}).
 sync_log() -> erlang:error({not_implemented, sync_log, 0}).
-sync_transaction(_) -> erlang:error({not_implemented, sync_transaction, 1}).
-sync_transaction(_, _) -> erlang:error({not_implemented, sync_transaction, 2}).
-sync_transaction(_, _, _) -> erlang:error({not_implemented, sync_transaction, 3}).
 system_info() -> erlang:error({not_implemented, system_info, 0}).
 table(_) -> erlang:error({not_implemented, table, 1}).
 table(_, _) -> erlang:error({not_implemented, table, 2}).
-transaction(_) -> erlang:error({not_implemented, transaction, 1}).
-transaction(_, _) -> erlang:error({not_implemented, transaction, 2}).
-transaction(_, _, _) -> erlang:error({not_implemented, transaction, 3}).
 transform_table(_, _, _) -> erlang:error({not_implemented, transform_table, 3}).
 transform_table(_, _, _, _) -> erlang:error({not_implemented, transform_table, 4}).
 traverse_backup(_, _, _, _) -> erlang:error({not_implemented, traverse_backup, 4}).
@@ -1008,9 +1163,4 @@ traverse_backup(_, _, _, _, _, _) -> erlang:error({not_implemented, traverse_bac
 uninstall_fallback() -> erlang:error({not_implemented, uninstall_fallback, 0}).
 uninstall_fallback(_) -> erlang:error({not_implemented, uninstall_fallback, 1}).
 unsubscribe(_) -> erlang:error({not_implemented, unsubscribe, 1}).
-wread(_) -> erlang:error({not_implemented, wread, 1}).
-write(_) -> erlang:error({not_implemented, write, 1}).
-write(_, _, _) -> erlang:error({not_implemented, write, 3}).
-write(_, _, _, _, _) -> erlang:error({not_implemented, write, 5}).
-write_lock_table(_) -> erlang:error({not_implemented, write_lock_table, 1}).
 write_table_property(_, _) -> erlang:error({not_implemented, write_table_property, 2}).

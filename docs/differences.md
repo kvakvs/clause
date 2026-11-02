@@ -482,8 +482,10 @@ Compared with the same module compiled by `compile:forms/2` and loaded by `code:
 
 | Difference | OTP | Clause | Owner |
 | --- | --- | --- | --- |
-| The `mnesia` application's start module and supervision tree | `mnesia_app`; `mnesia_sup` with `mnesia_event`, `mnesia_ext_sup` and `mnesia_kernel_sup`, which runs `mnesia_monitor`, `mnesia_subscr`, `mnesia_locker`, `mnesia_recover`, `mnesia_tm`, `mnesia_rpc`, `mnesia_checkpoint_sup`, `mnesia_controller` and `mnesia_late_loader` | `clause_mnesia_app`; the same tree with `mnesia_monitor` alone under `mnesia_kernel_sup` (MIM1A); the other servers come with the steps that need them | [mnesia](libraries/mnesia.md#processes) |
+| The `mnesia` application's start module and supervision tree | `mnesia_app`; `mnesia_sup` with `mnesia_event`, `mnesia_ext_sup` and `mnesia_kernel_sup`, which runs `mnesia_monitor`, `mnesia_subscr`, `mnesia_locker`, `mnesia_recover`, `mnesia_tm`, `mnesia_rpc`, `mnesia_checkpoint_sup`, `mnesia_controller` and `mnesia_late_loader` | `clause_mnesia_app`; the same tree with `mnesia_monitor`, `mnesia_locker` and `mnesia_tm` under `mnesia_kernel_sup` (MIM1B); the other servers come with the steps that need them | [mnesia](libraries/mnesia.md#processes) |
 | A schema change that crashes (`{storage_properties, foo}`) | `{aborted, {Reason, Stack}}` with frames of `mnesia_schema` and `mnesia_tm` | `{aborted, {Reason, Stack}}` with frames of `clause_mnesia_schema` and `clause_mnesia_monitor` | [mnesia](libraries/mnesia.md#schema) |
+| `put_activity_id/1` with another process's transaction | Makes the process a friend of the transaction: the transaction's end asks it to end its activity and waits for it | Sets the activity only; the transaction ends without waiting | [mnesia](libraries/mnesia.md#transactions) |
+| Order of `system_info(lock_queue)` with several waiting requests | The queue table's order (a `bag` keyed by the record) | The order the requests came in | [mnesia](libraries/mnesia.md#locks) |
 | `memory` of `table_info/2` and `schema/1` | Words of OTP's ets tables | Words of Clause's ets tables ([ETS](#ets)) | [mnesia](libraries/mnesia.md#global-variables) |
 
 ## Parse transforms

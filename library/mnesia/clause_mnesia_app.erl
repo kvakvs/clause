@@ -1,6 +1,7 @@
 %% The mnesia application's callback and its supervisors, registered as in OTP (plan 21 step MIM1A,
 %% docs/libraries/mnesia.md#processes): mnesia_sup runs the mnesia_event manager, mnesia_ext_sup for backend
-%% processes and mnesia_kernel_sup, whose mnesia_monitor owns the tables. Later steps add mnesia's other servers.
+%% processes and mnesia_kernel_sup: mnesia_monitor owns the tables, mnesia_locker keeps the locks and mnesia_tm the
+%% transactions (MIM1B). Later steps add mnesia's other servers.
 -module(clause_mnesia_app).
 -behaviour(application).
 -behaviour(supervisor).
@@ -31,8 +32,11 @@ init(mnesia_sup) ->
 init(mnesia_ext_sup) ->
     {ok, {#{strategy => one_for_all, intensity => 0, period => 3600}, []}};
 init(mnesia_kernel_sup) ->
-    Monitor = #{id => mnesia_monitor, start => {clause_mnesia_monitor, start_link, []}, shutdown => 3000},
-    {ok, {#{strategy => one_for_all, intensity => 0, period => 86400000}, [Monitor]}}.
+    Servers = [
+        {mnesia_monitor, clause_mnesia_monitor}, {mnesia_locker, clause_mnesia_locker}, {mnesia_tm, clause_mnesia_tm}
+    ],
+    Children = [#{id => Name, start => {Module, start_link, []}, shutdown => 3000} || {Name, Module} <- Servers],
+    {ok, {#{strategy => one_for_all, intensity => 0, period => 86400000}, Children}}.
 
 supervisor(Name) ->
     #{id => Name, start => {?MODULE, start_supervisor, [Name]}, shutdown => infinity, type => supervisor}.

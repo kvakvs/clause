@@ -9,8 +9,12 @@ Clause's `mnesia` application (plan 21, MIM1) exports the OTP 29 interface of `m
     `schema/0,1`, `wait_for_tables/2` and `error_description/1`;
   - [dirty access](#dirty-access) to `set`, `ordered_set` and `bag` tables;
   - [indexes](#indexes).
+- **MIM1B, done:**
+  - [transactions](#transactions), nested or not, with OTP's results, abort terms and restarts;
+  - [locks](#locks) and their queue;
+  - [activities](#activities) and access modules;
+  - schema changes as schema transactions.
 - **Still to come**, raising `{not_implemented, Name, Arity}` until then:
-  - transactions and activities (MIM1B);
   - the other schema changes (MIM1C);
   - disc storage (MIM1D);
   - events, text files, `qlc` tables and `info/0` (MIM1E);
@@ -42,17 +46,22 @@ The design keeps OTP's formats, so that a later step (MIM1H) can add more nodes.
   - `mnesia_event`, the `gen_event` manager for system events;
   - `mnesia_ext_sup`, for backend processes;
   - `mnesia_kernel_sup`:
-    - `mnesia_monitor` ([clause_mnesia_monitor](../../library/mnesia/clause_mnesia_monitor.erl)).
+    - `mnesia_monitor` ([clause_mnesia_monitor](../../library/mnesia/clause_mnesia_monitor.erl));
+    - `mnesia_locker`, the lock manager ([clause_mnesia_locker](../../library/mnesia/clause_mnesia_locker.erl));
+    - `mnesia_tm`, the transaction manager ([clause_mnesia_tm](../../library/mnesia/clause_mnesia_tm.erl)).
 
-Later steps add the lock manager, the transaction manager and the other servers.
+Later steps add the other servers.
 
 `mnesia_monitor` does three things:
 
 - **Owns the tables:** `mnesia_gvar`, the `schema` table, every table and every index table belong to it. They go
   when mnesia stops.
 - **Reads the configuration:** see [configuration](#configuration).
-- **Runs schema changes:** `create_table`, `delete_table`, `add_table_index` and `del_table_index` run one at a time.
-  Each counts as one committed or failed transaction, as OTP's schema transactions do. Starting counts two commits.
+- **Applies schema changes:** `create_table`, `delete_table`, `add_table_index` and `del_table_index` apply one at a
+  time. Each runs in a schema transaction of its own process, as OTP's schema coordinator does:
+  - it takes the schema's write lock, and the table's write lock (`delete_table`) or read lock (the index changes);
+  - it counts as one committed or failed transaction; starting counts two commits;
+  - inside any activity it returns `{aborted, nested_transaction}`.
 
 ### Global variables
 
@@ -137,6 +146,54 @@ The dirty functions run in the calling process and work on the table's `ets` tab
   uses that index. It returns the records in OTP's order: last key first for matches, the table's order for
   `ordered_set` selects.
 
+## Transactions
+
+A transaction runs in the calling process ([clause_mnesia_tm](../../library/mnesia/clause_mnesia_tm.erl)). Its
+activity is `{AccessModule, {tid, Counter, Pid}, #tidstore{}}` under `mnesia_activity_state` in the process
+dictionary, as in OTP:
+
+- **Store:** `mnesia_tm` gives each transaction an `ets` bag of its locks and of its writes and deletes. Reads merge
+  these into the table's records ([clause_mnesia_written](../../library/mnesia/clause_mnesia_written.erl)), so a
+  transaction sees its own writes, with OTP's order of results.
+- **Commit:** `mnesia_tm` applies the writes to the tables and their indexes, then releases the locks. A transaction
+  whose process dies holds no locks afterwards.
+- **Results:** `{atomic, Value}`, or `{aborted, Reason}` with OTP's reasons: `abort/1`'s reason, `{throw, Value}`,
+  an exit's reason, and `{Reason, Stack}` for an error.
+- **Nesting:** an inner transaction works on a copy of the outer store, which its commit hands back. Its abort leaves
+  the outer transaction running. Inner commits and aborts count too.
+- **Restarts:** a refused lock (`#cyclic{}`) restarts the outermost transaction with the same tid, after OTP's growing
+  pause, counting `transaction_restarts`. When the retries run out the result is `{aborted, nomore}`.
+
+`select/4` and `select_reverse/4` return OTP's `#mnesia_select{}` continuation. In a transaction with writes to the
+table, each chunk merges them as OTP's does, chunk boundaries included.
+
+## Locks
+
+`mnesia_locker` keeps read and write locks on records, whole tables (`{Tab, '______WHOLETABLE_____'}`) and global
+items ([clause_mnesia_locker](../../library/mnesia/clause_mnesia_locker.erl)):
+
+- **Conflicts:** a request that conflicts only with younger transactions waits in the queue. One that conflicts with
+  an older transaction is refused, and its transaction restarts. A free lock also waits behind older queued requests
+  for its table, and for its record when it is a read.
+- **Release:** a transaction's end releases its locks, and the queued requests are tried again, youngest first.
+- **Results:** `lock/2` returns what OTP's does: the nodes for a new write lock, `[]` for a record write lock held
+  already, the majority flag for a table write lock held already, the records for a record read lock, `ok` for a new
+  table read lock.
+- **Sticky locks:** `s_write/1` and the other sticky operations need a replica here; the table's first one also takes
+  its read lock and its sticky item.
+- **Information:** `system_info(held_locks)`, `lock_queue` and `transactions` give OTP's terms.
+
+## Activities
+
+`activity/2,3,4`, `async_dirty/1,2`, `sync_dirty/1,2` and `ets/1,2` run a fun with mnesia's functions mapped as in OTP
+([clause_mnesia_access](../../library/mnesia/clause_mnesia_access.erl)):
+
+- **Dirty activities** use the dirty functions; `ets` works on the tables directly.
+- **Inside a transaction** a dirty activity is a nested transaction, whose abort reason becomes an exit.
+- **Access modules:** each function calls `AccessModule:F(ActivityId, Opaque, ...)`. The default module `mnesia`
+  exports these arities, so other access modules can call back. `table_info/2` goes through the access module too.
+- **Errors:** an error in a dirty activity exits with `{Reason, Stack}`; a returned `{aborted, Reason}` aborts.
+
 ## Indexes
 
 Each index is an `ordered_set` table of `{{Value, Key}}` ([clause_mnesia_index](../../library/mnesia/clause_mnesia_index.erl)):
@@ -154,6 +211,11 @@ Each index is an `ordered_set` table of `{{Value, Key}}` ([clause_mnesia_index](
 ## Tests
 
 - **`mnesia_dirty` golden:** generated from OTP ([fixture](../../tests/fixtures/executables/mnesia_dirty/mnesia_dirty.erl)).
+- **`mnesia_transactions` golden:** generated from OTP
+  ([fixture](../../tests/fixtures/executables/mnesia_transactions/mnesia_transactions.erl)). It covers transaction
+  results and abort terms, reads of own writes in each table type, walks, folds and index reads, nesting, the activity
+  kinds, an access module, lock results and errors, conflicts between processes (waiting, restarts, retries running
+  out, shared reads, a killed holder), schema transactions and select continuations.
 - **What it covers:** answers before starting, system information, every `create_table` option and error, table
   properties, dirty access of each table type, indexes, counters, argument errors, schema changes, `schema/1`'s
   printout, error descriptions, and stopping and restarting.

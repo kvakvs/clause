@@ -1,9 +1,10 @@
 %% mnesia's monitor, registered as mnesia_monitor as in OTP (plan 21 step MIM1A, docs/libraries/mnesia.md#processes):
 %% it owns mnesia_gvar, the schema and every table, so they live as long as mnesia runs, reads the configuration
-%% parameters, and runs schema changes one at a time, counting each as a committed or failed transaction.
+%% parameters, and applies schema changes one at a time. Each change runs in a schema transaction (MIM1B), which takes
+%% OTP's locks before the monitor checks and applies it.
 -module(clause_mnesia_monitor).
 -behaviour(gen_server).
--export([start_link/0, schema_operation/1, val/1, is_running/0, get_env/1, check_env/2, increment/1]).
+-export([start_link/0, schema_transaction/1, val/1, is_running/0, get_env/1, check_env/2, increment/1]).
 -export([init/1, handle_call/3, handle_cast/2, terminate/2]).
 
 -include("clause_mnesia.hrl").
@@ -11,12 +12,43 @@
 start_link() ->
     gen_server:start_link({local, mnesia_monitor}, ?MODULE, [], [{timeout, infinity}]).
 
-% Run a schema change (create_table, delete_table, add_index or del_index) as a schema transaction.
-schema_operation(Operation) ->
+% A schema change (create_table, delete_table, add_index or del_index) as a schema transaction, run by a process of
+% its own as OTP's schema coordinator does: {atomic, ok} or {aborted, Reason}.
+schema_transaction(Operation) ->
     case is_running() of
-        yes -> gen_server:call(mnesia_monitor, {schema, Operation}, infinity);
-        _ -> {aborted, {node_not_running, node()}}
+        yes ->
+            {Pid, Ref} = spawn_monitor(fun() ->
+                exit({done, mnesia:transaction(fun() -> schema_change(Operation) end)})
+            end),
+            receive
+                {'DOWN', Ref, process, Pid, {done, Result}} -> Result;
+                {'DOWN', Ref, process, Pid, Reason} -> {aborted, {transaction_crashed, Reason}}
+            end;
+        _ ->
+            {aborted, {node_not_running, node()}}
     end.
+
+% The schema's write lock and the table's lock as OTP's schema transactions take them, then the change.
+schema_change(Operation) ->
+    {_, Tid, #tidstore{store = Store}} = get(mnesia_activity_state),
+    case Operation of
+        {_, schema} -> ok;
+        {_, schema, _} -> ok;
+        _ -> clause_mnesia_locker:wlock_table(Tid, Store, schema)
+    end,
+    table_lock(Tid, Store, Operation),
+    case gen_server:call(mnesia_monitor, {schema, Operation}, infinity) of
+        ok -> ok;
+        {aborted, Reason} -> mnesia:abort(Reason);
+        {not_implemented, _} = NotImplemented -> NotImplemented
+    end.
+
+table_lock(Tid, Store, {delete_table, Tab}) when Tab =/= schema ->
+    ets:member(?GVAR, {Tab, cstruct}) andalso clause_mnesia_locker:wlock_table(Tid, Store, Tab);
+table_lock(Tid, Store, {Index, Tab, _}) when Index =:= add_index orelse Index =:= del_index, Tab =/= schema ->
+    clause_mnesia_locker:rlock_table(Tid, Store, Tab);
+table_lock(_, _, _) ->
+    ok.
 
 % A global variable; a missing table's where_to_read is nowhere, its writers and replicas none, and any other
 % missing variable aborts with node_not_running or no_exists.
@@ -206,20 +238,16 @@ init([]) ->
     set(mnesia_status, running),
     {ok, []}.
 
-% A schema change: its result as {atomic, ok} or {aborted, Reason}, counted.
+% A schema change, checked and applied: ok or {aborted, Reason}.
 handle_call({schema, Operation}, _From, State) ->
     Result =
-        try run(Operation) of
-            ok -> {atomic, ok}
+        try
+            run(Operation)
         catch
             exit:{aborted, Reason} -> {aborted, Reason};
             throw:{not_implemented, _} = NotImplemented -> NotImplemented;
             Class:Reason:Stack when Class =/= throw -> {aborted, {Reason, Stack}}
         end,
-    case Result of
-        {atomic, _} -> increment(trans_commits);
-        _ -> increment(trans_failures)
-    end,
     {reply, Result, State}.
 
 run({create_table, Def}) -> clause_mnesia_schema:create_table(Def);

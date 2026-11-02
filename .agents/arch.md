@@ -180,5 +180,7 @@ behavior (`docs/differences.md` lists gaps).
   key_update_at/renegotiate_at counted in the connection's send path; CRL status checks in the verify fun over
   crl_cache modules; PSK keys from user_lookup_fun after the engine scans the peer's plaintext handshake), mnesia
   (PARTIAL, MIM1A: RAM schema, dirty access and indexes over ets tables owned by `mnesia_monitor`, schema changes
-  serialized there; `mnesia_gvar` keeps OTP's `{Tab, Item}` rows, so `table_info`/`schema/1` list OTP's items). Distribution and tracing
+  serialized there; `mnesia_gvar` keeps OTP's `{Tab, Item}` rows, so `table_info`/`schema/1` list OTP's items;
+  MIM1B: transactions run in the caller over a store ets owned by `mnesia_tm`, which commits; `mnesia_locker` queues
+  older/refuses younger; schema changes are schema transactions in a spawned coordinator). Distribution and tracing
   answer as a non-alive node.

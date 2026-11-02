@@ -26,7 +26,7 @@ internal functions stay out unless a public function needs them (user direction 
   documented functions.
 - **Done:** every documented module of `erts`, `kernel` and `stdlib`, `crypto` (LIB79),
   `public_key` (LIB80) and `ssl` (LIB81A–D5) (`21-finished.md`).
-- **Left:** MongooseIM's missing applications (MIM1B–MIM9, `test-mim.toml`; `mnesia` PARTIAL since MIM1A), optional `ssl` steps
+- **Left:** MongooseIM's missing applications (MIM1C–MIM9, `test-mim.toml`; `mnesia` PARTIAL since MIM1A), optional `ssl` steps
   on request (LIB81D3c, LIB81D4b, LIB81E) and test support (LIB82 `eunit`, LIB83 `common_test`,
   the appendix).
 - **Declined** (`00-reject.md`): the 20 `erlang` functions of the LIB9 remainder, LIB78
@@ -168,27 +168,9 @@ dependencies, non-test sources.
       `mnesia_locker`, `mnesia_tm`, `mnesia_controller`, `mnesia_subscr`, `mnesia_event`).
     - `mnesia` is in `library/` as PARTIAL (`library_modules.py`) since MIM1A and leaves it in
       MIM1G. Docs in `docs/libraries/mnesia.md`; one golden per step, generated from OTP.
-    - Since MIM1A (`21-finished.md`): `mnesia_monitor` owns every table and runs schema changes one at a
-      time; `mnesia_gvar` holds OTP's `{Tab, Item}` rows; dirty access runs in the caller.
-  - **MIM1B Transactions and activities:**
-    - Schema changes become schema transactions: `{aborted, nested_transaction}` inside an
-      activity, the schema write lock, `create_table`'s lock on the new table; `table_info/2` inside an
-      activity through its access module.
-    - `mnesia_locker`: read and write locks on records and tables, OTP's age order (an older
-      transaction waits, a younger one restarts with the same tid), release on commit, abort and
-      exit.
-    - `mnesia_tm`: tids, atomic commit with index upkeep, `transaction_commits`/`failures`/
-      `restarts` counters.
-    - `transaction/1,2,3`, `sync_transaction/1,2,3`, `abort/1`, `is_transaction/0`, nested
-      transactions, retries, OTP's abort terms for errors, exits and throws.
-    - In a transaction: `read/1,2,3`, `wread/1`, `write/1,3`, `s_write/1`, `delete/1,3`,
-      `s_delete/1`, `delete_object/1,3`, `s_delete_object/1`, `match_object/1,3`,
-      `select/1,2,3,4`, `select_reverse/1,2,3,4` (continuations), `all_keys/1`,
-      `first/last/next/prev`, `foldl/3,4`, `foldr/3,4`, `index_read/3`, `index_match_object/2,4`,
-      `lock/2`, `read_lock_table/1`, `write_lock_table/1`; reads see the transaction's own writes.
-    - `activity/2,4` with access-module dispatch (`mnesia_activity_state`), `async_dirty/1,2`,
-      `sync_dirty/1,2`, `ets/1,2`.
-    - Golden `mnesia_transactions`.
+    - Since MIM1A/MIM1B (`21-finished.md`): `mnesia_monitor` owns every table and applies schema changes one at
+      a time inside schema transactions; `mnesia_gvar` holds OTP's `{Tab, Item}` rows; dirty access and
+      transactions run in the caller, `mnesia_tm` commits, `mnesia_locker` keeps locks.
   - **MIM1C Schema changes:**
     - `clear_table/1`, `transform_table/3,4`, `change_table_copy_type/3`, `add_table_copy/3`,
       `del_table_copy/2`, `move_table_copy/3` on the local node.
@@ -276,7 +258,7 @@ dependencies, non-test sources.
 
 ### Order
 
-1. MIM1B–MIM1G (MIM1A done 2026-11-02; the design was revised for named nodes in DIST13), then
+1. MIM1C–MIM1G (MIM1A and MIM1B done 2026-11-02/03; the design was revised for named nodes in DIST13), then
    MIM9's record wildcard fix, MIM6, MIM7
    (small), MIM3, MIM4, MIM2, MIM5; MIM8 after a user decision.
 2. LIB81D3c, LIB81D4b and LIB81E on request.

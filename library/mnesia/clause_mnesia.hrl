@@ -30,3 +30,14 @@
 
 %% The global variables table: {Name, Value} rows, {Tab, Item} for each table's properties.
 -define(GVAR, mnesia_gvar).
+
+%% A transaction's id, as `get_activity_id/0` and `system_info(held_locks)` show it (MIM1B): a serial number, older
+%% transactions smaller, and the process running it.
+-record(tid, {counter, pid}).
+
+%% A transaction's opaque state: its store of locks and writes, the stores of the transactions it is nested in and its
+%% nesting level (MIM1B).
+-record(tidstore, {store, up_stores = [], level = 1}).
+
+%% The reason of a refused lock, which restarts the transaction (MIM1B): the lock wanted and the holder that refused it.
+-record(cyclic, {node = node(), oid, op, lock, lucky}).
