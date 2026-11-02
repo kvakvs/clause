@@ -85,7 +85,7 @@ direction); formerly backlog item F38.
 
 ## Steps
 
-DIST0 to DIST9 are done, with DIST5's follow-ups DIST5d and DIST5e ([30-finished](30-finished.md)).
+DIST0 to DIST9 and DIST12a are done, with DIST5's follow-ups DIST5d and DIST5e ([30-finished](30-finished.md)).
 
 <a id="step-dist10"></a>
 
@@ -122,18 +122,20 @@ Depends on: DIST8 ([30-finished](30-finished.md)).
 
 ## DIST12. TLS distribution and other carriers
 
-Depends on: DIST5 ([30-finished](30-finished.md)).
+Depends on: DIST5 ([30-finished](30-finished.md)). Split 2026-11-02 into DIST12a (TLS, done) and DIST12b.
+
+<a id="step-dist12b"></a>
+
+### DIST12b. User carriers
 
 - Success criteria
-  - [ ] `inet_tls_dist` and `inet6_tls_dist` over Clause's `ssl` (`-proto_dist inet_tls`,
-        `ssl_dist_optfile`, `ssl_dist_opt`), certificate checks as OTP's.
-  - [ ] `benchmarks/bench_dist.erl`'s `dist_tls.` kernels run on Clause too: `tls_distribution/0` and
-        `start_node/3` give Clause nodes the TLS flags (OTP only so far).
-  - [ ] A user carrier written against OTP's `dist_util` interface (the carrier guide's
-        `gen_tcp`-based example shape, own code) runs with `--proto-dist`.
+  - [ ] `net_kernel` calls carriers only through OTP's callbacks (DIST12a began: `listen/1` when there is no
+        `listen/2`, the name part as an atom, no `is_node_name/1`, `childspecs/0`, `not supported`); `address/0,1`
+        for `--dist-listen false`; OTP's errors of a carrier that fails.
+  - [ ] A user carrier written against OTP's `dist_util` interface (the carrier guide's `gen_tcp`-based example
+        shape, own code) runs with `--proto-dist`, against Clause and OTP nodes.
 - Tests
-  - [ ] Golden `dist_tls` between Clause nodes and with an OTP node (`host_otp`).
-  - [ ] Golden `dist_user_carrier` with the user carrier.
+  - [ ] Golden `dist_user_carrier` with the user carrier (OTP nodes both ways, `host_otp`).
 
 <a id="step-dist13"></a>
 

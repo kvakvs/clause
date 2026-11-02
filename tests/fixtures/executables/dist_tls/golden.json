@@ -1,0 +1,290 @@
+{
+  "schema": 1,
+  "entry": "dist_tls",
+  "data": [
+    "ca.pem",
+    "node.pem",
+    "other_ca.pem",
+    "other_node.pem",
+    "otherhost.pem",
+    "dist_tls.conf",
+    "dist_tls_b.conf",
+    "dist_tls_c.conf"
+  ],
+  "host_otp": true,
+  "runs": [
+    {
+      "nodes": [
+        {
+          "name": "a",
+          "args": [
+            "a"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname dta@localhost --setcookie dt --proto-dist inet_tls --ssl-dist-optfile dist_tls.conf"
+          },
+          "otp_flags": "-sname dta@localhost -setcookie dt -proto_dist inet_tls -ssl_dist_optfile dist_tls.conf",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "select: [true,false]\naddress: {net_address,undefined,\"HOST\",tls,inet}\nis_node_name: [true,false]\nchildspecs: {ok,[{ssl_dist_sup,{ssl_dist_sup,start_link,[]},\n                   permanent,infinity,supervisor,\n                   [ssl_dist_sup]}]}\ncert_nodes: [[\"localhost\"],[\"otherhost\"],undefined]\nallowed_hosts: [\"h1\",\"h2\",\"h3\"]\nverify_client: [{fail,{bad_cert,unknown_ca}},\n {unknown,s},\n {valid,s},\n {valid,{[],{10,0,0,1}}},\n {valid,{[\"localhost\"],{10,0,0,1}}},\n {valid,{[\"otherhost\"],{127,0,0,1}}},\n {fail,cert_no_hostname_nor_ip_match}]\nclient options: [{erl_dist,true},\n {versions,['tlsv1.3','tlsv1.2']},\n {certfile,\"node.pem\"},\n {cacertfile,\"ca.pem\"},\n {verify,verify_peer},\n {log_level,warning}]\nserver options: [{erl_dist,true},\n {versions,['tlsv1.3','tlsv1.2']},\n {certfile,\"node.pem\"},\n {cacertfile,\"ca.pem\"},\n {verify,verify_peer},\n {fail_if_no_peer_cert,true},\n {verify_fun,{fun inet_tls_dist:verify_client/3,{[],{127,0,0,1}}}},\n {log_level,warning}]\nchildren: [net_kernel,auth,erl_epmd,ssl_dist_sup]\nping b: pong\naddress: [\"localhost\",tls,inet]\ngetopts: {ok,[{nodelay,true}]}\nsetopts: {error,{badopts,[{packet,2}]}}\nrpc: dtb@localhost\nbig: true\nno certificate: {tls_alert,handshake_failure}\nother root: {tls_alert,unknown_ca}\nfake node: pang\nfake server: {tls_alert,bad_certificate}\nc up: dtc@localhost\nc down: dtc@localhost\ndist_tls: ok\n"
+        },
+        {
+          "name": "b",
+          "args": [
+            "b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname dtb@localhost --setcookie dt --proto-dist inet_tls --ssl-dist-optfile dist_tls_b.conf"
+          },
+          "otp_flags": "-sname dtb@localhost -setcookie dt -proto_dist inet_tls -ssl_dist_optfile dist_tls_b.conf",
+          "stderr": "^=ERROR REPORT==== .* ===\\n\\*\\* Connection attempt from disallowed node\\(s\\) \\{127,0,0,1\\} \\*\\* \\n\\n$",
+          "exit_status": 0,
+          "stdout": "allowed: {ok,[dta@localhost]}\ndist_tls: ok\n"
+        },
+        {
+          "name": "c",
+          "args": [
+            "c"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname dtc@localhost --setcookie dt --proto-dist inet_tls --ssl-dist-optfile dist_tls_c.conf"
+          },
+          "otp_flags": "-sname dtc@localhost -setcookie dt -proto_dist inet_tls -ssl_dist_optfile dist_tls_c.conf",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "ping b: pang\nping a: pong\nnodes: [dta@localhost]\ndist_tls: ok\n"
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "name": "a",
+          "kind": "otp",
+          "args": [
+            "a"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname dta@localhost --setcookie dt --proto-dist inet_tls --ssl-dist-optfile dist_tls.conf"
+          },
+          "otp_flags": "-sname dta@localhost -setcookie dt -proto_dist inet_tls -ssl_dist_optfile dist_tls.conf",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "select: [true,false]\naddress: {net_address,undefined,\"HOST\",tls,inet}\nis_node_name: [true,false]\nchildspecs: {ok,[{ssl_dist_sup,{ssl_dist_sup,start_link,[]},\n                   permanent,infinity,supervisor,\n                   [ssl_dist_sup]}]}\ncert_nodes: [[\"localhost\"],[\"otherhost\"],undefined]\nallowed_hosts: [\"h1\",\"h2\",\"h3\"]\nverify_client: [{fail,{bad_cert,unknown_ca}},\n {unknown,s},\n {valid,s},\n {valid,{[],{10,0,0,1}}},\n {valid,{[\"localhost\"],{10,0,0,1}}},\n {valid,{[\"otherhost\"],{127,0,0,1}}},\n {fail,cert_no_hostname_nor_ip_match}]\nclient options: [{erl_dist,true},\n {versions,['tlsv1.3','tlsv1.2']},\n {certfile,\"node.pem\"},\n {cacertfile,\"ca.pem\"},\n {verify,verify_peer},\n {log_level,warning}]\nserver options: [{erl_dist,true},\n {versions,['tlsv1.3','tlsv1.2']},\n {certfile,\"node.pem\"},\n {cacertfile,\"ca.pem\"},\n {verify,verify_peer},\n {fail_if_no_peer_cert,true},\n {verify_fun,{fun inet_tls_dist:verify_client/3,{[],{127,0,0,1}}}},\n {log_level,warning}]\nchildren: [net_kernel,auth,erl_epmd,ssl_dist_sup]\nping b: pong\naddress: [\"localhost\",tls,inet]\ngetopts: {ok,[{nodelay,true}]}\nsetopts: {error,{badopts,[{packet,2}]}}\nrpc: dtb@localhost\nbig: true\nno certificate: {tls_alert,handshake_failure}\nother root: {tls_alert,unknown_ca}\nfake node: pang\nfake server: {tls_alert,bad_certificate}\nc up: dtc@localhost\nc down: dtc@localhost\ndist_tls: ok\n"
+        },
+        {
+          "name": "b",
+          "args": [
+            "b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname dtb@localhost --setcookie dt --proto-dist inet_tls --ssl-dist-optfile dist_tls_b.conf"
+          },
+          "otp_flags": "-sname dtb@localhost -setcookie dt -proto_dist inet_tls -ssl_dist_optfile dist_tls_b.conf",
+          "stderr": "^=ERROR REPORT==== .* ===\\n\\*\\* Connection attempt from disallowed node\\(s\\) \\{127,0,0,1\\} \\*\\* \\n\\n$",
+          "exit_status": 0,
+          "stdout": "allowed: {ok,[dta@localhost]}\ndist_tls: ok\n"
+        },
+        {
+          "name": "c",
+          "args": [
+            "c"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname dtc@localhost --setcookie dt --proto-dist inet_tls --ssl-dist-optfile dist_tls_c.conf"
+          },
+          "otp_flags": "-sname dtc@localhost -setcookie dt -proto_dist inet_tls -ssl_dist_optfile dist_tls_c.conf",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "ping b: pang\nping a: pong\nnodes: [dta@localhost]\ndist_tls: ok\n"
+        }
+      ]
+    },
+    {
+      "epmd": "otp",
+      "nodes": [
+        {
+          "name": "a",
+          "args": [
+            "a"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname dta@localhost --setcookie dt --proto-dist inet_tls --ssl-dist-optfile dist_tls.conf"
+          },
+          "otp_flags": "-sname dta@localhost -setcookie dt -proto_dist inet_tls -ssl_dist_optfile dist_tls.conf",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "select: [true,false]\naddress: {net_address,undefined,\"HOST\",tls,inet}\nis_node_name: [true,false]\nchildspecs: {ok,[{ssl_dist_sup,{ssl_dist_sup,start_link,[]},\n                   permanent,infinity,supervisor,\n                   [ssl_dist_sup]}]}\ncert_nodes: [[\"localhost\"],[\"otherhost\"],undefined]\nallowed_hosts: [\"h1\",\"h2\",\"h3\"]\nverify_client: [{fail,{bad_cert,unknown_ca}},\n {unknown,s},\n {valid,s},\n {valid,{[],{10,0,0,1}}},\n {valid,{[\"localhost\"],{10,0,0,1}}},\n {valid,{[\"otherhost\"],{127,0,0,1}}},\n {fail,cert_no_hostname_nor_ip_match}]\nclient options: [{erl_dist,true},\n {versions,['tlsv1.3','tlsv1.2']},\n {certfile,\"node.pem\"},\n {cacertfile,\"ca.pem\"},\n {verify,verify_peer},\n {log_level,warning}]\nserver options: [{erl_dist,true},\n {versions,['tlsv1.3','tlsv1.2']},\n {certfile,\"node.pem\"},\n {cacertfile,\"ca.pem\"},\n {verify,verify_peer},\n {fail_if_no_peer_cert,true},\n {verify_fun,{fun inet_tls_dist:verify_client/3,{[],{127,0,0,1}}}},\n {log_level,warning}]\nchildren: [net_kernel,auth,erl_epmd,ssl_dist_sup]\nping b: pong\naddress: [\"localhost\",tls,inet]\ngetopts: {ok,[{nodelay,true}]}\nsetopts: {error,{badopts,[{packet,2}]}}\nrpc: dtb@localhost\nbig: true\nno certificate: {tls_alert,handshake_failure}\nother root: {tls_alert,unknown_ca}\nfake node: pang\nfake server: {tls_alert,bad_certificate}\nc up: dtc@localhost\nc down: dtc@localhost\ndist_tls: ok\n"
+        },
+        {
+          "name": "b",
+          "kind": "otp",
+          "args": [
+            "b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname dtb@localhost --setcookie dt --proto-dist inet_tls --ssl-dist-optfile dist_tls_b.conf"
+          },
+          "otp_flags": "-sname dtb@localhost -setcookie dt -proto_dist inet_tls -ssl_dist_optfile dist_tls_b.conf",
+          "stderr": "^\\S+ error: \\*\\* Connection attempt from disallowed node\\(s\\) \\{127,0,0,1\\} \\*\\* ?\\n$",
+          "exit_status": 0,
+          "stdout": "allowed: {ok,[dta@localhost]}\ndist_tls: ok\n"
+        },
+        {
+          "name": "c",
+          "args": [
+            "c"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname dtc@localhost --setcookie dt --proto-dist inet_tls --ssl-dist-optfile dist_tls_c.conf"
+          },
+          "otp_flags": "-sname dtc@localhost -setcookie dt -proto_dist inet_tls -ssl_dist_optfile dist_tls_c.conf",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "ping b: pang\nping a: pong\nnodes: [dta@localhost]\ndist_tls: ok\n"
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "name": "6a",
+          "args": [
+            "6a"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname dt6a@localhost --setcookie dt --proto-dist inet6_tls --ssl-dist-optfile dist_tls.conf"
+          },
+          "otp_flags": "-sname dt6a@localhost -setcookie dt -proto_dist inet6_tls -ssl_dist_optfile dist_tls.conf",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "select: [true,{net_address,undefined,\"HOST\",tls,inet6}]\nping: pong\naddress: [\"localhost\",tls,inet6]\nrpc: dt6b@localhost\ndist_tls: ok\n"
+        },
+        {
+          "name": "6b",
+          "args": [
+            "6b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname dt6b@localhost --setcookie dt --proto-dist inet6_tls --ssl-dist-optfile dist_tls_b.conf"
+          },
+          "otp_flags": "-sname dt6b@localhost -setcookie dt -proto_dist inet6_tls -ssl_dist_optfile dist_tls_b.conf",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "dist_tls: ok\n"
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "name": "6a",
+          "kind": "otp",
+          "args": [
+            "6a"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname dt6a@localhost --setcookie dt --proto-dist inet6_tls --ssl-dist-optfile dist_tls.conf"
+          },
+          "otp_flags": "-sname dt6a@localhost -setcookie dt -proto_dist inet6_tls -ssl_dist_optfile dist_tls.conf",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "select: [true,{net_address,undefined,\"HOST\",tls,inet6}]\nping: pong\naddress: [\"localhost\",tls,inet6]\nrpc: dt6b@localhost\ndist_tls: ok\n"
+        },
+        {
+          "name": "6b",
+          "args": [
+            "6b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname dt6b@localhost --setcookie dt --proto-dist inet6_tls --ssl-dist-optfile dist_tls_b.conf"
+          },
+          "otp_flags": "-sname dt6b@localhost -setcookie dt -proto_dist inet6_tls -ssl_dist_optfile dist_tls_b.conf",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "dist_tls: ok\n"
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "name": "oa",
+          "args": [
+            "oa"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname dtoa@localhost --setcookie dt --proto-dist inet_tls --ssl-dist-opt server_certfile node.pem --ssl-dist-opt server_cacertfile ca.pem --ssl-dist-opt server_verify verify_peer --ssl-dist-opt server_fail_if_no_peer_cert true --ssl-dist-opt client_certfile node.pem --ssl-dist-opt client_cacertfile ca.pem --ssl-dist-opt client_verify verify_peer --ssl-dist-opt client_depth 3"
+          },
+          "otp_flags": "-sname dtoa@localhost -setcookie dt -proto_dist inet_tls -ssl_dist_opt server_certfile node.pem server_cacertfile ca.pem server_verify verify_peer server_fail_if_no_peer_cert true client_certfile node.pem client_cacertfile ca.pem client_verify verify_peer client_depth 3",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "client options: [{erl_dist,true},\n {versions,['tlsv1.3','tlsv1.2']},\n {certfile,\"node.pem\"},\n {cacertfile,\"ca.pem\"},\n {verify,verify_peer},\n {depth,3}]\nserver options: [{erl_dist,true},\n {versions,['tlsv1.3','tlsv1.2']},\n {certfile,\"node.pem\"},\n {cacertfile,\"ca.pem\"},\n {verify,verify_peer},\n {fail_if_no_peer_cert,true}]\nping: pong\ndist_tls: ok\n"
+        },
+        {
+          "name": "ob",
+          "args": [
+            "ob"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname dtob@localhost --setcookie dt --proto-dist inet_tls --ssl-dist-opt server_certfile node.pem --ssl-dist-opt server_cacertfile ca.pem --ssl-dist-opt server_verify verify_peer --ssl-dist-opt server_fail_if_no_peer_cert true --ssl-dist-opt client_certfile node.pem --ssl-dist-opt client_cacertfile ca.pem --ssl-dist-opt client_verify verify_peer --ssl-dist-opt client_depth 3"
+          },
+          "otp_flags": "-sname dtob@localhost -setcookie dt -proto_dist inet_tls -ssl_dist_opt server_certfile node.pem server_cacertfile ca.pem server_verify verify_peer server_fail_if_no_peer_cert true client_certfile node.pem client_cacertfile ca.pem client_verify verify_peer client_depth 3",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "dist_tls: ok\n"
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "name": "oa",
+          "args": [
+            "oa"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname dtoa@localhost --setcookie dt --proto-dist inet_tls --ssl-dist-opt server_certfile node.pem --ssl-dist-opt server_cacertfile ca.pem --ssl-dist-opt server_verify verify_peer --ssl-dist-opt server_fail_if_no_peer_cert true --ssl-dist-opt client_certfile node.pem --ssl-dist-opt client_cacertfile ca.pem --ssl-dist-opt client_verify verify_peer --ssl-dist-opt client_depth 3"
+          },
+          "otp_flags": "-sname dtoa@localhost -setcookie dt -proto_dist inet_tls -ssl_dist_opt server_certfile node.pem server_cacertfile ca.pem server_verify verify_peer server_fail_if_no_peer_cert true client_certfile node.pem client_cacertfile ca.pem client_verify verify_peer client_depth 3",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "client options: [{erl_dist,true},\n {versions,['tlsv1.3','tlsv1.2']},\n {certfile,\"node.pem\"},\n {cacertfile,\"ca.pem\"},\n {verify,verify_peer},\n {depth,3}]\nserver options: [{erl_dist,true},\n {versions,['tlsv1.3','tlsv1.2']},\n {certfile,\"node.pem\"},\n {cacertfile,\"ca.pem\"},\n {verify,verify_peer},\n {fail_if_no_peer_cert,true}]\nping: pong\ndist_tls: ok\n"
+        },
+        {
+          "name": "ob",
+          "kind": "otp",
+          "args": [
+            "ob"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname dtob@localhost --setcookie dt --proto-dist inet_tls --ssl-dist-opt server_certfile node.pem --ssl-dist-opt server_cacertfile ca.pem --ssl-dist-opt server_verify verify_peer --ssl-dist-opt server_fail_if_no_peer_cert true --ssl-dist-opt client_certfile node.pem --ssl-dist-opt client_cacertfile ca.pem --ssl-dist-opt client_verify verify_peer --ssl-dist-opt client_depth 3"
+          },
+          "otp_flags": "-sname dtob@localhost -setcookie dt -proto_dist inet_tls -ssl_dist_opt server_certfile node.pem server_cacertfile ca.pem server_verify verify_peer server_fail_if_no_peer_cert true client_certfile node.pem client_cacertfile ca.pem client_verify verify_peer client_depth 3",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "dist_tls: ok\n"
+        }
+      ]
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
+  },
+  "inputs": {
+    "dist_tls.erl": "c06c48b9f867aa5da79843ca214f0e7a259ed939ff61f642f895e52316f01a56",
+    "ca.pem": "a8f44b3ee194988d8bfbfde1d5f85f00fa6bec99d3c485e6e7173a602c870734",
+    "node.pem": "60a4d2243a7e6d37d87969526f646b953f3025f91e6fb0e44b782081e5431822",
+    "other_ca.pem": "b3f1314d7389deace6947e8101eac09f7cd70b1a46e3e96f6ba83344fd65de64",
+    "other_node.pem": "2ddb74db7c3905992b93f5fb26e338df64a50240f3e21b78a4c80a8b0a36d605",
+    "otherhost.pem": "6c96117fb6040753f3177e330542d18e6e26c3898e2d2ae7f270555e6ce4c6e8",
+    "dist_tls.conf": "9b0a484435f10a8816933f4c2b2d9796bb8dc5fcf1e524814ce0b801be13f579",
+    "dist_tls_b.conf": "07c279736ed601ddf2f21026794ef52508d04ed397b420589c0bac89132106d1",
+    "dist_tls_c.conf": "ad59f538a117f173802e3d8a090488ee7ef87c6b7ef2444920d9185f3e852313"
+  }
+}

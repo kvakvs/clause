@@ -871,3 +871,12 @@ gotchas and user directions not recorded elsewhere.
   local_data cast, update, peer DOWN) lives in data_publisher. nodedown changes nothing: the peer monitor's
   noconnection drops a node's members. Group order in data_diff follows map key order (atom index in OTP), so
   fixtures sort notifications of one batch. Library-only step; dist_pg golden passed on the first Clause run.
+- DIST12a (2026-11-02): OTP's TLS distribution frames every packet, handshake included, with {packet, 4} inside
+  TLS (no 2-byte phase); Clause's controller over ssl interoperated with OTP 29 both ways on the first try. OTP's
+  plain ssl:connect/listen need a started ssl app ({error, ssl_not_started}; listen exits noproc) while dist uses
+  {erl_dist, true}: fixtures call application:ensure_all_started(ssl). OTP's dist_util:is_node_name/1 takes strings
+  only (an atom crashes in string:split). net_kernel names carriers by computed atom, so a program links a carrier
+  only through a code reference or manifest runtime_options --proto-dist (clau adds PROTO_dist). Golden 'data' files
+  (certs, options files) are staged beside both Clause and OTP nodes; certificates come from a scratch escript over
+  public_key:pkix_test_data with validity to 2125. Classifier denied Stop-Process of leftover oracle erl.exe and
+  epmd -daemon: ask the user to stop them.

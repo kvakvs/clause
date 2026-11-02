@@ -2,8 +2,8 @@
 %% spawns and reconnects between this node and a peer node it starts, over TCP; then the same between two started
 %% nodes over TLS (inet_tls_dist), measured by one of them and relayed here. Clause starts copies of its executable as
 %% the nodes, OTP erl. Nodes listen on loopback; run.py gives every run its own epmd port (ERL_EPMD_PORT), which OTP
-%% serves from an epmd this program starts and Clause from its bundled epmd. Clause has no TLS distribution before plan
-%% 30 step DIST12 and skips those kernels.
+%% serves from an epmd this program starts and Clause from its bundled epmd. Clause runs the TLS kernels since plan 30
+%% step DIST12a.
 -module(bench_dist).
 -export([main/1, echo_once/1]).
 
@@ -45,15 +45,21 @@ tls() ->
         false ->
             ok;
         true ->
-            Flags = ["-proto_dist", "inet_tls", "-ssl_dist_optfile", tls_options()],
+            Flags = tls_flags(otp(), tls_options()),
             Peer = start_node("bench_tls_peer", ["peer"], Flags),
             Driver = start_node("bench_tls_driver", ["driver", "dist_tls", "bench_tls_peer@localhost"], Flags),
             relay(Driver),
             await_port(Peer)
     end.
 
-% Only OTP provides inet_tls_dist so far.
-tls_distribution() -> otp() andalso element(1, code:ensure_loaded(inet_tls_dist)) =:= module.
+% Whether inet_tls_dist is there: the literal fun links it into a Clause program, which names it only by --proto-dist.
+tls_distribution() ->
+    _ = fun inet_tls_dist:select/1,
+    element(1, code:ensure_loaded(inet_tls_dist)) =:= module.
+
+% The TLS node start flags: OTP's emulator flags, or Clause's options.
+tls_flags(true, File) -> ["-proto_dist", "inet_tls", "-ssl_dist_optfile", File];
+tls_flags(false, File) -> ["--proto-dist", "inet_tls", "--ssl-dist-optfile", File].
 
 kernels(Prefix, Node, Peer) ->
     Data = {bench_util:bytes(65536), [{N, integer_to_list(N), float(N)} || N <- lists:seq(1, 1000)]},
@@ -151,7 +157,7 @@ stop_peer(Node) ->
         {'DOWN', Monitor, process, _, _} -> ok
     end.
 
-%% Start node Name@localhost listening on loopback, with the cookie and extra emulator Flags, running main(Args).
+%% Start node Name@localhost listening on loopback, with the cookie and extra node start Flags, running main(Args).
 start_node(Name, Args, Flags) ->
     Node = Name ++ "@localhost",
     Options = [exit_status, {line, 4096}],
@@ -176,11 +182,11 @@ start_node(Name, Args, Flags) ->
                 {args, Emulator ++ ["-run", atom_to_list(?MODULE), "main" | Args]} | Options
             ]);
         false ->
-            Clause =
-                "--sname " ++ Node ++ " --setcookie " ++ ?COOKIE ++ " --env kernel inet_dist_use_interface " ++
-                    ?LOOPBACK,
+            Clause = lists:join(" ", [
+                "--sname", Node, "--setcookie", ?COOKIE, "--env kernel inet_dist_use_interface", ?LOOPBACK | Flags
+            ]),
             open_port({spawn_executable, init:script_name()}, [
-                {args, Args}, {env, [{"CLAUSE_FLAGS", Clause}]} | Options
+                {args, Args}, {env, [{"CLAUSE_FLAGS", lists:flatten(Clause)}]} | Options
             ])
     end.
 

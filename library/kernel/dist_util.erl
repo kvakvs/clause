@@ -444,9 +444,10 @@ strict_order_flags() -> element(6, erts_internal:get_dflags()).
 
 rejectable_flags() -> element(5, erts_internal:get_dflags()).
 
-% Whether Node is a name part and a host part around one @, both not empty.
+% Whether Node, a string, is a name part and a host part around one @, both not empty; an atom fails as OTP's
+% (DIST12a).
 is_node_name(Node) ->
-    case string:split(listify(Node), "@", all) of
+    case string:split(Node, "@", all) of
         [[_ | _], [_ | _]] -> true;
         _ -> false
     end.

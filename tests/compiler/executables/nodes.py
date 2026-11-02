@@ -35,9 +35,9 @@ def bundled(run):
 
 def loopback_flags(flags, otp):
     """A node's start flags with its distribution listening on loopback (the kernel parameter inet_dist_use_interface):
-    IPv6's for the inet6_tcp carrier, in OTP's -kernel form for an OTP node."""
+    IPv6's for the IPv6 carriers inet6_tcp and inet6_tls, in OTP's -kernel form for an OTP node."""
     flags = flags or ''
-    address = '{0,0,0,0,0,0,0,1}' if 'inet6_tcp' in flags else '{127,0,0,1}'
+    address = '{0,0,0,0,0,0,0,1}' if 'inet6_tcp' in flags or 'inet6_tls' in flags else '{127,0,0,1}'
     return f'{flags} {"-kernel" if otp else "--env kernel"} inet_dist_use_interface {address}'.strip()
 
 

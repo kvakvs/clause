@@ -293,7 +293,9 @@ every program that uses a module of that application, because no module calls it
 `ssl_manager` ([session reuse](#session-reuse)), the client ticket store `tls_client_ticket_store`
 ([session tickets](#session-tickets)), and `tls_connection_sup`, whose temporary children are the connection
 processes. Connections started without the application
-run unsupervised. `ssl:clear_pem_cache/0` calls it
+run unsupervised, except those of TLS distribution: their `{erl_dist, true}` option starts them under
+`tls_dist_connection_sup` of `ssl_dist_sup` when distribution runs, apart from the application
+([distribution](../distribution.md#tls-distribution), plan 30 DIST12a). `ssl:clear_pem_cache/0` calls it
 the way OTP does: it sets the caller's `ssl_pem_cache` process dictionary key, and it exits with
 `{noproc, {gen_server, call, [ssl_pem_cache, {unconditionally_clear_pem_cache, Caller}, infinity]}}`
 when `ssl` is not started.

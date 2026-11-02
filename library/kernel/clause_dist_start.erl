@@ -14,7 +14,8 @@ boot(Module, Function, Arguments) ->
     end.
 
 % The slogan OTP's node halts with when kernel_sup cannot start.
+% The term is on one line with strings as strings, as erts prints it (TLS distribution's file names, DIST12a).
 kernel_failure(Reason) ->
     Failure = {Reason, {kernel, start, [normal, []]}},
-    Text = lists:flatten(io_lib:format("~w", [{application_start_failure, kernel, Failure}])),
+    Text = lists:flatten(io_lib:format("~1000000p", [{application_start_failure, kernel, Failure}])),
     lists:flatten(["Kernel pid terminated (application_controller) (", io_lib:write_string(Text), ")"]).

@@ -16,9 +16,12 @@
         clause_ssl_session,
         clause_ssl_session_db,
         clause_ssl_tickets,
+        inet6_tls_dist,
+        inet_tls_dist,
         ssl,
         ssl_crl_cache,
         ssl_crl_cache_api,
+        ssl_dist_sup,
         ssl_session_cache_api
     ]},
     {registered, [ssl_sup, ssl_manager, ssl_pem_cache, tls_client_ticket_store, clause_ssl_crls, tls_connection_sup]},

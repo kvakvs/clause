@@ -260,6 +260,8 @@ constexpr std::array NODE_OPTIONS{
     NodeOption{"--setcookie", "setcookie"},
     NodeOption{"--proto-dist", "proto_dist"},
     NodeOption{"--dist-listen", "dist_listen"},
+    // OTP's -ssl_dist_optfile, the options file of TLS distribution (plan 30 step DIST12a).
+    NodeOption{"--ssl-dist-optfile", "ssl_dist_optfile"},
 };
 
 // Node start options without a value.
@@ -312,12 +314,26 @@ std::expected<std::size_t, std::string> apply_env(std::span<const std::string> a
     return 4;
 }
 
+// Apply --ssl-dist-opt KEY VALUE (OTP's -ssl_dist_opt Key Value) as init's flag ssl_dist_opt with [KEY, VALUE]; every
+// one is kept, and TLS distribution reads them. Added for TLS distribution (plan 30 step DIST12a).
+std::expected<std::size_t, std::string> apply_ssl_dist_opt(std::span<const std::string> args, std::size_t at,
+                                                           RuntimeOptions &options) {
+    if (args.size() - at < 3 || args[at + 1].empty()) {
+        return std::unexpected(std::string("--ssl-dist-opt needs a key and a value"));
+    }
+    options.program.flags.push_back({"ssl_dist_opt", {args[at + 1], args[at + 2]}});
+    return 3;
+}
+
 // Apply an application environment option at `at`, --env or --config, and return how many arguments it used; else
 // the node start options and then the scheduler options are tried. Added for --env and -config (DIST4a1, DIST4a4).
 std::expected<std::size_t, std::string> apply_application_option(std::span<const std::string> args, std::size_t at,
                                                                  RuntimeOptions &options) {
     if (args[at] == "--env") {
         return apply_env(args, at, options);
+    }
+    if (args[at] == "--ssl-dist-opt") {
+        return apply_ssl_dist_opt(args, at, options);
     }
     // OTP's -config: every one is kept, and application_controller reads the files.
     if (const auto config = match(args, at, "--config")) {

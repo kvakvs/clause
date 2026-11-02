@@ -50,6 +50,7 @@ started(Sup) ->
     end.
 
 % The slogan OTP's node halts with when the kernel application ends.
+% The term is on one line with strings as strings, as erts prints it (TLS distribution's file names, DIST12a).
 kernel_terminated(Reason) ->
-    Text = lists:flatten(io_lib:format("~w", [{application_terminated, kernel, Reason}])),
+    Text = lists:flatten(io_lib:format("~1000000p", [{application_terminated, kernel, Reason}])),
     lists:flatten(["Kernel pid terminated (application_controller) (", io_lib:write_string(Text), ")"]).

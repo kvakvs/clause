@@ -76,6 +76,10 @@ struct BackendOptions {
     // Whether the program links the distribution modules whatever it calls: --distribution, or built-in runtime
     // options that name the node. Added for distribution from the node start options (plan 30 DIST4b1b).
     [[nodiscard]] bool links_distribution() const;
+
+    // The carrier modules of the built-in runtime options' --proto-dist (PROTO_dist), which net_kernel calls by a
+    // computed name. Added for TLS distribution and user carriers (plan 30 step DIST12a).
+    [[nodiscard]] std::vector<std::string> carrier_modules() const;
 };
 
 // Recognize backend options separately from preprocessing and project operands.

@@ -26,11 +26,17 @@
 -define(WAIT_TO_ALLOW_RENEGOTIATION, 12000).
 
 %% Start a connection process for #{role, socket, config, owner, context (optional)}, under tls_connection_sup when
-%% ssl is started.
-start(Args) ->
-    case whereis(tls_connection_sup) of
+%% ssl is started; a distribution connection ({erl_dist, true}) under ssl_dist_sup's tls_dist_connection_sup instead,
+%% so that stopping ssl leaves distribution alone (TLS distribution, plan 30 step DIST12a).
+start(#{config := #{ssl := Ssl}} = Args) ->
+    Supervisor =
+        case maps:get(erl_dist, Ssl, false) of
+            true -> tls_dist_connection_sup;
+            _ -> tls_connection_sup
+        end,
+    case whereis(Supervisor) of
         undefined -> gen_server:start(?MODULE, Args, []);
-        _ -> supervisor:start_child(tls_connection_sup, [Args])
+        _ -> supervisor:start_child(Supervisor, [Args])
     end.
 
 start_link(Args) ->

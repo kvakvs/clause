@@ -1,0 +1,5 @@
+%% OTP 29 ssl_dist_sup exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
+{consult, 1, distribution, implemented}.
+{init, 1, distribution, implemented}.
+{start_link, 0, distribution, implemented}.

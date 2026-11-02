@@ -26,7 +26,8 @@ connect, ping, monitor, message, link, lead and spawn on each other both ways on
 `auth` keeps cookies as OTP's ([managing connections](#managing-connections), [cookies](#cookies), DIST6).
 `rpc`, `erpc` and the `gen` behaviours call other nodes, whose output reaches the caller's group leader
 ([remote calls](#remote-calls), DIST7a to DIST7c), and `net_adm:world/0,1` finds the nodes epmd names (DIST7d).
-The other libraries answer as OTP does without distribution (`{badrpc, nodedown}`, `not_alive`). The
+Nodes connect over TLS too, with OTP's options files and certificate checks ([TLS distribution](#tls-distribution),
+DIST12a). The other libraries answer as OTP does without distribution (`{badrpc, nodedown}`, `not_alive`). The
 rest of this file is the contract for distribution. Each section becomes current behavior when its
 step lands.
 
@@ -36,7 +37,8 @@ step lands.
   and keeps OTP's names, messages and inter-node protocols wherever another node observes them.
 - **Carriers:**
   - TCP over IPv4 (`inet_tcp`, the default) and IPv6 (`inet6_tcp`).
-  - TLS (`inet_tls`, `inet6_tls`) over Clause's [`ssl`](libraries/ssl.md), later.
+  - TLS over IPv4 and IPv6 (`inet_tls`, `inet6_tls`) over Clause's [`ssl`](libraries/ssl.md)
+    ([TLS distribution](#tls-distribution)).
   - User-written carriers through `--proto-dist`, over OTP's `dist_util` interface
     ([carriers](#carriers)).
 - **Node discovery:** epmd ([epmd](#epmd)): bundled inside the program, a standalone
@@ -93,8 +95,10 @@ The work is split as in OTP: the runtime moves signals, and Erlang code makes co
 - **Libraries (Erlang, written from OTP's documentation, never from its sources):**
   - `net_kernel`, `auth` and the `erl_epmd` client;
   - `dist_util` and the TCP carriers `inet_tcp_dist` and `inet6_tcp_dist` (in `library/kernel`). A
-    carrier runs a controller process over `gen_tcp` through the `dist_ctrl_*` functions;
-  - later `inet_tls_dist` and `inet6_tls_dist` in `library/ssl`.
+    carrier runs a controller process (`clause_dist_controller`) over its socket through the `dist_ctrl_*`
+    functions;
+  - the TLS carriers `inet_tls_dist` and `inet6_tls_dist` and their supervisor `ssl_dist_sup` in `library/ssl`,
+    with the same controller over an `ssl` socket.
 - **Registered processes:** `net_sup`, `net_kernel`, `auth`, `erl_epmd` and `rex` start with
   distribution, as in OTP. The `global` and `pg` servers keep their OTP names and protocols ([pg](#pg)).
 
@@ -563,6 +567,47 @@ User carriers are supported through OTP's interface, current since DIST4b2a
 - Clause's own carriers are written over the same interface, so a third-party carrier and a built-in
   one run the same handshake code.
 
+## TLS distribution
+
+Current since DIST12a (`library/ssl/inet_tls_dist.erl`, `inet6_tls_dist.erl`, `ssl_dist_sup.erl`), as OTP's
+distribution over TLS:
+
+- **Selecting it:** `--proto-dist inet_tls` (IPv4) or `--proto-dist inet6_tls` (IPv6), with the ssl options in a
+  file (`--ssl-dist-optfile FILE`) or as options (`--ssl-dist-opt KEY VALUE`, repeated); OTP's `-proto_dist`,
+  `-ssl_dist_optfile` and `-ssl_dist_opt` in args files mean the same. The program must link the carrier
+  ([node start options](#node-start-options)). Every node of a cluster runs a TLS carrier: the handshake and the
+  distribution packets, 4-byte length packets from the first one on, travel inside TLS as between OTP nodes, which
+  connect to Clause nodes both ways.
+- **Options file:** one term, `[{server, Options}, {client, Options}]`, in the file's `epp` encoding (latin1 without
+  one), evaluated without bindings, so funs are written `fun Module:Function/Arity`. `ssl_dist_sup`, the carrier's
+  child of `net_sup` (`childspecs/0`, started before the other children), reads it when distribution starts into the
+  table `ssl_dist_opts`. A file that cannot be read, decoded, scanned or parsed fails the start with
+  `{bad_ssl_dist_optfile, Reason}`, as OTP's.
+- **`--ssl-dist-opt`:** `server_KEY VALUE` and `client_KEY VALUE` pairs for `certfile`, `cacertfile`, `keyfile`,
+  `password`, `verify`, `verify_fun` (`{Module, Function, State}`), `crl_check`, `crl_cache` (a term), `reuse_sessions`,
+  `secure_renegotiate`, `depth`, `hibernate_after`, `ciphers` and `versions` (one each), `ktls`, and the server's
+  `dhfile` and `fail_if_no_peer_cert`. Another key raises `malformed_ssl_dist_opt` when a connection asks for its
+  options.
+- **A connection's options:** `{erl_dist, true}`, then those of `--ssl-dist-opt` and those of the file, with
+  `{versions, ['tlsv1.3', 'tlsv1.2']}` first unless they name versions; a client also gets the node's host as
+  `server_name_indication`, so `verify_peer` checks that the server's certificate names it.
+  `get_ssl_client_options/0` and `get_ssl_server_options/1` give them.
+- **Connections:** the carrier listens and looks nodes up as `inet_tcp_dist` does (`fam_listen/4`, `fam_setup/4`). An
+  accepted socket runs the server's TLS handshake in a process of its own within the setup time; a failed one closes
+  the socket (the ssl option `log_level` decides whether TLS alerts are logged). The connection's controller owns the
+  ssl socket. Its process runs under `ssl_dist_sup`'s `tls_dist_connection_sup`, so distribution needs no started
+  `ssl` application, and stopping `ssl` leaves it up. `net_kernel:node_info/2` gives the address with protocol
+  `tls`; `net_kernel:setopts/2` refuses `active`, `deliver` and `packet`, as for TCP.
+- **Certificate checks:** the ssl options decide what each side verifies. With an `allow/1` list, an accepted
+  peer's certificate narrows it to the nodes whose host the certificate names, else to the peer's address when the
+  certificate names that; when nothing is left the connection ends with `** Connection attempt from disallowed
+  node(s) IP ** `. A peer without a certificate keeps the list. A server's
+  `{verify_fun, {fun inet_tls_dist:verify_client/3, _}}` gets the allowed hosts and the client's address as its
+  state, and wants the client's certificate to name one of them. `cert_nodes/1` gives the node names a certificate
+  names, `allowed_hosts/1` the hosts of an allow list.
+- **Declined:** kernel TLS offload (the `ktls` option, `set_ktls/1` and the other `ktls` functions, `dbg/0`): Clause's
+  `ssl` runs TLS itself ([differences](differences.md#ssl)).
+
 ## Making connections
 
 Current since DIST4b2a (`library/kernel/dist_util.erl`, `inet_tcp_dist.erl`, `net_kernel.erl`), as OTP's; the
@@ -925,6 +970,8 @@ The command line wins over `CLAUSE_FLAGS`, which wins over the manifest.
 | `--nocookie` | `-nocookie` | No cookie until `erlang:set_cookie/1,2` |
 | `--hidden` | `-hidden` | Hidden node |
 | `--proto-dist PROTO` | `-proto_dist` | Carrier module `PROTO_dist`; default `inet_tcp` |
+| `--ssl-dist-optfile FILE` | `-ssl_dist_optfile` | The ssl options of TLS distribution ([TLS distribution](#tls-distribution)) |
+| `--ssl-dist-opt KEY VALUE` | `-ssl_dist_opt` | One ssl option of TLS distribution, `server_KEY` or `client_KEY`; every one is kept |
 | `--epmd bundled\|external\|none` | `-start_epmd` | What to do when no epmd runs ([epmd](#epmd)); default `bundled` |
 | `--dist-listen true\|false` | `-dist_listen` | Accept incoming connections; `false` implies `--hidden` |
 | `--env APP KEY VALUE` | `-App Key Value` | Sets `APP`'s environment parameter `KEY` to the term `VALUE` before applications start, over the `.app` resources (for example `--env kernel net_ticktime 20`). It works for every application, not only for distribution |
@@ -933,8 +980,9 @@ The command line wins over `CLAUSE_FLAGS`, which wins over the manifest.
   stdlib when it starts), over the `.app` resource, merged in OTP's order. A value that is no term fails the load with
   `{bad_environment_value, Text}` after OTP's log line, and stops the program for kernel or stdlib.
 - `init:get_argument/1` and `init:get_arguments/0` report these options under OTP's flag names:
-  - `sname`, `name`, `setcookie`, `hidden`, `proto_dist`, `dist_listen`, and `start_epmd`
+  - `sname`, `name`, `setcookie`, `hidden`, `proto_dist`, `dist_listen`, `ssl_dist_optfile`, and `start_epmd`
     (`"false"` for `--epmd none`, `"true"` otherwise);
+  - each `--ssl-dist-opt KEY VALUE` as `ssl_dist_opt` with `[KEY, VALUE]`;
   - `--env kernel net_ticktime 20` as `kernel` with `[["net_ticktime", "20"]]`.
 - The `kernel` parameters distribution reads, as in OTP:
   - `net_ticktime`, `net_tickintensity`, `net_setuptime`;
@@ -955,6 +1003,10 @@ Current since DIST4b1b (`library/kernel/clause_dist_start.erl`, `erl_distributio
   holding `--sname` or `--name`. Other programs stay small; given `--sname` or `--name`, they stop before the entry
   with `clau: runtime failure: --sname and --name need the distribution modules (link the program with
   --distribution)`, exit 70 ([differences](differences.md)).
+- **Carrier modules (DIST12a):** `net_kernel` names a carrier only by the computed name `PROTO_dist`, so a program
+  links a carrier other than the TCP ones when its code refers to the module, or when the manifest's
+  `runtime_options` hold `--proto-dist PROTO`. A carrier the program lacks fails the start with OTP's log line
+  `Protocol 'PROTO': not supported` and the failure below.
 - **Start:** with `--sname` or `--name`, the runtime runs `clause_dist_start:boot(Module, Function, Arguments)` as
   the main process instead of the entry. It starts `kernel_sup`, whose `net_sup` child `erl_distribution:start_link/0`
   starts as OTP's kernel does at boot: the name of `--sname` (`shortnames`) or `--name` (`longnames`), `--hidden`, `--dist-listen`,
@@ -1004,3 +1056,6 @@ Current since DIST4b1b (`library/kernel/clause_dist_start.erl`, `erl_distributio
   An OTP node's stderr pattern is in OTP's own log format (a `Time level: message` line per report),
   and a node that waits for another's node status messages waits for its epmd marker name first,
   since an OTP node boots slower than a Clause program.
+- **TLS** (DIST12a): `dist_tls` runs three nodes on TLS with options files and fixture certificates of its own
+  (`data`), OTP nodes as a and as b, and IPv6 and `--ssl-dist-opt` runs with OTP nodes too; the runner listens on
+  `::1` for `inet6_tls` as for `inet6_tcp`.

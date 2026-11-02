@@ -175,7 +175,17 @@ passive_cnct(Node) ->
 
 dflag_unicode_io(_) -> true.
 
-protocol_childspecs() -> [].
+% net_sup's first children: those of each carrier's childspecs/0, as {ok, Specs} (TLS distribution, DIST12a).
+protocol_childspecs() ->
+    lists:append([carrier_childspecs(list_to_atom(Proto ++ "_dist")) || Proto <- protocols()]).
+
+carrier_childspecs(Module) ->
+    try Module:childspecs() of
+        {ok, Specs} when is_list(Specs) -> Specs;
+        _ -> []
+    catch
+        _:_ -> []
+    end.
 
 % The epmd client module, the kernel parameter epmd_module.
 epmd_module() ->
@@ -367,21 +377,33 @@ listen_carriers(_, _, _, _, false) ->
     {ok, [], rand:uniform(16#fffffff0) + 3};
 listen_carriers([Proto | _], Alive, Host, Node, true) ->
     Module = list_to_atom(Proto ++ "_dist"),
-    case Module:is_node_name(Node) of
+    case dist_util:is_node_name(atom_to_list(Node)) of
         false ->
             {error, Proto, invalid_node_name};
         true ->
-            case listen(Module, Alive, Host) of
+            case listen(Module, list_to_atom(Alive), Host) of
                 {ok, {Socket, Address, Creation}} -> {ok, [{Module, Socket, Address}], Creation};
                 {error, Reason} -> {error, Proto, Reason}
             end
     end.
 
-% The built-in carriers are called by name, so that programs link them.
-listen(inet_tcp_dist, Alive, Host) -> inet_tcp_dist:listen(Alive, Host);
-listen(inet6_tcp_dist, Alive, Host) -> inet6_tcp_dist:listen(Alive, Host);
-listen(Module, Alive, Host) -> Module:listen(Alive, Host).
+% The built-in carriers are called by name, so that programs link them. Others are called as OTP calls them: Name is
+% the name part as an atom, a carrier without listen/2 gets listen(Name), and a module the program lacks is not
+% supported (TLS distribution and user carriers, DIST12a).
+listen(inet_tcp_dist, Name, Host) ->
+    inet_tcp_dist:listen(Name, Host);
+listen(inet6_tcp_dist, Name, Host) ->
+    inet6_tcp_dist:listen(Name, Host);
+listen(Module, Name, Host) ->
+    _ = code:ensure_loaded(Module),
+    case {erlang:function_exported(Module, listen, 2), erlang:function_exported(Module, listen, 1)} of
+        {true, _} -> Module:listen(Name, Host);
+        {false, true} -> Module:listen(Name);
+        {false, false} -> {error, not_supported}
+    end.
 
+log_listen_error(Proto, _, not_supported) ->
+    error_logger:info_msg("Protocol '~ts': not supported~n", [Proto]);
 log_listen_error(Proto, Node, invalid_node_name) ->
     error_logger:info_msg("Protocol '~ts': invalid node name: ~ts~n", [Proto, atom_to_list(Node)]);
 log_listen_error(Proto, Node, duplicate_name) ->

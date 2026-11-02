@@ -262,6 +262,19 @@ bool BackendOptions::links_distribution() const {
     return distribution || std::ranges::any_of(runtime_options, names_node);
 }
 
+std::vector<std::string> BackendOptions::carrier_modules() const {
+    std::vector<std::string> modules;
+    for (std::size_t at = 0; at < runtime_options.size(); ++at) {
+        const std::string_view word = runtime_options[at];
+        if (word == "--proto-dist" && at + 1 < runtime_options.size()) {
+            modules.push_back(runtime_options[++at] + "_dist");
+        } else if (word.starts_with("--proto-dist=")) {
+            modules.push_back(std::string(word.substr(word.find('=') + 1)) + "_dist");
+        }
+    }
+    return modules;
+}
+
 bool is_backend_option(const std::string_view option) {
     static const std::set<std::string_view> options{"--emit",
                                                     "--artifact-dir",

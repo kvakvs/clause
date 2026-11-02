@@ -578,6 +578,11 @@ bool add_referenced(const FrontendRequest &request, const DiagnosticSink &sink, 
     if (request.backend.links_distribution()) {
         failed = add_module(U"clause_dist_start", "--distribution", discovery, request, sink, inputs) || failed;
     }
+    // Added for TLS distribution and user carriers (plan 30 step DIST12a): the carriers runtime_options select.
+    for (const auto &module : request.backend.carrier_modules()) {
+        const std::u32string name(module.begin(), module.end());
+        failed = add_module(name, "--proto-dist", discovery, request, sink, inputs) || failed;
+    }
     return add_all_named(request, sink, inputs, discovery) || failed;
 }
 

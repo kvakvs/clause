@@ -22,8 +22,10 @@ boot_options(Name, Domain) ->
 
 start_link(Options) -> supervisor:start_link({local, net_sup}, ?MODULE, [Options]).
 
-% The children in start order: the epmd client, the cookies' auth server, then net_kernel; one ending ends them all.
+% The children in start order: the carriers' own (TLS distribution's ssl_dist_sup, DIST12a), the epmd client, the
+% cookies' auth server, then net_kernel; one ending ends them all.
 init([Options]) ->
+    Carriers = net_kernel:protocol_childspecs(),
     Epmd = net_kernel:epmd_module(),
     EpmdChild = #{id => Epmd, start => {Epmd, start_link, []}, shutdown => ?SHUTDOWN, modules => [Epmd]},
     % The literal fun links the auth server into programs, as its child spec names it only as data.
@@ -31,7 +33,7 @@ init([Options]) ->
     Auth = #{id => auth, start => {auth, start_link, []}, shutdown => ?SHUTDOWN},
     Kernel = #{id => net_kernel, start => {net_kernel, start_link, [Options]}, shutdown => ?SHUTDOWN},
     Flags = #{strategy => one_for_all, intensity => 0, period => 1},
-    {ok, {Flags, [EpmdChild || epmd_child(Epmd)] ++ [Auth, Kernel]}}.
+    {ok, {Flags, Carriers ++ [EpmdChild || epmd_child(Epmd)] ++ [Auth, Kernel]}}.
 
 % Whether the epmd module runs a server of its own, as erl_epmd does.
 epmd_child(Epmd) ->

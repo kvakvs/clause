@@ -86,7 +86,7 @@ wins. All are parsed the same way; a value goes in the next argument or after
 | `--schedulers N` | Scheduler workers running processes, 1 to 1,024; default one per CPU of `--scheduler-cpus`, else one per logical processor the program may run on (its affinity mask), like OTP's online schedulers ([workers](processes.md#workers)) |
 | `--scheduler-cpus SET` | Bind worker N to the N-th CPU of `SET`, round-robin, like OTP's `+sbt`/`+sct`: `performance` (the fastest core class: P-cores of a hybrid CPU, every CPU otherwise), `all`, or a list such as `0-15` or `2,4,6`; every listed CPU must be in the affinity mask. Default unbound ([CPU binding](processes.md#cpu-binding)) |
 | `--epmd MODE` | What a registration with epmd does when none listens: `bundled` (default) runs the epmd the program carries, `external` starts an epmd program (`clause-epmd` beside the program or on `PATH`, else OTP's `epmd`), `none` fails as OTP's; a program built with `--no-bundled-epmd` treats `bundled` as `none` ([epmd](distribution.md#epmd)) |
-| `--sname`, `--name`, `--setcookie`, `--nocookie`, `--hidden`, `--proto-dist`, `--dist-listen` | Node start options, reported by `init:get_argument/1` under OTP's flag names; `--sname` and `--name` start distribution before the entry in a program linked with the distribution modules ([node start options](distribution.md#node-start-options)) |
+| `--sname`, `--name`, `--setcookie`, `--nocookie`, `--hidden`, `--proto-dist`, `--dist-listen`, `--ssl-dist-optfile`, `--ssl-dist-opt` | Node start options, reported by `init:get_argument/1` under OTP's flag names; `--sname` and `--name` start distribution before the entry in a program linked with the distribution modules ([node start options](distribution.md#node-start-options)) |
 | `--env APP KEY VALUE` | Sets `APP`'s environment parameter `KEY` to the term `VALUE`, as OTP's `-App Key Value`: `application_controller` parses it when it loads `APP` ([node start options](distribution.md#node-start-options)) |
 | `--config FILE` | Application environments from a `.config` file, as OTP's `-config FILE`; every one is kept ([config files](#config-files)) |
 | `--profile FILE` | Write a report of entries and self time per function and per process to `FILE` when the program ends ([profiling](profiling.md)); off by default |
@@ -125,6 +125,7 @@ Decided in plan 30 step DIST4a2 (2026-10-31, user choices); implemented in DIST4
   | Flag | Clause |
   | --- | --- |
   | `-sname`, `-name`, `-setcookie`, `-nocookie`, `-hidden`, `-proto_dist`, `-dist_listen` | The node start option of that name ([distribution](distribution.md#node-start-options)) |
+  | `-ssl_dist_optfile FILE`, `-ssl_dist_opt Key Value...` | Init flags TLS distribution reads, as `--ssl-dist-optfile` and `--ssl-dist-opt` ([distribution](distribution.md#tls-distribution)) |
   | `-start_epmd true\|false` | `--epmd bundled` / `--epmd none` |
   | `-config FILE...` | Application environments from `.config` files, as `--config` ([config files](#config-files)) |
   | `-env VAR VALUE` | Sets the environment variable before the runtime starts |
