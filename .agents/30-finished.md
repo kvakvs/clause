@@ -146,5 +146,5 @@ Compact record of the network distribution plan, one bullet per step;
 - **DIST8a** `global` across nodes over OTP's protocol 8 (connect sessions, `clause_global_locker`, exchange and
   resolver, `new_nodes`/`in_sync`, registrar, overlapping-partition prevention, `info/0`, `get_locker/0`); runtime
   `monitor/3` `[priority]`, `process_flag(async_dist, _)`, `system_info(creation)`; DIST8 split into DIST8a/8b;
-  golden `dist_global` (three nodes, OTP nodes as a and b) — HASH
+  golden `dist_global` (three nodes, OTP nodes as a and b) — 8248aa37
 
