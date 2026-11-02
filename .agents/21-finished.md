@@ -249,3 +249,5 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   golden identical to OTP — `060e939e`
 - **LIB77E5** `merl` with C++ templates, `merl.hrl`, `merl_transform`; `syntax_tools` complete;
   `merl_templates` golden identical to OTP — `c674dcba`
+- **MIM1A** mnesia foundation (PARTIAL): OTP's tree with `mnesia_monitor` owning the tables, the RAM schema with OTP's
+  definition checks and `mnesia_gvar` rows, dirty access and indexes; `mnesia_dirty` golden identical to OTP — `f29fb82d`
