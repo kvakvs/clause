@@ -10,7 +10,8 @@ direction); formerly backlog item F38.
   ping (DIST4b3b1), link and send exit signals (DIST5a), lead each other's processes (DIST5b1) and spawn on each
   other (DIST5b2), every signal in order and with OTP 29 nodes (DIST5c), and send local funs to each other
   (DIST5d), and call each other through `rpc`, `erpc` (DIST7a) and `gen` (DIST7b), whose output reaches the caller's group
-  leader (DIST7c), and find each other through `net_adm`'s worlds (DIST7d); the program's end loses queued packets as
+  leader (DIST7c), find each other through `net_adm`'s worlds (DIST7d) and share `global` names and locks (DIST8a);
+  the program's end loses queued packets as
   OTP's `halt` (DIST4b3b2).
   Clause and OTP 29 nodes interoperate on either epmd (DIST4b4). `net_kernel` changes tick times, reports and tunes
   connections, bars nodes under `dist_auto_connect once` and connects passively; `auth` keeps cookies with OTP's
@@ -49,8 +50,8 @@ direction); formerly backlog item F38.
     OTP's (DIST4b2b).
   - Process monitors by pid and by name: `MONITOR_P`, `DEMONITOR_P`, `MONITOR_P_EXIT` and its payload form,
     `'DOWN'` with `noconnection`; `net_adm:ping/1` through `net_kernel`'s `{is_auth, Node}` (DIST4b3b1).
-  - The other libraries answer as OTP does without distribution: `net_kernel` (internals declined), `auth` (`nocookie` until started), `global` and
-    `global_group` (one node, locker internals declined), `pg` (no peers), `peer`/`slave`
+  - The other libraries answer as OTP does without distribution: `net_kernel` (internals declined), `auth` (`nocookie` until started),
+    `global_group` (no groups), `pg` (no peers), `peer`/`slave`
     (`not_alive`), `pool` (collector declined), `application` (`takeover/2` exits `noproc`, no
     `dist_ac`).
 - **Goal:** a Clause executable is a distributed Erlang node that connects to OTP 29 nodes and to
@@ -90,20 +91,18 @@ DIST0 to DIST7 are done, with DIST5's follow-ups DIST5d and DIST5e ([30-finished
 
 ## DIST8. `global` and `global_group` across nodes
 
-Depends on: DIST6 ([30-finished](30-finished.md)).
+Depends on: DIST6 ([30-finished](30-finished.md)). Split 2026-11-02 into DIST8a (`global`, done) and
+DIST8b (`global_group`), each one reviewable change.
+
+### DIST8b. `global_group` across nodes
 
 - Success criteria
-  - [ ] OTP's `global` protocol between nodes: replicated registrations, name conflicts resolved by
-        `random_exit_name/3`, `random_notify_name/3`, `notify_all_name/3` or user functions, locks
-        (`set_lock/1,2,3`, `trans/2,3,4`) over nodes, `sync/0`, overlapping partitions
-        (`prevent_overlapping_partitions`); the declined locker internals implemented.
   - [ ] `global_group` with the `global_groups` environment: `own_nodes/0`, `registered_names/1`,
-        `send/2,3`, `whereis_name/1,2`, `monitor_nodes/1`, `sync/0`, `info/0`; the declined group
-        server implemented.
-  - [ ] The `pg`/`global` row of `differences.md` is narrowed to what remains.
+        `send/2,3`, `whereis_name/1,2`, `monitor_nodes/1`, `sync/0`, `info/0`, `group_nodeup` and
+        `group_nodedown` to `global`; the declined group server implemented.
 - Tests
-  - [ ] Golden `dist_global`: registration, conflict resolution, locks and a partitioned node,
-        with an OTP node (`host_otp`).
+  - [ ] Golden `dist_global_group`: two groups, names and sends across groups, with an OTP node
+        (`host_otp`).
 
 <a id="step-dist9"></a>
 

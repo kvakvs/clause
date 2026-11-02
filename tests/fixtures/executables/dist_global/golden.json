@@ -1,0 +1,149 @@
+{
+  "schema": 1,
+  "entry": "dist_global",
+  "host_otp": true,
+  "runs": [
+    {
+      "nodes": [
+        {
+          "name": "a",
+          "args": [
+            "a"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname drga@localhost --setcookie drg"
+          },
+          "otp_flags": "-sname drga@localhost -setcookie drg",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "ping: pong\nsync: ok\nsync_all: ok\nnodes: [drgb@localhost,drgc@localhost]\nlocker: true\nwhereis: [drga@localhost,drgb@localhost,drgc@localhost,undefined]\nwhereis_b: drga@localhost\nwhereis_c: drgb@localhost\nnames: [cx_crash,cx_exit,cx_notify,cx_user,ga,gb,gc]\nsend: drgb@localhost\nsend_unknown: {exit,{badarg,{nobody,hello}}}\nconflicts: [{cx_all,undefined},\n            {cx_bad,undefined},\n            {cx_crash,drgb@localhost},\n            {cx_exit,drga@localhost},\n            {cx_notify,drga@localhost},\n            {cx_user,drgb@localhost}]\nconflicts_b: true\nconflicts_c: true\ninboxes: [{cx_exit,[]},\n          {cx_notify,[]},\n          {cx_all,[{global_name_conflict,cx_all,drgb@localhost}]},\n          {cx_user,[]},\n          {cx_bad,[]},\n          {cx_crash,[]}]\ninboxes_b: [{cx_all,[{global_name_conflict,cx_all,drga@localhost}]},\n            {cx_bad,[]},\n            {cx_crash,[]},\n            {cx_exit,{ended,noproc}},\n            {cx_notify,[{global_name_conflict,cx_notify}]},\n            {cx_user,[]}]\nset_lock: true\nset_lock_again: true\nrefused_b: {refused,false}\ntrans_b: aborted\ndel_lock: true\ngranted_b: {granted,true}\ntrans: true\nheld: true\nafter_holder: true\ntemp_b: drga@localhost\ntemp_gone: [undefined,undefined]\npartition: [[drgb@localhost],[drga@localhost]]\nsync_partition: ok\nnames_partition: [cx_crash,cx_exit,cx_notify,cx_user,ga,gb]\ndisconnect: [drgb@localhost]\nhalted: {badrpc,nodedown}\ndist_global: ok\n"
+        },
+        {
+          "name": "b",
+          "args": [
+            "b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname drgb@localhost --setcookie drg"
+          },
+          "otp_flags": "-sname drgb@localhost -setcookie drg",
+          "stderr": "^=WARNING REPORT==== .* ===\\n'global' at node drgb@localhost requested disconnect from node drgc@localhost in order to prevent overlapping partitions\\n$",
+          "exit_status": 0,
+          "stdout": "dist_global: ok\n"
+        },
+        {
+          "name": "c",
+          "args": [
+            "c"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname drgc@localhost --setcookie drg --env kernel prevent_overlapping_partitions false"
+          },
+          "otp_flags": "-sname drgc@localhost -setcookie drg -kernel prevent_overlapping_partitions false",
+          "stderr": "^=WARNING REPORT==== .* ===\\n'global' at node drgc@localhost disconnected node drgb@localhost in order to prevent overlapping partitions\\n$",
+          "exit_status": 0,
+          "stdout": "ping: pong\nsync: ok\nsync_alone: ok\nisolated: []\nnames_alone: [gc]\ndist_global: ok\n"
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "name": "a",
+          "kind": "otp",
+          "args": [
+            "a"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname drga@localhost --setcookie drg"
+          },
+          "otp_flags": "-sname drga@localhost -setcookie drg",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "ping: pong\nsync: ok\nsync_all: ok\nnodes: [drgb@localhost,drgc@localhost]\nlocker: true\nwhereis: [drga@localhost,drgb@localhost,drgc@localhost,undefined]\nwhereis_b: drga@localhost\nwhereis_c: drgb@localhost\nnames: [cx_crash,cx_exit,cx_notify,cx_user,ga,gb,gc]\nsend: drgb@localhost\nsend_unknown: {exit,{badarg,{nobody,hello}}}\nconflicts: [{cx_all,undefined},\n            {cx_bad,undefined},\n            {cx_crash,drgb@localhost},\n            {cx_exit,drga@localhost},\n            {cx_notify,drga@localhost},\n            {cx_user,drgb@localhost}]\nconflicts_b: true\nconflicts_c: true\ninboxes: [{cx_exit,[]},\n          {cx_notify,[]},\n          {cx_all,[{global_name_conflict,cx_all,drgb@localhost}]},\n          {cx_user,[]},\n          {cx_bad,[]},\n          {cx_crash,[]}]\ninboxes_b: [{cx_all,[{global_name_conflict,cx_all,drga@localhost}]},\n            {cx_bad,[]},\n            {cx_crash,[]},\n            {cx_exit,{ended,noproc}},\n            {cx_notify,[{global_name_conflict,cx_notify}]},\n            {cx_user,[]}]\nset_lock: true\nset_lock_again: true\nrefused_b: {refused,false}\ntrans_b: aborted\ndel_lock: true\ngranted_b: {granted,true}\ntrans: true\nheld: true\nafter_holder: true\ntemp_b: drga@localhost\ntemp_gone: [undefined,undefined]\npartition: [[drgb@localhost],[drga@localhost]]\nsync_partition: ok\nnames_partition: [cx_crash,cx_exit,cx_notify,cx_user,ga,gb]\ndisconnect: [drgb@localhost]\nhalted: {badrpc,nodedown}\ndist_global: ok\n"
+        },
+        {
+          "name": "b",
+          "args": [
+            "b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname drgb@localhost --setcookie drg"
+          },
+          "otp_flags": "-sname drgb@localhost -setcookie drg",
+          "stderr": "^=WARNING REPORT==== .* ===\\n'global' at node drgb@localhost requested disconnect from node drgc@localhost in order to prevent overlapping partitions\\n$",
+          "exit_status": 0,
+          "stdout": "dist_global: ok\n"
+        },
+        {
+          "name": "c",
+          "args": [
+            "c"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname drgc@localhost --setcookie drg --env kernel prevent_overlapping_partitions false"
+          },
+          "otp_flags": "-sname drgc@localhost -setcookie drg -kernel prevent_overlapping_partitions false",
+          "stderr": "^=WARNING REPORT==== .* ===\\n'global' at node drgc@localhost disconnected node drgb@localhost in order to prevent overlapping partitions\\n$",
+          "exit_status": 0,
+          "stdout": "ping: pong\nsync: ok\nsync_alone: ok\nisolated: []\nnames_alone: [gc]\ndist_global: ok\n"
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "name": "a",
+          "args": [
+            "a"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname drga@localhost --setcookie drg"
+          },
+          "otp_flags": "-sname drga@localhost -setcookie drg",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "ping: pong\nsync: ok\nsync_all: ok\nnodes: [drgb@localhost,drgc@localhost]\nlocker: true\nwhereis: [drga@localhost,drgb@localhost,drgc@localhost,undefined]\nwhereis_b: drga@localhost\nwhereis_c: drgb@localhost\nnames: [cx_crash,cx_exit,cx_notify,cx_user,ga,gb,gc]\nsend: drgb@localhost\nsend_unknown: {exit,{badarg,{nobody,hello}}}\nconflicts: [{cx_all,undefined},\n            {cx_bad,undefined},\n            {cx_crash,drgb@localhost},\n            {cx_exit,drga@localhost},\n            {cx_notify,drga@localhost},\n            {cx_user,drgb@localhost}]\nconflicts_b: true\nconflicts_c: true\ninboxes: [{cx_exit,[]},\n          {cx_notify,[]},\n          {cx_all,[{global_name_conflict,cx_all,drgb@localhost}]},\n          {cx_user,[]},\n          {cx_bad,[]},\n          {cx_crash,[]}]\ninboxes_b: [{cx_all,[{global_name_conflict,cx_all,drga@localhost}]},\n            {cx_bad,[]},\n            {cx_crash,[]},\n            {cx_exit,{ended,noproc}},\n            {cx_notify,[{global_name_conflict,cx_notify}]},\n            {cx_user,[]}]\nset_lock: true\nset_lock_again: true\nrefused_b: {refused,false}\ntrans_b: aborted\ndel_lock: true\ngranted_b: {granted,true}\ntrans: true\nheld: true\nafter_holder: true\ntemp_b: drga@localhost\ntemp_gone: [undefined,undefined]\npartition: [[drgb@localhost],[drga@localhost]]\nsync_partition: ok\nnames_partition: [cx_crash,cx_exit,cx_notify,cx_user,ga,gb]\ndisconnect: [drgb@localhost]\nhalted: {badrpc,nodedown}\ndist_global: ok\n"
+        },
+        {
+          "name": "b",
+          "kind": "otp",
+          "args": [
+            "b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname drgb@localhost --setcookie drg"
+          },
+          "otp_flags": "-sname drgb@localhost -setcookie drg",
+          "stderr": "^\\S+ warning: 'global' at node drgb@localhost requested disconnect from node drgc@localhost in order to prevent overlapping partitions\\n$",
+          "exit_status": 0,
+          "stdout": "dist_global: ok\n"
+        },
+        {
+          "name": "c",
+          "args": [
+            "c"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname drgc@localhost --setcookie drg --env kernel prevent_overlapping_partitions false"
+          },
+          "otp_flags": "-sname drgc@localhost -setcookie drg -kernel prevent_overlapping_partitions false",
+          "stderr": "^=WARNING REPORT==== .* ===\\n'global' at node drgc@localhost disconnected node drgb@localhost in order to prevent overlapping partitions\\n$",
+          "exit_status": 0,
+          "stdout": "ping: pong\nsync: ok\nsync_alone: ok\nisolated: []\nnames_alone: [gc]\ndist_global: ok\n"
+        }
+      ]
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
+  },
+  "inputs": {
+    "dist_global.erl": "4f93d12413d7b180e61a15162a6704de1773ed4d692dfa7118e48b02bcf1fbbb"
+  }
+}

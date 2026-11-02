@@ -36,6 +36,10 @@ class Signals final {
     // under the executor's lock when another process sets it.
     std::size_t set_save_calls(std::size_t calls) noexcept { return std::exchange(save_calls_, calls); }
 
+    // process_flag(async_dist, Bool), kept for reading back only: Clause's distribution never suspends a sender (plan
+    // 30 step DIST8a, used by global).
+    bool set_async_dist(bool async) noexcept { return std::exchange(async_dist_, async); }
+
     // Link to the process of `pid`; nothing when already linked. Allocation failure throws.
     void link(Word pid) {
         if (!std::ranges::contains(links_, pid)) {
@@ -193,5 +197,7 @@ class Signals final {
     bool standard_io_ = true;
     // process_flag(save_calls, N); nothing is saved (plan 21 step LIB9A).
     std::size_t save_calls_ = 0;
+    // process_flag(async_dist, Bool); no send waits for a busy connection (plan 30 step DIST8a).
+    bool async_dist_ = false;
 };
 } // namespace clause::runtime

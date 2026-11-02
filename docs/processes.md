@@ -506,8 +506,9 @@ An alias is a reference messages can be sent to (`Alias ! Msg`): `alias/0,1`
 its first message). `unalias/1` ends an alias of the caller. A send to a
 reference that is no active alias, or whose owner ended, is dropped. A reply
 alias is consumed only when its message is delivered, after any wait for a busy
-owner. `monitor/3`'s `{tag, Tag}` replaces `'DOWN'` in the monitor message; port
-monitors take no options.
+owner. `monitor/3`'s `{tag, Tag}` replaces `'DOWN'` in the monitor message, and
+OTP 28's `priority` is accepted, its `'DOWN'` an ordinary message; port monitors
+take no options.
 
 ## Nodes
 
@@ -593,7 +594,7 @@ not suspend.
 | `register(Name, Pid)`, `unregister(Name)`, `whereis(Name)`, `registered()` | See [registered names](#registered-names); `Name` must be an atom |
 | `demonitor(Ref)`, `demonitor(Ref, Options)` | `badarg` unless `Ref` is a reference and `Options` a proper list of `flush` and `info` |
 | `exit(Dest, Reason)`, `exit_signal(Dest, Reason)` | `badarg` unless `Dest` is a pid or reference; `true` after the [exit signal](#exit-signals) |
-| `process_flag(trap_exit, Bool)`, `process_flag(min_heap_size, N)`, `process_flag(save_calls, N)` | The previous setting; `badarg` for another flag, a non-boolean or a negative or non-integer size |
+| `process_flag(trap_exit, Bool)`, `process_flag(async_dist, Bool)`, `process_flag(min_heap_size, N)`, `process_flag(save_calls, N)` | The previous setting; `badarg` for another flag, a non-boolean or a negative or non-integer size. `async_dist` is kept but changes nothing: no send waits for a busy connection |
 | `erlang:send(Dest, Msg)`, `Dest ! Msg` | `Msg`, after sending it ([messages](#messages)); `send/2` is not auto-imported |
 | `spawn(Node, ...)`, `spawn_link(Node, ...)`, `spawn_monitor(Node, ...)` (`/2`, `/4`) | This node (`node()`): as without `Node`. Another node: the process runs there ([spawning](distribution.md#spawning)); a node that cannot be reached gives OTP's useless pid, a process here that ends at once with reason `noconnection`, so a link or monitor reports `noconnection`; `badarg` for a non-atom node (plan 21 step LIB9A, plan 30 step DIST5b2) |
 | `erlang:send(Dest, Msg, Options)` | `ok`, or `noconnect` for a message to another node with the `noconnect` option; options `nosuspend`, `noconnect`, `priority` (an ordinary message) |

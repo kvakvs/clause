@@ -139,6 +139,8 @@ builtin and service calls), `RuntimeOptions` + `RuntimeExtension` for extension 
   `NEW_FUN_EXT` (DIST5d): each `FunDefinition` keeps its wire identity (new uniq = MD5 of the module name, old uniq,
   old index), and decoding finds the program's fun or a foreign one the code server keeps (`CodeServer::decoded_fun`),
   which encodes again unchanged and fails when called.
+  `global` (DIST8a) runs OTP's protocol 8 between `global_name_server`s with its locker in
+  `clause_global_locker`.
 - **Memory / GC**: per-process generational heaps, copying collector at safepoints, message and
   persistent-term copies, off-heap binaries (`docs/runtime-heap.md`).
 - **Scheduler**: multi-worker executor with run queues, handed-over wakes and stealing, mailboxes,

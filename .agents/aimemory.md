@@ -856,4 +856,13 @@ gotchas and user directions not recorded elsewhere.
   `io:getopts(user)` from the server itself (deadlock until routed through `request(Pid, _)`). "Standard leader" must
   be the main process itself (`Executor::main_`), not "a process leading itself": a fixture restoring
   `group_leader()` after a remote leader lost its standard flag (calling_self).
+- DIST8a (2026-11-02): global's protocol has no documentation; learned from references/otp global.erl (user told).
+  Every gen_server program already links all of distribution: global -> clause_kernel -> kernel -> erl_distribution
+  -> net_kernel (`clau --print-inputs`), so library code there may call net_kernel freely. OTP 29 global needed
+  `monitor/3` `[priority]`, `process_flag(async_dist, _)` and `system_info(creation)` (0 unalive). `rpc:call` turns
+  resolve_it's caught `{'EXIT', _}` into `{badrpc, _}`, so a crashing resolve method keeps the other partition's pid.
+  Clause's `=WARNING REPORT====` for a format without trailing newline ends in one `\n`. A deterministic partition
+  test: the removed node runs `prevent_overlapping_partitions false` (else both lost_connection reports race). After a
+  failed multi-node run, stop orphaned `erl.exe ... oracle.escript` nodes and `epmd -daemon` by PID (leave VS Code's
+  `vscode_lsp_entry` erl alone), or run.py cannot remove the work directory.
 

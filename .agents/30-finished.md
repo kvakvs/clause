@@ -143,4 +143,8 @@ Compact record of the network distribution plan, one bullet per step;
 - **DIST7d** `net_adm` as OTP's: `world/0,1` and `world_list/1,2` ping the nodes each host's epmd names (verbose
   lines), `ping_list/1` with node monitors, `host_file/0` over `file:path_consult/2`, `localhost/0` with the resolver's
   domain; `dist_rpc` extended; DIST7 closed — 28566c2e
+- **DIST8a** `global` across nodes over OTP's protocol 8 (connect sessions, `clause_global_locker`, exchange and
+  resolver, `new_nodes`/`in_sync`, registrar, overlapping-partition prevention, `info/0`, `get_locker/0`); runtime
+  `monitor/3` `[priority]`, `process_flag(async_dist, _)`, `system_info(creation)`; DIST8 split into DIST8a/8b;
+  golden `dist_global` (three nodes, OTP nodes as a and b) — HASH
 

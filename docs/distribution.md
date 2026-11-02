@@ -456,6 +456,38 @@ Current since DIST7c (`builtins/io.cpp`, `library/stdlib/io.erl`, `library/stdli
 - **Application masters** relay their group's I/O to the group leader they started under; `logger_std_h`'s
   `standard_io` writes to `user`, as OTP's.
 
+## global
+
+Current since DIST8a (`library/kernel/global.erl`, `clause_global_locker.erl`), OTP's protocol version 8 between
+`global_name_server` processes, with OTP 29 nodes too.
+
+- **Joining:** each visible connection starts a session: the servers exchange `init_connect` and `init_connect_ack`,
+  and the lockers lock both partitions with a shared lock id (`lock_set` through the servers; this host's nodes are
+  taken first, after a pause of 0.2 to 3 s). The servers then exchange their names, resolve conflicts, and tell the
+  rest of their partitions about the new nodes (`new_nodes`) before the lock goes. Nodes of the other partition are
+  connected (`in_sync`), so with `connect_all` the network becomes fully connected. A session out of step is
+  cancelled (`cancel_connect`) and started again.
+- **Names:** `register_name/2,3`, `re_register_name/2,3`, `unregister_name/1` and the external variants run in the
+  registrar under global's lock on every known node; lookups read this node's replica. A name goes on every node when
+  its process ends or its node goes down.
+- **Conflicts:** when partitions holding the same name meet, the smaller node calls its registration's method on the
+  node of its pid (`resolve_it/4` through `rpc:call/4`): `random_exit_name/3` keeps the pid of the smaller node and
+  kills the other, `random_notify_name/3` sends the other `{global_name_conflict, Name}`, `notify_all_name/3`
+  unregisters the name and tells both. A method that returns no pid unregisters the name; one that fails keeps the
+  other partition's pid, as `rpc:call/4` turns the failure into `{badrpc, _}`.
+- **Locks:** `set_lock/1,2,3`, `del_lock/1,2` and `trans/2,3,4` ask every node of the list; a refusal anywhere
+  releases the nodes that granted it, and a retry sleeps as OTP's. A lock goes with its holder.
+- **`sync/0,1`** returns once this node exchanged names with the nodes (within its global group); `disconnect/0`
+  disconnects the nodes global knows and returns them; `info/0` and `get_locker/0` answer OTP's state record and the
+  locker.
+- **Overlapping partitions:** with `prevent_overlapping_partitions` (and `connect_all`), a node that loses a
+  connection reports it (`lost_connection`) to the nodes it knows; each passes the report on once and asks the lost
+  node to remove it (`remove_connection`), logging OTP's warning `'global' at node A requested disconnect from node B
+  in order to prevent overlapping partitions`, and the removed node disconnects (`... disconnected node ...`).
+  A node about to halt sends no reports (`prepare_shutdown`).
+- **Not provided:** OTP's high-level trace for troubleshooting (`high_level_trace_start`, ...), which the server
+  reports as unexpected calls.
+
 ## Node status messages
 
 Current since DIST2b, as OTP's: `process_flag(monitor_nodes, Bool)`,

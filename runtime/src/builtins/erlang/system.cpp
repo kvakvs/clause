@@ -1,5 +1,6 @@
 #include "../../scheduler/cpus.hpp"
 #include "../../scheduler/executor.hpp"
+#include "../../terms/identities.hpp"
 #include "../typed.hpp"
 #include "terms.hpp"
 #include <array>
@@ -116,7 +117,7 @@ std::optional<std::string> text_item(std::string_view name) {
 std::optional<std::int64_t> count_item(ProcessContext &context, std::string_view name) {
     const auto counts = Executor::counts(context);
     const auto processors = static_cast<std::int64_t>(std::max(1U, std::thread::hardware_concurrency()));
-    const std::array<std::pair<std::string_view, std::int64_t>, 13> items{{
+    const std::array<std::pair<std::string_view, std::int64_t>, 14> items{{
         {"wordsize", static_cast<std::int64_t>(sizeof(Word))},
         {"process_count", static_cast<std::int64_t>(counts.processes)},
         {"process_limit", PROCESS_LIMIT},
@@ -130,6 +131,8 @@ std::optional<std::int64_t> count_item(ProcessContext &context, std::string_view
         {"logical_processors_available", static_cast<std::int64_t>(detail::available_cpus().size())},
         {"logical_processors_online", processors},
         {"thread_pool_size", 0},
+        // This node's creation, 0 while it is not alive (used by global's lost_connection reports, plan 30 DIST8a).
+        {"creation", static_cast<std::int64_t>(detail::this_node_creation())},
     }};
     const auto found = std::ranges::find(items, name, &std::pair<std::string_view, std::int64_t>::first);
     return found == items.end() ? std::nullopt : std::optional{found->second};

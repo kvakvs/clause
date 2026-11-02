@@ -353,8 +353,8 @@ TermResult<Term> monitor_nodes(ProcessContext &context, std::optional<unsigned> 
 
 using Flag = Named<struct FlagRole>;
 
-// process_flag(trap_exit, Bool), (min_heap_size, Size), (save_calls, N) or monitor_nodes: the previous setting;
-// every other flag is badarg.
+// process_flag(trap_exit | async_dist, Bool), (min_heap_size, Size), (save_calls, N) or monitor_nodes: the previous
+// setting; every other flag is badarg.
 TermResult<Term> process_flag(ProcessContext &context, const Flag &flag, const Term &value) {
     if (const auto options = monitor_nodes_options(context, flag.term)) {
         return monitor_nodes(context, node_status_options(*options), value);
@@ -367,10 +367,12 @@ TermResult<Term> process_flag(ProcessContext &context, const Flag &flag, const T
         return save_calls(context, value);
     }
     const auto setting = spelling(value);
-    if (name != "trap_exit" || (setting != "true" && setting != "false")) {
+    if ((name != "trap_exit" && name != "async_dist") || (setting != "true" && setting != "false")) {
         bad_argument();
     }
-    return TermFactory(context).boolean(context.signals().set_trap_exit(setting == "true"));
+    auto &signals = context.signals();
+    const bool on = setting == "true";
+    return TermFactory(context).boolean(name == "trap_exit" ? signals.set_trap_exit(on) : signals.set_async_dist(on));
 }
 
 // is_process_alive(Pid): whether the process has not ended; badarg unless Pid is a pid.

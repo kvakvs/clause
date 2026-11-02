@@ -175,7 +175,8 @@ stacks.
 - `statistics/1`: `wall_clock`, `runtime`, run queues, `context_switches`;
   reduction, GC and I/O counters report zeros.
 - `system_info/1`: `otp_release` `"29"`, `version` `"17.1"`, `machine`
-  `"Clause"`, counts, limits, fixed emulator answers; full list in `system.cpp`.
+  `"Clause"`, counts, limits, `creation` (0 while not alive), fixed emulator
+  answers; full list in `system.cpp`.
 - `memory/0,1`: OTP's types; `binary`, `code`, `ets` are 0.
 - `system_flag/2`: `backtrace_depth` (≤ 64) and `min_heap_size` act; most
   others are read back without effect; `cpu_topology`, `erts_alloc`, ...

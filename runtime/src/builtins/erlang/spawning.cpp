@@ -411,6 +411,28 @@ std::optional<SpawnOptions> served_spawn_options(ProcessContext &context, const 
     }
 }
 
+namespace {
+// Apply one monitor option: {tag, Tag}, {alias, Mode}, or OTP 28's priority (used by global), whose 'DOWN' Clause
+// delivers as an ordinary signal; badarg for any other.
+void monitor_option(ProcessContext &context, const Term &option, detail::MonitorOptions &result) {
+    if (option.is_atom() && option.atom_spelling_unchecked() == "priority") {
+        return;
+    }
+    if (!option.is_tuple() || option.tuple_size_unchecked() != 2) {
+        bad_argument();
+    }
+    const auto name = option.tuple_element_unchecked(0).atom_spelling().value_or("");
+    const auto value = option.tuple_element_unchecked(1);
+    if (name == "tag") {
+        result.tag = need(detail::MessageBuffer::copy_of(value, context));
+    } else if (name == "alias") {
+        result.alias = alias_mode(value);
+    } else {
+        bad_argument();
+    }
+}
+} // namespace
+
 detail::MonitorOptions monitor_options(ProcessContext &context, const Term &list) {
     const auto options = need(Argument<ListArgument>::convert(list));
     if (!options) {
@@ -418,18 +440,7 @@ detail::MonitorOptions monitor_options(ProcessContext &context, const Term &list
     }
     detail::MonitorOptions result;
     for (const auto &option : options->elements) {
-        if (!option.is_tuple() || option.tuple_size_unchecked() != 2) {
-            bad_argument();
-        }
-        const auto name = option.tuple_element_unchecked(0).atom_spelling().value_or("");
-        const auto value = option.tuple_element_unchecked(1);
-        if (name == "tag") {
-            result.tag = need(detail::MessageBuffer::copy_of(value, context));
-        } else if (name == "alias") {
-            result.alias = alias_mode(value);
-        } else {
-            bad_argument();
-        }
+        monitor_option(context, option, result);
     }
     return result;
 }
