@@ -154,3 +154,8 @@ Compact record of the network distribution plan, one bullet per step;
 - **DIST9** `pg` across nodes: `data_publisher`'s discovery at start and nodeup, local data exchange, relayed updates,
   peer monitors dropping a lost node's members, version 0 translations; `pg`'s remote-node global view as OTP's;
   golden `dist_pg` (OTP nodes as a and as b) — a404cd24
+- **DIST12a** TLS distribution: `inet_tls_dist`/`inet6_tls_dist` over Clause's `ssl` (options files through
+  `ssl_dist_sup` under `net_sup`, `--ssl-dist-optfile`/`--ssl-dist-opt`, `{erl_dist, true}` connections under
+  `tls_dist_connection_sup`, 4-byte packets inside TLS, OTP's certificate checks), `clause_dist_controller` shared
+  with `inet_tcp_dist` (`fam_listen/4`, `fam_setup/4` now OTP's), net_kernel's carrier calls as OTP's, manifest
+  `--proto-dist` links the carrier; DIST12 split into DIST12a/12b; golden `dist_tls` (OTP nodes both ways) — 4c20015a
