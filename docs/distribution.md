@@ -530,7 +530,10 @@ servers of the same name, with OTP 29 nodes too.
   loss of its node's connection (`noconnection`), removes its members; `nodedown` itself changes nothing.
 - **Older peers:** a peer of version 0 (OTP before 29) gets `pg`'s plain `join`, `leave` and `sync` messages, and its
   messages are translated back.
-- **Not provided:** kernel's `start_pg` parameter; programs start the default scope with `pg:start_link/0`.
+- **Default scope** (DIST13): with the kernel parameter `start_pg` set to `true` the scope `pg` runs as
+  `kernel_safe_sup`'s child `pg`, as OTP's. Clause starts `kernel_sup` at the first call of a function of the default
+  scope (`pg:join/2`, `get_members/1`, ...), where OTP starts it at boot ([differences](differences.md)). Without
+  `start_pg` programs start it with `pg:start_link/0`, and calls without it fail as OTP's (`noproc`, or no members).
 
 Current since DIST2b, as OTP's: `process_flag(monitor_nodes, Bool)`,
 `process_flag({monitor_nodes, Options}, Bool)` and `net_kernel:monitor_nodes/1,2` over them.
@@ -910,8 +913,8 @@ Clause starts it at the first use of a kernel service: `rex` (`rpc`), `global_na
 
 - **Children:** `kernel:init/1`'s, in OTP's start order: `rex`, `global_name_server`, `net_sup` (distribution of the
   node start options; otherwise `erl_distribution:start_link/0` answers `ignore` and the child stays without a
-  process), `global_group` ([global groups](#global_group)) and `kernel_safe_sup`, an empty supervisor other libraries add
-  children to. One-for-all without restarts, as OTP's. OTP's other children (`code_server`, `file_server_2`,
+  process), `global_group` ([global groups](#global_group)) and `kernel_safe_sup`, the supervisor other libraries add
+  children to, holding the default `pg` scope under `start_pg` ([pg](#pg)). One-for-all without restarts, as OTP's. OTP's other children (`code_server`, `file_server_2`,
   `inet_db`, `logger_sup`, `user`, ...) are runtime services in Clause ([differences](differences.md)).
 - **`net_kernel:start/1,2`** adds the `net_sup_dynamic` child, and `stop/0` terminates and deletes it.
 - **Opting out (DIST4b1e, user choice):** `exclude_kernel_services = [...]` in `[targets.options]` or
@@ -998,7 +1001,7 @@ The command line wins over `CLAUSE_FLAGS`, which wins over the manifest.
   - `inet_dist_listen_min`, `inet_dist_listen_max`, `inet_dist_use_interface`,
     `inet_dist_listen_options`, `inet_dist_connect_options`;
   - `epmd_module`, `erl_epmd_node_listen_port`;
-  - `prevent_overlapping_partitions`, `global_groups`;
+  - `prevent_overlapping_partitions`, `global_groups`, `start_pg`;
   - `distributed`, `sync_nodes_mandatory`, `sync_nodes_optional`, `sync_nodes_timeout`.
 - `net_kernel:start/1,2` starts distribution in a running program, as in OTP, under the same
   `--epmd` mode.

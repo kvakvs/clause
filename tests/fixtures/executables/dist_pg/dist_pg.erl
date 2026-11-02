@@ -6,6 +6,21 @@
 -export([main/1]).
 -export([member/0, join/2, leave/2, stop/1, names/0, view/1, finish/0]).
 
+%% kernel's start_pg (DIST13): the default scope runs under kernel_safe_sup and serves the scope-less functions.
+main(["start_pg"]) ->
+    io:format("join: ~p~n", [pg:join(g, self())]),
+    io:format("members: ~p~n", [pg:get_members(g) =:= [self()]]),
+    io:format("groups: ~p~n", [pg:which_groups()]),
+    Ids = [Id || {Id, _, _, _} <- supervisor:which_children(kernel_safe_sup)],
+    io:format("child: ~p~n", [lists:member(pg, Ids)]),
+    io:format("leave: ~p~n", [pg:leave(g, self())]),
+    finish();
+%% Without it there is no default scope.
+main(["no_pg"]) ->
+    io:format("members: ~p~n", [pg:get_members(g)]),
+    io:format("join: ~p~n", [catch_exit(fun() -> pg:join(g, self()) end)]),
+    io:format("scope: ~p~n", [whereis(pg)]),
+    finish();
 main(["a"]) ->
     B = 'dpgb@localhost',
     {ok, _} = pg:start_link(),
@@ -141,6 +156,14 @@ label(Other) ->
 name(Name) -> element(2, lists:keyfind(Name, 1, get(names))).
 
 %% b's end: its standard output is its own, whatever the caller's group leader is.
+% The exit reason of a call that exits, without its call details.
+catch_exit(Fun) ->
+    try Fun() of
+        Result -> Result
+    catch
+        exit:{Reason, _} -> {exit, Reason}
+    end.
+
 finish() ->
     io:format(user, "dist_pg: ok~n", []),
     erlang:halt().

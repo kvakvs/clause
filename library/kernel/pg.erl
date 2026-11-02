@@ -1,7 +1,8 @@
 %% Clause's pg (plan 21 step LIB25, plan 30 step DIST9, docs/libraries/library.md): process groups in scopes, each scope
 %% a data_publisher with this module as its callback module. A scope's ETS table, named after it, holds {Group, Members,
 %% LocalMembers}; local members are monitored and leave when they end, scopes of the same name on connected nodes share
-%% their members through data_publisher, and monitors of a scope or group get {Ref, join | leave, Group, Pids}.
+%% their members through data_publisher, and monitors of a scope or group get {Ref, join | leave, Group, Pids}. The
+%% default scope runs under kernel_safe_sup with the kernel parameter start_pg (DIST13).
 -module(pg).
 -behaviour(data_publisher).
 -export([
@@ -40,17 +41,25 @@
 
 start_link() -> data_publisher:start_link(?DEFAULT_SCOPE, ?MODULE).
 
+% The default scope; under the kernel parameter start_pg its first use starts kernel_sup, whose kernel_safe_sup runs it,
+% as OTP's node does at boot (plan 30 step DIST13).
+default_scope() ->
+    _ =
+        whereis(?DEFAULT_SCOPE) =:= undefined andalso application:get_env(kernel, start_pg) =:= {ok, true} andalso
+            clause_kernel:ensure_started(),
+    ?DEFAULT_SCOPE.
+
 start(Scope) when is_atom(Scope) -> data_publisher:start(Scope, ?MODULE).
 
 start_link(Scope) when is_atom(Scope) -> data_publisher:start_link(Scope, ?MODULE).
 
-join(Group, PidOrPids) -> join(?DEFAULT_SCOPE, Group, PidOrPids).
+join(Group, PidOrPids) -> join(default_scope(), Group, PidOrPids).
 
 join(Scope, Group, PidOrPids) when is_pid(PidOrPids); is_list(PidOrPids) ->
     ok = ensure_local(PidOrPids),
     data_publisher:update(Scope, [{Group, to_list(PidOrPids), []}]).
 
-leave(Group, PidOrPids) -> leave(?DEFAULT_SCOPE, Group, PidOrPids).
+leave(Group, PidOrPids) -> leave(default_scope(), Group, PidOrPids).
 
 %% not_joined when none of the processes is a member.
 leave(Scope, Group, PidOrPids) when is_pid(PidOrPids); is_list(PidOrPids) ->
@@ -61,21 +70,21 @@ leave(Scope, Group, PidOrPids) when is_pid(PidOrPids); is_list(PidOrPids) ->
         _ -> data_publisher:update(Scope, [{Group, [], Pids}])
     end.
 
-monitor_scope() -> monitor_scope(?DEFAULT_SCOPE).
+monitor_scope() -> monitor_scope(default_scope()).
 
 monitor_scope(Scope) -> data_publisher:subscribe(Scope, scope).
 
-monitor(Group) -> ?MODULE:monitor(?DEFAULT_SCOPE, Group).
+monitor(Group) -> ?MODULE:monitor(default_scope(), Group).
 
 monitor(Scope, Group) -> data_publisher:subscribe(Scope, {group, Group}).
 
-demonitor(Ref) -> ?MODULE:demonitor(?DEFAULT_SCOPE, Ref).
+demonitor(Ref) -> ?MODULE:demonitor(default_scope(), Ref).
 
 demonitor(Scope, Ref) ->
     data_publisher:unsubscribe(Scope, Ref),
     flush(Ref).
 
-get_members(Group) -> get_members(?DEFAULT_SCOPE, Group).
+get_members(Group) -> get_members(default_scope(), Group).
 
 get_members(Scope, Group) ->
     try
@@ -84,7 +93,7 @@ get_members(Scope, Group) ->
         error:badarg -> []
     end.
 
-get_local_members(Group) -> get_local_members(?DEFAULT_SCOPE, Group).
+get_local_members(Group) -> get_local_members(default_scope(), Group).
 
 get_local_members(Scope, Group) ->
     try
@@ -93,11 +102,11 @@ get_local_members(Scope, Group) ->
         error:badarg -> []
     end.
 
-which_groups() -> which_groups(?DEFAULT_SCOPE).
+which_groups() -> which_groups(default_scope()).
 
 which_groups(Scope) when is_atom(Scope) -> [Group || [Group] <- ets:match(Scope, {'$1', '_', '_'})].
 
-which_local_groups() -> which_local_groups(?DEFAULT_SCOPE).
+which_local_groups() -> which_local_groups(default_scope()).
 
 which_local_groups(Scope) when is_atom(Scope) -> ets:select(Scope, [{{'$1', '_', '$2'}, [{'=/=', '$2', []}], ['$1']}]).
 

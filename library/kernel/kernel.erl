@@ -1,7 +1,7 @@
 %% Clause's kernel (plan 30 step DIST4b1d, docs/distribution.md#kernel-sup): OTP's callback module of the kernel
 %% application and of its kernel_sup and kernel_safe_sup supervisors. kernel_sup holds the kernel services Clause runs
-%% as processes, in OTP's order: rex, global_name_server, net_sup, global_group and kernel_safe_sup; clause_kernel
-%% starts it at the first use of one of them. clau's generated clause_kernel_services lists the services the program
+%% as processes, in OTP's order: rex, global_name_server, net_sup, global_group and kernel_safe_sup (with pg under
+%% start_pg, DIST13); clause_kernel starts it at the first use of one of them. clau's generated clause_kernel_services lists the services the program
 %% does not exclude (exclude_kernel_services, plan 30 step DIST4b1e) and links their modules.
 -module(kernel).
 -behaviour(application).
@@ -14,8 +14,8 @@ stop(_) -> ok.
 
 config_change(_, _, _) -> ok.
 
-% kernel_sup: one service ending ends them all, and then the program (clause_kernel). kernel_safe_sup: an empty
-% supervisor other libraries add children to.
+% kernel_sup: one service ending ends them all, and then the program (clause_kernel). kernel_safe_sup: the supervisor
+% other libraries add children to, with the default pg scope under the kernel parameter start_pg.
 init([]) ->
     % The literal fun links erl_distribution into programs, as net_sup's child spec names it only as data.
     _ = fun erl_distribution:start_link/0,
@@ -23,7 +23,15 @@ init([]) ->
     Children = [Child || #{id := Id} = Child <- children(), Id =:= net_sup orelse lists:member(Id, Included)],
     {ok, {#{strategy => one_for_all, intensity => 0, period => 1}, Children}};
 init(safe) ->
-    {ok, {#{strategy => one_for_one, intensity => 4, period => 3600}, []}}.
+    {ok, {#{strategy => one_for_one, intensity => 4, period => 3600}, start_pg()}}.
+
+% The default pg scope as OTP's kernel_safe_sup child when start_pg is true, for a program that has pg (plan 30 step
+% DIST13): pg's default scope functions start kernel_sup at their first use.
+start_pg() ->
+    case application:get_env(kernel, start_pg) =:= {ok, true} andalso code:ensure_loaded(pg) =:= {module, pg} of
+        true -> [#{id => pg, start => {pg, start_link, []}, shutdown => 1000, modules => [pg]}];
+        false -> []
+    end.
 
 % Every child kernel_sup may have, in start order.
 children() ->

@@ -175,8 +175,19 @@ dependencies, non-test sources.
   - **Design (all steps):**
     - Erlang over `ets`, `dets` and `disk_log` (processes and protocols; the hot paths are already
       C++ `ets`). Own structure, never OTP's sources.
-    - Local-node semantics: one node `nonode@nohost`; `ram_copies`, `disc_copies` and
-      `disc_only_copies` there; other nodes get OTP's non-distributed answers.
+    - Local-node semantics: one node, `node()` (named or `nonode@nohost`); `ram_copies`, `disc_copies` and
+      `disc_only_copies` there; other nodes get OTP's answers for nodes outside the schema. Since plan 30
+      (distribution, 2026-11-02, DIST13) a Clause node can be distributed: MIM1A–MIM1G stay single-node, never
+      hard-coding `nonode@nohost` (the `dir` default is `Mnesia.<node()>`, `schema/0` names `node()`), and keep
+      the node lists of schema records, `{tid, N, Pid}` and lock owners as OTP's so that MIM1H adds nodes
+      without changing formats.
+    - MIM1H (after MIM1G, optional): several nodes over distribution, written from OTP's documentation
+      and observed messages so that Clause and OTP nodes share a schema: `create_schema/1` and
+      `start/0` with `extra_db_nodes`, `change_config/2`, replicas on other nodes (`add_table_copy/3`,
+      `del_table_copy/2`, `move_table_copy/3`), table loading from other nodes, the transaction
+      manager's two-phase commit across nodes, `{mnesia_down, Node}` and `inconsistent_database`
+      events, `set_master_nodes/1,2`, majority checks, and fragments over nodes. Golden with OTP nodes
+      as peers (`host_otp`).
     - What programs observe stays OTP's: tables are public named `ets` tables (keypos 2) that
       code may read directly, `{aborted, Reason}` and `exit({aborted, Reason})` terms, the `{tid, N,
       Pid}` transaction ids, `table_info`/`system_info` items, event messages, the backup callback

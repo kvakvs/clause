@@ -95,6 +95,26 @@
           "stdout": "dist_pg: ok\n"
         }
       ]
+    },
+    {
+      "args": [
+        "start_pg"
+      ],
+      "env": {
+        "CLAUSE_FLAGS": "--env kernel start_pg true"
+      },
+      "otp_flags": "-kernel start_pg true",
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "join: ok\nmembers: true\ngroups: [g]\nchild: true\nleave: ok\ndist_pg: ok\n"
+    },
+    {
+      "args": [
+        "no_pg"
+      ],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "members: []\njoin: {exit,noproc}\nscope: undefined\ndist_pg: ok\n"
     }
   ],
   "oracle_version": [
@@ -106,6 +126,6 @@
     "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
   },
   "inputs": {
-    "dist_pg.erl": "97258007da41d237edfdcef4b9f2d2cbd2c063691ecda1d3d2d636c3c1e5fc2a"
+    "dist_pg.erl": "b287e3d170d44c1d4daff1b7feb068cb71964066142c03f16f30c5a965d89fac"
   }
 }
