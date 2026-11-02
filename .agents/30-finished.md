@@ -133,3 +133,5 @@ Compact record of the network distribution plan, one bullet per step;
 - **DIST7a** `rpc` and `erpc` across nodes: erpc requests and casts as spawn requests on the called node, rex's
   block calls, server calls and broadcasts over `[node() | nodes()]`, OTP's `{From, {call, ...}}`; golden `dist_rpc`
   with OTP nodes both ways (`host_otp`) — 89295469
+- **DIST7b** `gen` across nodes: gen_server, gen_statem and gen_event calls, `multi_call` and `abcast` with real
+  nodes needed only `multi_call`'s `noconnect` send; `dist_rpc` extended — HASH

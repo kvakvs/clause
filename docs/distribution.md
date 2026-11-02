@@ -24,7 +24,7 @@ signal of a pair of processes in the order sent ([signal order](#signal-order), 
 connect, ping, monitor, message, link, lead and spawn on each other both ways on either kind of epmd
 ([testing](#testing), DIST4b4, DIST5c). `net_kernel` changes tick times, reports and tunes connections, and
 `auth` keeps cookies as OTP's ([managing connections](#managing-connections), [cookies](#cookies), DIST6).
-`rpc` and `erpc` call other nodes ([remote calls](#remote-calls), DIST7a).
+`rpc`, `erpc` and the `gen` behaviours call other nodes ([remote calls](#remote-calls), DIST7a, DIST7b).
 The other libraries answer as OTP does without distribution (`{badrpc, nodedown}`, `not_alive`). The
 rest of this file is the contract for distribution. Each section becomes current behavior when its
 step lands.
@@ -416,7 +416,8 @@ flags (`SEND` without the sender, `EXIT2` without payload), as OTP's do.
 
 ## Remote calls
 
-Current since DIST7a (`library/kernel/erpc.erl`, `library/kernel/rpc.erl`), as OTP 29's.
+Current since DIST7a and DIST7b (`library/kernel/erpc.erl`, `library/kernel/rpc.erl`, `library/stdlib/gen.erl`), as
+OTP 29's.
 
 - **`erpc`:** calls, requests, multicalls and casts to another node are spawn requests of `erpc:execute_call/4` or
   `execute_cast/3` there ([spawning](#spawning)); results come back as the child's exit reason. A node that cannot
@@ -427,6 +428,10 @@ Current since DIST7a (`library/kernel/erpc.erl`, `library/kernel/rpc.erl`), as O
   monitor `{Name, Node}`; functions without a node list use `[node() | nodes()]`, and `parallel_eval/1` and
   `pmap/3` hand the calls to those nodes in turn. `rex` runs with distribution ([kernel_sup](#kernel_sup)), answers
   `features_request` with `[erpc]` and OTP's `{From, {call, M, F, A, Leader}}` with `{rex, Reply}`.
+- **`gen`:** `gen_server`, `gen_statem` and `gen_event` calls to `{Name, Node}` or another node's pid monitor the
+  server with an alias, so a reply after a time-out is dropped; a node that cannot be reached exits
+  `{nodedown, Node}` inside the behaviour's `{Reason, {Module, call, Args}}`. `gen_server:multi_call/2,3,4` and
+  `abcast/2,3` cover `[node() | nodes()]` without a node list; only `multi_call`'s monitors connect nodes.
 - **What a node can run:** a distributed program keeps every export of the modules it links
   ([export liveness](executables.md#export-liveness)), so other nodes may call any of them; a module the program does
   not link is `undef` there.

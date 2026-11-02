@@ -1,9 +1,12 @@
-%% rpc and erpc across nodes (plan 30 step DIST7a, docs/distribution.md#remote-calls): a calls b, a node no one runs
-%% and itself through rpc and erpc, and b's rex serves block calls, server calls and broadcasts. b ends through an
-%% rpc call of halt, which a sees as {badrpc, nodedown}. Only exported functions travel, so b may be an OTP node.
+%% rpc, erpc and gen across nodes (plan 30 steps DIST7a and DIST7b, docs/distribution.md#remote-calls): a calls b, a
+%% node no one runs and itself through rpc and erpc, b's rex serves block calls, server calls and broadcasts, and a
+%% calls b's gen_server, gen_statem and gen_event servers. b ends through an rpc call of halt, which a sees as
+%% {badrpc, nodedown}. Only exported functions travel, so b may be an OTP node.
 -module(dist_rpc).
 -export([main/1]).
 -export([fail/1, slow/1, tell/2, where/1, finish/0, server/0]).
+%% The callbacks of the gen servers, without -behaviour attributes since gen_server's and gen_event's share init/1.
+-export([init/1, handle_call/3, handle_cast/2, callback_mode/0, handle_event/4, handle_event/2, handle_call/2]).
 
 -define(NOBODY, 'nobody@localhost').
 
@@ -16,10 +19,17 @@ main(["a"]) ->
     rpc_servers(B),
     erpc_calls(B),
     erpc_requests(B),
+    gen_calls(B),
+    gen_spread(B),
+    gen_others(B),
     show("halted", rpc:call(B, ?MODULE, finish, [])),
     done();
 main(["b"]) ->
     register(drp_server, spawn(?MODULE, server, [])),
+    {ok, _} = gen_server:start({local, drp_gs}, ?MODULE, gs, []),
+    {ok, _} = gen_statem:start({local, drp_sm}, ?MODULE, sm, []),
+    {ok, _} = gen_event:start({local, drp_ev}),
+    ok = gen_event:add_handler(drp_ev, ?MODULE, ev),
     _Ready = mark("drpb_ready"),
     receive
     after infinity -> ok
@@ -56,6 +66,27 @@ server() ->
             To ! {forwarded, node(), What},
             server()
     end.
+
+init(gs) -> {ok, gs};
+init(sm) -> {ok, idle, 0};
+init(ev) -> {ok, 0}.
+
+handle_call(ping, _, State) -> {reply, {pong, node()}, State};
+handle_call({sleep, Time}, _, State) -> {reply, slow(Time), State}.
+
+handle_cast({forward, To}, State) ->
+    To ! {cast, node()},
+    {noreply, State}.
+
+callback_mode() -> handle_event_function.
+
+handle_event({call, From}, get, State, Count) -> {keep_state, Count + 1, [{reply, From, {State, Count, node()}}]};
+handle_event({call, From}, {go, Next}, _, Count) -> {next_state, Next, Count, [{reply, From, ok}]};
+handle_event({call, From}, {sleep, Time}, _, _) -> {keep_state_and_data, [{reply, From, slow(Time)}]}.
+
+handle_event(_, Count) -> {ok, Count + 1}.
+
+handle_call(count, Count) -> {ok, {events, Count, node()}, Count}.
 
 rpc_calls(B) ->
     show("call", [
@@ -166,6 +197,58 @@ erpc_requests(B) ->
     C3 = erpc:send_request(?NOBODY, erlang, node, [], three, C2),
     show("collected", lists:sort([collect(C3), collect(C3), collect(C3)])),
     show("late_responses", receive_all()).
+
+gen_calls(B) ->
+    Pid = rpc:call(B, erlang, whereis, [drp_gs]),
+    show("gen_call", [
+        gen_server:call({drp_gs, B}, ping),
+        gen_server:call(Pid, ping),
+        gen_server:call({drp_gs, B}, {sleep, 0}, 5000),
+        gen_server:receive_response(gen_server:send_request({drp_gs, B}, ping), 5000)
+    ]),
+    show("gen_call_errors", [
+        attempt(fun() -> gen_server:call({drp_gs, B}, {sleep, 300}, 50) end),
+        attempt(fun() -> gen_server:call({nobody, B}, ping) end),
+        attempt(fun() -> gen_server:call({drp_gs, ?NOBODY}, ping) end),
+        attempt(fun() -> gen_server:call({drp_gs, ?NOBODY}, ping, 5000) end),
+        gen_server:receive_response(gen_server:send_request({drp_gs, ?NOBODY}, ping), 5000)
+    ]),
+    show("gen_late_replies", receive_all()).
+
+gen_spread(B) ->
+    {ok, _} = gen_server:start({local, drp_gs}, ?MODULE, gs, []),
+    show("multi_call", [
+        gen_server:multi_call(drp_gs, ping),
+        gen_server:multi_call([B, ?NOBODY], drp_gs, ping),
+        gen_server:multi_call([B], nobody, ping),
+        gen_server:multi_call([B], drp_gs, {sleep, 300}, 50)
+    ]),
+    Self = self(),
+    show("cast", gen_server:cast({drp_gs, B}, {forward, Self})),
+    show("cast_forwarded", receive_one()),
+    show("abcast", [
+        gen_server:abcast(drp_gs, {forward, Self}),
+        gen_server:abcast([B, ?NOBODY], drp_gs, {forward, Self})
+    ]),
+    show("abcast_forwarded", lists:sort([receive_one(), receive_one(), receive_one()])),
+    show("gen_late_replies", receive_all()).
+
+gen_others(B) ->
+    show("gen_statem", [
+        gen_statem:call({drp_sm, B}, get),
+        gen_statem:call({drp_sm, B}, {go, busy}),
+        gen_statem:call({drp_sm, B}, get, 5000),
+        attempt(fun() -> gen_statem:call({drp_sm, B}, {sleep, 300}, 50) end),
+        attempt(fun() -> gen_statem:call({drp_sm, ?NOBODY}, get) end)
+    ]),
+    show("gen_event", [
+        gen_event:notify({drp_ev, B}, one),
+        gen_event:sync_notify({drp_ev, B}, two),
+        gen_event:call({drp_ev, B}, ?MODULE, count),
+        gen_event:which_handlers({drp_ev, B}),
+        attempt(fun() -> gen_event:call({drp_ev, ?NOBODY}, ?MODULE, count) end)
+    ]),
+    show("gen_late_replies", receive_all()).
 
 %% One response of the collection, its label first.
 collect(Collection) ->

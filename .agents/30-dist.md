@@ -9,7 +9,7 @@ direction); formerly backlog item F38.
   connect over IPv4 or IPv6 (DIST4b2a to DIST4b2c), exchange messages (DIST4b3a), monitor each other's processes and
   ping (DIST4b3b1), link and send exit signals (DIST5a), lead each other's processes (DIST5b1) and spawn on each
   other (DIST5b2), every signal in order and with OTP 29 nodes (DIST5c), and send local funs to each other
-  (DIST5d), and call each other through `rpc` and `erpc` (DIST7a); the program's end loses queued packets as
+  (DIST5d), and call each other through `rpc`, `erpc` (DIST7a) and `gen` (DIST7b); the program's end loses queued packets as
   OTP's `halt` (DIST4b3b2).
   Clause and OTP 29 nodes interoperate on either epmd (DIST4b4). `net_kernel` changes tick times, reports and tunes
   connections, bars nodes under `dist_auto_connect once` and connects passively; `auth` keeps cookies with OTP's
@@ -85,7 +85,7 @@ direction); formerly backlog item F38.
 
 ## Steps
 
-DIST0 to DIST6 and DIST7a are done, with DIST5's follow-ups DIST5d and DIST5e ([30-finished](30-finished.md)).
+DIST0 to DIST6, DIST7a and DIST7b are done, with DIST5's follow-ups DIST5d and DIST5e ([30-finished](30-finished.md)).
 
 <a id="step-dist7"></a>
 
@@ -96,10 +96,6 @@ Depends on: DIST6 ([30-finished](30-finished.md)).
 Split before coding (2026-11-02); each sub-step extends the golden `dist_rpc` (Clause nodes, and OTP 29 nodes as a
 and as b, `host_otp`).
 
-- **DIST7b** `gen` across nodes
-  - [ ] `gen:call/3,4` to `{Name, Node}` and other nodes' pids (`{nodedown, Node}`, timeouts, late replies
-        dropped), `gen_server:multi_call/2,3,4` and `abcast/2,3` over real nodes, remote `gen_statem` and
-        `gen_event` calls.
 - **DIST7c** I/O to group leaders
   - [ ] `standard_io` requests (`io` builtins and `io:request/1,2`) go to the process's group leader through the
         I/O protocol when it is another node's pid or a local process other than this node's standard I/O, as

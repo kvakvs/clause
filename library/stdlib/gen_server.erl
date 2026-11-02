@@ -267,7 +267,12 @@ multi_send([Node | Nodes], Name, Alias, Request, Timer, Requests) when is_atom(N
                 Alias ! {Alias, Ref, process, Dest, noconnection},
                 Ref
         end,
-    _ = send(Dest, {'$gen_call', {self(), [[alias | Alias] | Monitor]}, Request}),
+    %% Only the monitor brings a connection up, as OTP's (plan 30 step DIST7b).
+    try
+        erlang:send(Dest, {'$gen_call', {self(), [[alias | Alias] | Monitor]}, Request}, [noconnect])
+    catch
+        _:_ -> ok
+    end,
     multi_send(Nodes, Name, Alias, Request, Timer, [{Node, Monitor} | Requests]);
 multi_send(_, _, Alias, _, Timer, Requests) ->
     unalias(Alias),
