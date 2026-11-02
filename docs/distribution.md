@@ -25,7 +25,7 @@ connect, ping, monitor, message, link, lead and spawn on each other both ways on
 ([testing](#testing), DIST4b4, DIST5c). `net_kernel` changes tick times, reports and tunes connections, and
 `auth` keeps cookies as OTP's ([managing connections](#managing-connections), [cookies](#cookies), DIST6).
 `rpc`, `erpc` and the `gen` behaviours call other nodes, whose output reaches the caller's group leader
-([remote calls](#remote-calls), DIST7a to DIST7c).
+([remote calls](#remote-calls), DIST7a to DIST7c), and `net_adm:world/0,1` finds the nodes epmd names (DIST7d).
 The other libraries answer as OTP does without distribution (`{badrpc, nodedown}`, `not_alive`). The
 rest of this file is the contract for distribution. Each section becomes current behavior when its
 step lands.

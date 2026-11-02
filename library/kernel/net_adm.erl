@@ -1,6 +1,6 @@
-%% Clause's net_adm (plan 21 step LIB25, docs/libraries/library.md): pings ask the other node's net_kernel (plan 30 step
-%% DIST4b3b1); worlds are empty; names ask epmd through the kernel's epmd_module (plan 30 step DIST3a); .hosts.erlang is
-%% read from the current directory, then the home directory.
+%% Clause's net_adm (plan 21 step LIB25, docs/libraries/library.md), as OTP's (plan 30 step DIST7d): pings ask the other
+%% node's net_kernel (DIST4b3b1); worlds ping the nodes the epmd of each host names; names ask epmd through the kernel's
+%% epmd_module (DIST3a); .hosts.erlang is read from the current directory, the home directory, then the root directory.
 -module(net_adm).
 -export([
     dns_hostname/1,
@@ -16,6 +16,17 @@
     world_list/2
 ]).
 
+host_file() ->
+    Home =
+        case init:get_argument(home) of
+            {ok, [[Dir]]} -> [Dir];
+            _ -> []
+        end,
+    case file:path_consult(["." | Home] ++ [code:root_dir()], ".hosts.erlang") of
+        {ok, Hosts, _} -> Hosts;
+        Error -> Error
+    end.
+
 %% A ping asks the other node's net_kernel whether this node is authorized; the call connects the nodes (plan 30 step
 %% DIST4b3b1).
 ping(Node) when is_atom(Node) ->
@@ -27,9 +38,13 @@ ping(Node) when is_atom(Node) ->
             pang
     end.
 
+%% The host name with the resolver's domain.
 localhost() ->
     {ok, Host} = inet:gethostname(),
-    Host.
+    case maps:get(domain, clause_inet_config:config(), "") of
+        "" -> Host;
+        Domain -> Host ++ "." ++ Domain
+    end.
 
 names() -> names(localhost()).
 
@@ -46,55 +61,81 @@ dns_hostname(Host) ->
         _ -> {error, Host}
     end.
 
-host_file() ->
-    Home =
-        case os:getenv("HOME") of
-            false -> [];
-            Dir -> [Dir]
-        end,
-    path_consult(["." | Home], ".hosts.erlang").
+%% Pings until a node answers, then collects the other nodes that come up within 3 seconds (plan 30 step DIST7d).
+ping_list(Nodes) ->
+    ok = net_kernel:monitor_nodes(true),
+    collect_new(ping_first(Nodes, nodes()), Nodes).
 
-%% The terms of the first file found, as file:path_consult/2 reads them.
-path_consult([Dir | Dirs], Name) ->
-    case file:read_file(filename:join(Dir, Name)) of
-        {ok, Bin} -> terms(binary_to_list(Bin));
-        {error, enoent} -> path_consult(Dirs, Name);
-        Error -> Error
-    end;
-path_consult([], _) ->
-    {error, enoent}.
-
-terms(eof) ->
+ping_first([], _) ->
     [];
-terms(Text) ->
-    case erl_scan:tokens([], Text, 1) of
-        {done, {ok, Tokens, _}, Rest} ->
-            case erl_parse:parse_term(Tokens) of
-                {ok, Term} ->
-                    case terms(Rest) of
-                        Terms when is_list(Terms) -> [Term | Terms];
-                        Error -> Error
-                    end;
-                Error ->
-                    Error
-            end;
-        {more, _} ->
-            [];
-        {done, Error, _} ->
-            Error
+ping_first([Node | Nodes], Connected) ->
+    case lists:member(Node, Connected) of
+        true ->
+            [Node | ping_first(Nodes, Connected)];
+        false ->
+            case ping(Node) of
+                pong -> [Node];
+                pang -> ping_first(Nodes, Connected)
+            end
     end.
 
-ping_list(Nodes) -> [Node || Node <- Nodes, ping(Node) =:= pong].
+collect_new(Found, Nodes) ->
+    receive
+        {nodeup, Node} ->
+            case lists:member(Node, Nodes) of
+                true -> collect_new(Found, Nodes);
+                false -> collect_new([Node | Found], Nodes)
+            end
+    after 3000 ->
+        ok = net_kernel:monitor_nodes(false),
+        Found
+    end.
 
 world() -> world(silent).
 
 world(Verbose) ->
-    case host_file() of
+    case net_adm:host_file() of
         {error, Reason} -> exit({error, Reason});
-        Hosts -> world_list(Hosts, Verbose)
+        Hosts -> expand_hosts(Hosts, Verbose)
     end.
 
-world_list(Hosts) when is_list(Hosts) -> world_list(Hosts, silent).
+world_list(Hosts) when is_list(Hosts) -> expand_hosts(Hosts, silent).
 
-%% No host has an epmd that answers, so no node is found.
-world_list(Hosts, _) when is_list(Hosts) -> [].
+world_list(Hosts, Verbose) when is_list(Hosts) -> expand_hosts(Hosts, Verbose).
+
+%% The nodes of the hosts that answer a ping, host by host in the order epmd names them (plan 30 step DIST7d).
+expand_hosts(Hosts, Verbose) -> lists:flatten([host_nodes(Host, Verbose) || Host <- Hosts]).
+
+host_nodes(Host, Verbose) ->
+    case names(Host) of
+        {ok, Names} -> ping_names(Names, atom_to_list(Host), Verbose);
+        _ -> []
+    end.
+
+ping_names(Names, Host, Verbose) ->
+    case longshort(Host) of
+        ignored -> [];
+        Short -> [Node || {Name, _} <- Names, Node <- ping_name(Name, Short, Verbose)]
+    end.
+
+ping_name(Name, Host, Verbose) ->
+    Node = list_to_atom(Name ++ "@" ++ longshort(Host)),
+    verbose(Verbose, "Pinging ~w -> ", [Node]),
+    Result = ping(Node),
+    verbose(Verbose, "~p\n", [Result]),
+    [Node || Result =:= pong].
+
+verbose(verbose, Format, Args) -> io:format(Format, Args);
+verbose(_, _, _) -> ok.
+
+%% The host as the node names it: up to the first dot with short names; ignored when not alive.
+longshort(Host) ->
+    case net_kernel:longnames() of
+        false -> uptodot(Host);
+        true -> Host;
+        ignored -> ignored
+    end.
+
+uptodot([$. | _]) -> [];
+uptodot([]) -> [];
+uptodot([C | Rest]) -> [C | uptodot(Rest)].

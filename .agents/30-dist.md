@@ -10,7 +10,7 @@ direction); formerly backlog item F38.
   ping (DIST4b3b1), link and send exit signals (DIST5a), lead each other's processes (DIST5b1) and spawn on each
   other (DIST5b2), every signal in order and with OTP 29 nodes (DIST5c), and send local funs to each other
   (DIST5d), and call each other through `rpc`, `erpc` (DIST7a) and `gen` (DIST7b), whose output reaches the caller's group
-  leader (DIST7c); the program's end loses queued packets as
+  leader (DIST7c), and find each other through `net_adm`'s worlds (DIST7d); the program's end loses queued packets as
   OTP's `halt` (DIST4b3b2).
   Clause and OTP 29 nodes interoperate on either epmd (DIST4b4). `net_kernel` changes tick times, reports and tunes
   connections, bars nodes under `dist_auto_connect once` and connects passively; `auth` keeps cookies with OTP's
@@ -84,20 +84,7 @@ direction); formerly backlog item F38.
 
 ## Steps
 
-DIST0 to DIST6 and DIST7a to DIST7c are done, with DIST5's follow-ups DIST5d and DIST5e ([30-finished](30-finished.md)).
-
-<a id="step-dist7"></a>
-
-## DIST7. `rpc`, `erpc`, `gen` and I/O across nodes
-
-Depends on: DIST6 ([30-finished](30-finished.md)).
-
-Split before coding (2026-11-02); each sub-step extends the golden `dist_rpc` (Clause nodes, and OTP 29 nodes as a
-and as b, `host_otp`).
-
-- **DIST7d** `net_adm` with real nodes
-  - [ ] `world/0,1`, `world_list/1,2` (epmd names of each host, pings, verbose lines), `host_file/0`,
-        `localhost/0` (long names), `dns_hostname/1`.
+DIST0 to DIST7 are done, with DIST5's follow-ups DIST5d and DIST5e ([30-finished](30-finished.md)).
 
 <a id="step-dist8"></a>
 
@@ -136,7 +123,7 @@ Depends on: DIST6 ([30-finished](30-finished.md)).
 
 ## DIST10. Starting nodes: `peer`, `slave`, `pool`
 
-Depends on: [DIST7](#step-dist7).
+Depends on: DIST7 ([30-finished](30-finished.md)).
 
 - Success criteria
   - [ ] A node mode for executables: boot, start distribution and run no entry, so a program can

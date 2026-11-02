@@ -1,8 +1,8 @@
-%% rpc, erpc, gen and I/O across nodes (plan 30 steps DIST7a to DIST7c, docs/distribution.md#remote-calls): a calls b,
-%% a node no one runs and itself through rpc and erpc, b's rex serves block calls, server calls and broadcasts, a calls
-%% b's gen_server, gen_statem and gen_event servers, and the output of a's calls on b appears on a, also through a
-%% collecting group leader. b ends through an rpc call of halt, which a sees as {badrpc, nodedown}. Only exported
-%% functions travel, so b may be an OTP node.
+%% rpc, erpc, gen, I/O and net_adm across nodes (plan 30 steps DIST7a to DIST7d, docs/distribution.md#remote-calls): a
+%% calls b, a node no one runs and itself through rpc and erpc, b's rex serves block calls, server calls and broadcasts,
+%% a calls b's gen_server, gen_statem and gen_event servers, the output of a's calls on b appears on a, also through a
+%% collecting group leader, and net_adm finds both nodes through epmd. b ends through an rpc call of halt, which a sees
+%% as {badrpc, nodedown}. Only exported functions travel, so b may be an OTP node.
 -module(dist_rpc).
 -export([main/1]).
 -export([fail/1, slow/1, tell/2, where/1, finish/0, server/0, say/1, say_twice/1]).
@@ -25,6 +25,7 @@ main(["a"]) ->
     gen_others(B),
     io_calls(B),
     collected_io(B),
+    net_adms(B),
     show("halted", rpc:call(B, ?MODULE, finish, [])),
     done();
 main(["b"]) ->
@@ -288,6 +289,35 @@ collected_io(B) ->
     Collector ! {collected, self()},
     receive
         {collected, Texts} -> show("collected_io", Texts)
+    end.
+
+%% The nodes epmd names on this host that answer a ping; b's ready marker does not.
+net_adms(B) ->
+    show("localhost", lists:prefix(element(2, inet:gethostname()), net_adm:localhost())),
+    show("world_list", lists:sort(net_adm:world_list([localhost]))),
+    ok = file:write_file(".hosts.erlang", <<"'localhost'.\n">>),
+    show("host_file", net_adm:host_file()),
+    show("world", lists:sort(net_adm:world())),
+    {Text, Nodes} = captured(fun() -> net_adm:world(verbose) end),
+    show("world_verbose", [lists:sort(Nodes), lists:sort(string:lexemes(Text, "\n"))]),
+    ok = file:delete(".hosts.erlang"),
+    show("ping_list", net_adm:ping_list([?NOBODY, B])).
+
+%% The result of Fun and the output it wrote, through a collecting group leader.
+captured(Fun) ->
+    Collector = spawn(fun() -> collector([]) end),
+    Self = self(),
+    Worker = spawn(fun() ->
+        group_leader(Collector, self()),
+        Self ! {captured, self(), Fun()}
+    end),
+    Result =
+        receive
+            {captured, Worker, Value} -> Value
+        end,
+    Collector ! {collected, self()},
+    receive
+        {collected, Texts} -> {lists:append(Texts), Result}
     end.
 
 %% An I/O server that keeps the characters of put_chars requests.

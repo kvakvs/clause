@@ -140,3 +140,7 @@ Compact record of the network distribution plan, one bullet per step;
   by `net_kernel` and reported as other nodes' leader; application masters relay to the leader they started under;
   `logger_std_h` writes `user`; `io` devices of other nodes' pids; `dist_rpc` extended. DIST6's masks stay: captured
   `net_kernel:i/0,1` output still holds counts and ports — f930bd69
+- **DIST7d** `net_adm` as OTP's: `world/0,1` and `world_list/1,2` ping the nodes each host's epmd names (verbose
+  lines), `ping_list/1` with node monitors, `host_file/0` over `file:path_consult/2`, `localhost/0` with the resolver's
+  domain; `dist_rpc` extended; DIST7 closed — HASH
+
