@@ -108,13 +108,10 @@ SplitOptions split_options(ProcessContext &context, const ListArgument *options)
     return split;
 }
 
-// The caller's group leader as a term of its heap: its own pid when it leads itself.
+// The caller's group leader as a term of its heap, as group_leader/0 reports it; request_spawn holds the lock.
 Term group_leader_of(ProcessContext &context) {
-    if (const auto &remote = context.signals().remote_group_leader()) {
-        return need(remote->copy_to(context));
-    }
-    const auto leader = context.signals().group_leader();
-    return need(Term::from_word(leader != 0 ? leader : detail::pid_of(context), context));
+    const auto user = Executor::of(context).whereis_locked(context, atom(context, "user"_atom).word());
+    return reported_leader(context, context, user);
 }
 
 // The SPAWN_REQUEST packet of the caller's request `reference`.

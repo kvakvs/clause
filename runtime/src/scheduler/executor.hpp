@@ -391,6 +391,13 @@ class Executor final {
     bool unregister(ProcessContext &context, Word name) noexcept;
     // The pid of the live process registered as `name` (an atom word), or 0.
     Word whereis(ProcessContext &context, Word name) const noexcept;
+
+    // whereis/2 with the executor's lock already held (process_info/2's group_leader, plan 30 step DIST7c).
+    Word whereis_locked(ProcessContext &context, Word name) const noexcept { return lookup(context, name); }
+
+    // Whether the local `pid` leads as this node's standard I/O, with the lock held: the main process, or the process
+    // registered as user (plan 30 step DIST7c).
+    bool standard_leader(ProcessContext &context, Word pid) const;
     // The registered names of live processes, in atom order. Allocation failure throws.
     std::vector<Word> registered(ProcessContext &context) const;
     // erlang:setnode/2 (plan 30 step DIST2a): name this node when it has no name and a live process is registered as

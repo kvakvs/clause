@@ -1,10 +1,11 @@
-%% rpc, erpc and gen across nodes (plan 30 steps DIST7a and DIST7b, docs/distribution.md#remote-calls): a calls b, a
-%% node no one runs and itself through rpc and erpc, b's rex serves block calls, server calls and broadcasts, and a
-%% calls b's gen_server, gen_statem and gen_event servers. b ends through an rpc call of halt, which a sees as
-%% {badrpc, nodedown}. Only exported functions travel, so b may be an OTP node.
+%% rpc, erpc, gen and I/O across nodes (plan 30 steps DIST7a to DIST7c, docs/distribution.md#remote-calls): a calls b,
+%% a node no one runs and itself through rpc and erpc, b's rex serves block calls, server calls and broadcasts, a calls
+%% b's gen_server, gen_statem and gen_event servers, and the output of a's calls on b appears on a, also through a
+%% collecting group leader. b ends through an rpc call of halt, which a sees as {badrpc, nodedown}. Only exported
+%% functions travel, so b may be an OTP node.
 -module(dist_rpc).
 -export([main/1]).
--export([fail/1, slow/1, tell/2, where/1, finish/0, server/0]).
+-export([fail/1, slow/1, tell/2, where/1, finish/0, server/0, say/1, say_twice/1]).
 %% The callbacks of the gen servers, without -behaviour attributes since gen_server's and gen_event's share init/1.
 -export([init/1, handle_call/3, handle_cast/2, callback_mode/0, handle_event/4, handle_event/2, handle_call/2]).
 
@@ -22,6 +23,8 @@ main(["a"]) ->
     gen_calls(B),
     gen_spread(B),
     gen_others(B),
+    io_calls(B),
+    collected_io(B),
     show("halted", rpc:call(B, ?MODULE, finish, [])),
     done();
 main(["b"]) ->
@@ -50,6 +53,14 @@ tell(To, What) ->
     ok.
 
 where(X) -> {X, node()}.
+
+%% Output on standard_io, which goes to the group leader: the calling node's when a calls here.
+say(Text) -> io:format("said on ~p: ~s~n", [node(), Text]).
+
+say_twice(Text) ->
+    io:put_chars([Text, " once\n"]),
+    io:fwrite("~s twice~n", [Text]),
+    io:nl().
 
 %% b's end: its standard output is its own user's, whatever the caller's group leader is.
 finish() ->
@@ -249,6 +260,51 @@ gen_others(B) ->
         attempt(fun() -> gen_event:call({drp_ev, ?NOBODY}, ?MODULE, count) end)
     ]),
     show("gen_late_replies", receive_all()).
+
+io_calls(B) ->
+    show("leader_there", rpc:call(B, erlang, group_leader, []) =:= group_leader()),
+    show("rpc_said", rpc:call(B, ?MODULE, say, ["rpc"])),
+    show("block_said", rpc:block_call(B, ?MODULE, say, ["block_call"])),
+    show("erpc_said", erpc:call(B, ?MODULE, say_twice, ["erpc"])),
+    {Pid, Ref} = spawn_monitor(B, ?MODULE, say, ["spawn"]),
+    receive
+        {'DOWN', Ref, process, Pid, Reason} -> show("spawn_said", Reason)
+    end.
+
+%% A collecting group leader here: output of local processes it leads, and of their calls on b, comes to it.
+collected_io(B) ->
+    Collector = spawn(fun() -> collector([]) end),
+    Self = self(),
+    Worker = spawn(fun() ->
+        group_leader(Collector, self()),
+        say("worker"),
+        rpc:call(B, ?MODULE, say, ["worker's rpc"]),
+        erpc:call(B, ?MODULE, say_twice, ["worker's erpc"]),
+        Self ! {said, self(), io:request(standard_io, {put_chars, unicode, "requested\n"})}
+    end),
+    receive
+        {said, Worker, Requested} -> show("requested", Requested)
+    end,
+    Collector ! {collected, self()},
+    receive
+        {collected, Texts} -> show("collected_io", Texts)
+    end.
+
+%% An I/O server that keeps the characters of put_chars requests.
+collector(Texts) ->
+    receive
+        {io_request, From, ReplyAs, {put_chars, unicode, Chars}} ->
+            From ! {io_reply, ReplyAs, ok},
+            collector([unicode:characters_to_list(Chars) | Texts]);
+        {io_request, From, ReplyAs, {put_chars, unicode, M, F, A}} ->
+            From ! {io_reply, ReplyAs, ok},
+            collector([unicode:characters_to_list(apply(M, F, A)) | Texts]);
+        {io_request, From, ReplyAs, _} ->
+            From ! {io_reply, ReplyAs, {error, request}},
+            collector(Texts);
+        {collected, From} ->
+            From ! {collected, lists:reverse(Texts)}
+    end.
 
 %% One response of the collection, its label first.
 collect(Collection) ->

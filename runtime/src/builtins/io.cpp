@@ -1,5 +1,6 @@
 #include "../scheduler/executor.hpp"
 #include "../terms/service_errors.hpp"
+#include "erlang/dist_messages.hpp"
 #include "io_format.hpp"
 #include "io_lib/key_orders.hpp"
 #include "text.hpp"
@@ -14,7 +15,8 @@
 
 // The io builtins (docs/libraries/io.md): io:format/1,2,3, io:fwrite/1,2,3, io:put_chars/1,2 and io:nl/0,1 write UTF-8
 // to standard output, standard error or an I/O server process, and return ok. Text the device rejects raises badarg (a
-// thrown BuiltinFailure), writing nothing.
+// thrown BuiltinFailure), writing nothing. standard_io is the caller's group leader: standard output while that is
+// this node's standard I/O, else its I/O server (plan 30 step DIST7c).
 namespace clause::runtime::builtins {
 namespace {
 // The IoDevice argument of an io builtin, resolved by device() (step 41U).
@@ -34,7 +36,7 @@ namespace {
 struct Device {
     // Standard error instead of standard output; ignored when `server` is set.
     bool error_stream = false;
-    // The pid of the I/O server (an open file of the file module), or 0.
+    // The pid of the I/O server (an open file of the file module, a group leader, another node's process), or 0.
     Word server = 0;
 };
 
@@ -52,30 +54,56 @@ Word emit(ProcessContext &context, std::u32string_view text) {
     throw BuiltinFailure{.reason = abi::v1::ErrorReason::raised_error, .payload = atom(context, reason).word()};
 }
 
-// The device of an io call: standard_io and user are standard output, standard_error is standard error, another
-// atom names a registered I/O server (badarg when none is), a pid is an I/O server; anything else has no clause.
-Device device(ProcessContext &context, const IoDevice &argument) {
-    const auto &device = argument.term;
-    Word server = device.word();
-    if (device.is_atom()) {
-        const auto name = device.atom_spelling_unchecked();
-        if (name == "standard_io" || name == "user" || name == "standard_error") {
-            return {.error_stream = name == "standard_error"};
-        }
-        server = detail::Executor::of(context).whereis(context, device.word());
-        if (server == 0) {
-            bad_argument();
-        }
-    } else if (!device.is_pid()) {
-        throw BuiltinFailure{.reason = abi::v1::ErrorReason::function_clause};
-    }
-    if (server == need(TermFactory(context).pid(context.identity())).word()) {
+// A local I/O server: calling_self for the caller itself, terminated when it has ended.
+Device local_server(ProcessContext &context, Word server) {
+    if (server == detail::pid_of(context)) {
         raise_atom(context, "calling_self"_atom);
     }
     if (!detail::Executor::alive(context, server)) {
         raise_atom(context, "terminated"_atom);
     }
     return {.server = server};
+}
+
+// standard_io: standard output while the caller's group leader is this node's standard I/O, else the leader, here or
+// on another node (plan 30 step DIST7c).
+Device standard_device(ProcessContext &context) {
+    const auto &signals = context.signals();
+    if (signals.standard_io()) {
+        return {};
+    }
+    if (const auto &remote = signals.remote_group_leader()) {
+        return {.server = need(remote->copy_to(context)).word()};
+    }
+    return local_server(context, signals.group_leader());
+}
+
+// The device of an io call: standard_io is the group leader, user is standard output, standard_error is standard
+// error, another atom names a registered I/O server (badarg when none is), a pid of any node is an I/O server;
+// anything else has no clause.
+Device device(ProcessContext &context, const IoDevice &argument) {
+    const auto &device = argument.term;
+    if (device.is_external_pid()) {
+        return {.server = device.word()};
+    }
+    if (device.is_pid()) {
+        return local_server(context, device.word());
+    }
+    if (!device.is_atom()) {
+        throw BuiltinFailure{.reason = abi::v1::ErrorReason::function_clause};
+    }
+    const auto name = device.atom_spelling_unchecked();
+    if (name == "standard_io") {
+        return standard_device(context);
+    }
+    if (name == "user" || name == "standard_error") {
+        return {.error_stream = name == "standard_error"};
+    }
+    const auto server = detail::Executor::of(context).whereis(context, device.word());
+    if (server == 0) {
+        bad_argument();
+    }
+    return local_server(context, server);
 }
 
 // Write `text` to standard error after flushing standard output, so the two keep their order; returns ok.
@@ -121,12 +149,14 @@ Word emit_formatted(ProcessContext &context, const Device &target, std::u32strin
 
 // io:format(Format): io:format(Format, []).
 Word format1(ProcessContext &context, const Term &format) {
-    return emit_formatted(context, {}, format_text(context, format, std::nullopt));
+    const auto target = standard_device(context);
+    return emit_formatted(context, target, format_text(context, format, std::nullopt));
 }
 
 // io:format(Format, Args).
 Word format2(ProcessContext &context, const Term &format, const Term &arguments) {
-    return emit_formatted(context, {}, format_text(context, format, arguments));
+    const auto target = standard_device(context);
+    return emit_formatted(context, target, format_text(context, format, arguments));
 }
 
 // io:format(IoDevice, Format, Args) (step 41U).
@@ -136,7 +166,10 @@ Word format3(ProcessContext &context, const IoDevice &io_device, const Term &for
 }
 
 // io:put_chars(Chardata).
-Word put_chars(ProcessContext &context, const Term &chardata) { return emit(context, characters(chardata)); }
+Word put_chars(ProcessContext &context, const Term &chardata) {
+    const auto target = standard_device(context);
+    return emit_to(context, target, characters(chardata));
+}
 
 // io:put_chars(IoDevice, Chardata) (step 41U).
 Word put_chars2(ProcessContext &context, const IoDevice &io_device, const Term &chardata) {
@@ -145,12 +178,21 @@ Word put_chars2(ProcessContext &context, const IoDevice &io_device, const Term &
 }
 
 // io:nl() (step 41U).
-Word nl0(ProcessContext &context) { return emit(context, U"\n"); }
+Word nl0(ProcessContext &context) { return emit_to(context, standard_device(context), U"\n"); }
 
 // io:nl(IoDevice) (step 41U).
 Word nl1(ProcessContext &context, const IoDevice &io_device) {
     const auto target = device(context, io_device);
     return emit_to(context, target, U"\n");
+}
+
+// clause_io:leader(): user while the caller's group leader is this node's standard I/O, else the leader's pid, where
+// io's standard_io requests go (plan 30 step DIST7c).
+TermResult<Term> leader0(ProcessContext &context) {
+    if (context.signals().standard_io()) {
+        return TermFactory(context).atom("user"_atom);
+    }
+    return reported_leader(context, context, 0);
 }
 
 constexpr std::array IO_BUILTINS{
@@ -164,6 +206,7 @@ constexpr std::array IO_BUILTINS{
     typed_entry<put_chars2>("io", "put_chars"),
     typed_entry<nl0>("io", "nl"),
     typed_entry<nl1>("io", "nl"),
+    typed_entry<leader0>("clause_io", "leader"),
 };
 } // namespace
 } // namespace clause::runtime::builtins

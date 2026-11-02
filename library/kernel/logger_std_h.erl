@@ -225,8 +225,9 @@ handler_loop(State) ->
             handler_loop(State)
     end.
 
+%% standard_io is this node's standard I/O whatever the logging process's group leader, as OTP's (plan 30 step DIST7c).
 write_bin(Bin, #{dev := standard_io} = State) ->
-    io:put_chars(standard_io, Bin),
+    io:put_chars(user, Bin),
     State;
 write_bin(Bin, #{dev := Device} = State) ->
     io:put_chars(Device, Bin),

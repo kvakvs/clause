@@ -12,9 +12,12 @@ implemented in Erlang in the [library](library.md#contents).
 - `io:format(Format)` is equivalent to `io:format(Format, [])`. Both return `ok`.
   `io:fwrite/1,2,3` are equivalent to `io:format/1,2,3`; `io:nl/0,1` write a newline.
 - `io:format/3`, `io:fwrite/3`, `io:put_chars/2` and `io:nl/1` accept an output device.
-  `standard_io` and `user` select standard output. `standard_error` selects standard error;
-  standard output is flushed before a standard error write to preserve write order.
-- A pid, or an atom registered to a pid, identifies an I/O server. Output is sent through
+  `user` selects standard output. `standard_io`, also the device of the calls without one, is the
+  caller's group leader: standard output while that is this node's standard I/O, else the leader
+  as an I/O server ([distribution](../distribution.md#io-of-other-nodes-processes)).
+  `standard_error` selects standard error; standard output is flushed before a standard error
+  write to preserve write order.
+- A pid of any node, or an atom registered to a pid, identifies an I/O server. Output is sent through
   `clause_io:put_chars/2` as an I/O protocol `{put_chars, unicode, Utf8}` request. The server
   writes the text using its configured encoding, and the call returns the server's reply.
   An unregistered atom raises `badarg`; a dead pid raises `error:terminated`; the caller's own

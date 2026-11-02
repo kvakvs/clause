@@ -850,3 +850,10 @@ gotchas and user directions not recorded elsewhere.
   of a multi-node case needs `--epmd-executable=build/debug/runtime/Debug/clause-epmd.exe` and `--escript=...` (CTest
   passes both). `rpc:nb_yield(Key, T)` timing out leaves the request outstanding (its `DOWN` arrives later): fixtures
   yield it afterwards. Distributed programs keep every export of linked modules (dynamic call + list_to_atom).
+- DIST7c (2026-11-02): a new builtin also needs its `BuiltinName` in abi/include/clause/abi/builtins.hpp, else the
+  placeholder body silently runs (clause_io:leader/0 returned `clause_builtin_placeholder`). Library code running
+  inside the standard input server must not request `user` without the calling_self check: io_ansi's put_ansi asks
+  `io:getopts(user)` from the server itself (deadlock until routed through `request(Pid, _)`). "Standard leader" must
+  be the main process itself (`Executor::main_`), not "a process leading itself": a fixture restoring
+  `group_leader()` after a remote leader lost its standard flag (calling_self).
+

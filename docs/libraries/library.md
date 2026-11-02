@@ -357,7 +357,7 @@ cannot use that service at run time. Starting the complete OTP `kernel` applicat
   default environment from `kernel.app`.
 - **Lifecycle:** an application with a start module receives an application master as its process
   group leader. This supports `get_application/0`, `get_env/1` and `start_type/0` within the
-  application. The master relays I/O requests to standard I/O. On stop, it calls `prep_stop/1`,
+  application. The master relays I/O requests to the group leader it started under. On stop, it calls `prep_stop/1`,
   shuts down the top process, calls `stop/1` and terminates the remaining group processes.
   Termination of a permanent application, or abnormal termination of a transient application,
   halts the program with OTP's termination message and exit status 1.

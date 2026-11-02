@@ -1243,6 +1243,8 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     // clause_io, the terminal queries of io and io_ansi (plan 21 step LIB63; runtime/src/builtins/terminal.cpp).
     BuiltinName{"clause_io", "isatty", 1},
     BuiltinName{"clause_io", "window_size", 1},
+    // clause_io:leader/0, where standard_io requests go (plan 30 step DIST7c; runtime/src/builtins/io.cpp).
+    BuiltinName{"clause_io", "leader", 0},
     BuiltinName{"clause_net", "gethostname", 0},
     BuiltinName{"clause_net", "getaddrinfo", 2},
     BuiltinName{"clause_net", "getnameinfo", 4},

@@ -453,10 +453,23 @@ DistSend send_remote(ProcessContext &context, const RemoteMessage &send) {
 
 void lead(ProcessContext &member, const Term &leader, ProcessContext &builder) {
     if (leader.is_pid()) {
-        member.signals().set_group_leader(leader.word());
+        const auto standard = Executor::of(builder).standard_leader(builder, leader.word());
+        member.signals().set_group_leader(leader.word(), standard);
     } else {
         member.signals().set_remote_group_leader(need(detail::MessageBuffer::copy_of(leader, builder)));
     }
+}
+
+Term reported_leader(ProcessContext &process, ProcessContext &builder, Word user) {
+    const auto &signals = process.signals();
+    if (const auto &remote = signals.remote_group_leader()) {
+        return need(remote->copy_to(builder));
+    }
+    if (signals.standard_io() && user != 0) {
+        return need(Term::from_word(user, builder));
+    }
+    const auto leader = signals.group_leader();
+    return need(Term::from_word(leader != 0 ? leader : detail::pid_of(process), builder));
 }
 
 void send_group_leader(ProcessContext &context, const Term &leader, const Term &pid) {

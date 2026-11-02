@@ -262,7 +262,7 @@ stdout are pipes of the port:
 ## Standard I/O and files
 
 - `io:format`, `io:put_chars` and `erlang:display` write standard output
-  directly ([io](libraries/io.md)). Standard input is read by one library server process,
+  directly, `io` while the group leader is this node's standard I/O ([io](libraries/io.md)). Standard input is read by one library server process,
   registered as `clause_stdin` and started on first use, which owns an
   `{fd, 0, 1}` port: `io:get_line/1,2` writes the prompt, then returns the next
   line with its newline, the rest of the input without one at its end, then
@@ -360,7 +360,8 @@ stdout are pipes of the port:
 - OTP's I/O protocol: the standard input server and every open file's server
   answer `{io_request, From, ReplyAs, Request}` with
   `{io_reply, ReplyAs, Reply}`, which `io:request/1,2` and `io:requests/1,2`
-  send (`standard_io` and `user` name the standard input server, another atom a
+  send (`user` names this node's standard I/O, whose output the caller writes and whose
+  other requests go to the standard input server; `standard_io` the group leader; another atom a
   registered process; `{error, arguments}` when it is not registered,
   `{error, calling_self}` for the caller itself). Requests: `get_until`
   (`M:F(Cont, Chars | eof, Extra...)` from `Cont = []`, fed what is buffered or

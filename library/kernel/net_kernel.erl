@@ -236,6 +236,8 @@ start_link(Options) ->
 %% and hidden default to the node start options --dist-listen and --hidden.
 init(#{name := Name} = Options) ->
     process_flag(trap_exit, true),
+    % Other nodes' processes this node leads send their I/O to user (plan 30 step DIST7c).
+    ok = clause_io:start_user(),
     Listen =
         maps:get(dist_listen, Options, init:get_argument(dist_listen) =/= {ok, [["false"]]}) andalso
             not dynamic(Name),

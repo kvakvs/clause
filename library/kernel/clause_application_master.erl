@@ -1,13 +1,15 @@
 %% Clause's application master (plan 21 step LIB24, docs/libraries/library.md): the process application_controller starts for
 %% each application with a start module, as OTP's application_master. It leads the group of the application's
-%% processes, runs Mod:start/2 and the start phases in a process of its own, answers I/O requests on standard I/O and
-%% on stop runs prep_stop/1, shuts the top supervisor down, runs stop/1 and kills what is left of the group.
+%% processes, runs Mod:start/2 and the start phases in a process of its own, relays I/O requests to the group leader it
+%% started under and on stop runs prep_stop/1, shuts the top supervisor down, runs stop/1 and kills what is left of the
+%% group.
 -module(clause_application_master).
 -export([start_link/2, init/3, start_it/4, get_child/1, stop/1]).
 
 %% Created for LIB24: the application (name, mod, phases, max_t), the starting process that holds the top
-%% supervisor, and get_child requests waiting for its answer.
--record(state, {data, child, requests = []}).
+%% supervisor, get_child requests waiting for its answer, and where the group's I/O requests go (user or the group
+%% leader the master started under, plan 30 step DIST7c).
+-record(state, {data, child, requests = [], leader}).
 
 %% Data: #{name, mod, phases, max_t}.
 start_link(Data, Type) -> proc_lib:start_link(?MODULE, init, [self(), Data, Type]).
@@ -27,9 +29,10 @@ request(Master, What) ->
 init(Parent, #{name := Name} = Data, Type) ->
     proc_lib:init_ack(Parent, {ok, self()}),
     process_flag(trap_exit, true),
+    Leader = clause_io:leader(),
     group_leader(self(), self()),
     ets:insert(ac_tab, {{application_master, Name}, self()}),
-    State = #state{data = Data},
+    State = #state{data = Data, leader = Leader},
     case start_child(State, Type) of
         {ok, Pid} ->
             ok = set_timer(maps:get(max_t, Data)),
@@ -51,7 +54,7 @@ start_child(State, Type) ->
 init_loop(Pid, Tag, State, Type) ->
     receive
         {io_request, _, _, _} = Request ->
-            relay(Request),
+            relay(Request, State),
             init_loop(Pid, Tag, State, Type);
         {Tag, Result} ->
             Result;
@@ -67,7 +70,7 @@ init_loop(Pid, Tag, State, Type) ->
 main_loop(Parent, #state{child = Child} = State) ->
     receive
         {io_request, _, _, _} = Request ->
-            relay(Request),
+            relay(Request, State),
             main_loop(Parent, State);
         {'EXIT', Parent, Reason} ->
             terminate(Reason, State);
@@ -84,8 +87,9 @@ main_loop(Parent, #state{child = Child} = State) ->
             main_loop(Parent, handle_msg(Other, State))
     end.
 
-%% The group's I/O goes to standard I/O.
-relay({io_request, From, ReplyAs, Request}) -> From ! {io_reply, ReplyAs, io:request(standard_io, Request)}.
+%% The group's I/O goes to the group leader the master started under, as OTP's.
+relay({io_request, From, ReplyAs, Request}, #state{leader = Leader}) ->
+    From ! {io_reply, ReplyAs, io:request(Leader, Request)}.
 
 handle_msg({get_child, Tag, From}, #state{child = Child, requests = Requests} = State) ->
     case is_pid(Child) andalso is_process_alive(Child) of
@@ -108,27 +112,27 @@ handle_msg({child, Ref, Top, Module}, #state{requests = Requests} = State) ->
 handle_msg(_, State) ->
     State.
 
-terminate(Reason, #state{child = Child, requests = Requests}) ->
+terminate(Reason, #state{child = Child, requests = Requests} = State) ->
     _ = [From ! {Tag, error} || {_, Tag, From} <- Requests],
-    stop_child(Child),
+    stop_child(Child, State),
     kill_group(),
     exit(Reason).
 
-stop_child(undefined) ->
+stop_child(undefined, _) ->
     ok;
-stop_child(Child) ->
+stop_child(Child, State) ->
     Child ! {self(), terminate},
-    stop_loop(Child).
+    stop_loop(Child, State).
 
-stop_loop(Child) ->
+stop_loop(Child, State) ->
     receive
         {io_request, _, _, _} = Request ->
-            relay(Request),
-            stop_loop(Child);
+            relay(Request, State),
+            stop_loop(Child, State);
         {'EXIT', Child, _} ->
             ok;
         _ ->
-            stop_loop(Child)
+            stop_loop(Child, State)
     end.
 
 %% Kills every process this master still leads, until none is left.

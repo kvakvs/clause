@@ -34,8 +34,12 @@ std::vector<std::byte> dist_packet(ProcessContext &context, const Term &control,
 // else is changed before.
 void take_packet(ProcessContext &context, const PacketSource &source, std::span<const std::byte> packet);
 // Make `leader`, a pid of any node, the group leader of `member`, another node's pid in a buffer copied from
-// `builder`'s heap (plan 30 step DIST5b1).
+// `builder`'s heap (plan 30 step DIST5b1); a local one may be this node's standard I/O (DIST7c). The executor's lock
+// is held.
 void lead(ProcessContext &member, const Term &leader, ProcessContext &builder);
+// The group leader `process` reports, as a term of `builder`: `user` (a pid word, 0 when none is registered) for this
+// node's standard I/O, else its leader's pid, its own when it leads itself, or another node's (plan 30 step DIST7c).
+Term reported_leader(ProcessContext &process, ProcessContext &builder, Word user);
 // group_leader(Leader, Pid) of another node's pid: GROUP_LEADER on its connection, auto-connected; nothing when it
 // cannot be reached (plan 30 step DIST5b1).
 void send_group_leader(ProcessContext &context, const Term &leader, const Term &pid);

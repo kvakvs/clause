@@ -43,14 +43,10 @@ Term integer(const Inspection &inspection, std::size_t value) {
     return need(TermFactory(inspection.caller).integer(static_cast<std::int64_t>(value)));
 }
 
-// The group leader of a process as a term of `builder`: its own pid when it leads itself, another node's pid copied
-// from its buffer (plan 30 step DIST5b1).
-Term leader(ProcessContext &process, ProcessContext &builder) {
-    if (const auto &remote = process.signals().remote_group_leader()) {
-        return need(remote->copy_to(builder));
-    }
-    const auto leader = process.signals().group_leader();
-    return need(Term::from_word(leader != 0 ? leader : detail::pid_of(process), builder));
+// The pid word registered as user, read under the lock process_info/2 holds when `locked` (plan 30 step DIST7c).
+Word user_pid(ProcessContext &context, Executor &executor, bool locked) {
+    const auto name = atom(context, "user"_atom).word();
+    return locked ? executor.whereis_locked(context, name) : executor.whereis(context, name);
 }
 
 Term registered_name(const Inspection &inspection) {
@@ -135,7 +131,10 @@ Term trap_exit(const Inspection &inspection) {
     return need(TermFactory(inspection.caller).boolean(inspection.target.signals().trap_exit()));
 }
 
-Term group_leader(const Inspection &inspection) { return leader(inspection.target, inspection.caller); }
+Term group_leader(const Inspection &inspection) {
+    return reported_leader(inspection.target, inspection.caller,
+                           user_pid(inspection.caller, inspection.executor, true));
+}
 
 Term heap_size(const Inspection &inspection) { return integer(inspection, inspection.target.heap().capacity_words()); }
 
@@ -292,7 +291,9 @@ TermResult<Term> processes(ProcessContext &context) {
     return TermFactory(context).list(items);
 }
 
-TermResult<Term> group_leader0(ProcessContext &context) { return leader(context, context); }
+TermResult<Term> group_leader0(ProcessContext &context) {
+    return reported_leader(context, context, user_pid(context, Executor::of(context), false));
+}
 
 // Whether a pid of another node names an earlier incarnation of this node.
 bool earlier_incarnation(ProcessContext &context, const Term &pid) {

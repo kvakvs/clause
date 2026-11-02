@@ -64,8 +64,13 @@
 get_line(Prompt) -> get_line(standard_io, Prompt).
 
 get_line(standard_io, Prompt) ->
-    prompt(Prompt),
-    stdin_request(get_line);
+    case clause_io:leader() of
+        user ->
+            prompt(Prompt),
+            stdin_request(get_line);
+        Leader ->
+            get_line(Leader, Prompt)
+    end;
 get_line(Io, Prompt) ->
     request(Io, {get_line, unicode, Prompt}).
 
@@ -73,8 +78,13 @@ get_line(Io, Prompt) ->
 get_chars(Prompt, Count) -> get_chars(standard_io, Prompt, Count).
 
 get_chars(standard_io, Prompt, Count) when is_integer(Count), Count >= 0 ->
-    prompt(Prompt),
-    stdin_request({get_chars, Count});
+    case clause_io:leader() of
+        user ->
+            prompt(Prompt),
+            stdin_request({get_chars, Count});
+        Leader ->
+            get_chars(Leader, Prompt, Count)
+    end;
 get_chars(Io, Prompt, Count) when is_integer(Count), Count >= 0 ->
     request(Io, {get_chars, unicode, Prompt, Count}).
 
@@ -84,8 +94,8 @@ fread(Prompt, Format) -> fread(standard_io, Prompt, Format).
 
 fread(Io, Prompt, Format) -> request(Io, {get_until, unicode, Prompt, io_lib, fread, [Format]}).
 
-prompt(Prompt) when is_atom(Prompt) -> io:put_chars(atom_to_list(Prompt));
-prompt(Prompt) -> io:put_chars(Prompt).
+prompt(Prompt) when is_atom(Prompt) -> io:put_chars(user, atom_to_list(Prompt));
+prompt(Prompt) -> io:put_chars(user, Prompt).
 
 % Ask the standard input server, starting it on first use.
 stdin_request(Request) ->
@@ -102,14 +112,17 @@ stdin_request(Request) ->
 
 % --- OTP's I/O protocol (step 41ZC) ---
 
-% Send one I/O request, in OTP's request format, to an I/O server: standard_io and user name the standard input
-% server, other names are looked up as registered processes. {requests, List} runs its requests in order.
+% Send one I/O request, in OTP's request format, to an I/O server: standard_io names the group leader (plan 30 step
+% DIST7c), user this node's standard I/O, other names are looked up as registered processes. {requests, List} runs
+% its requests in order.
 request(Request) -> request(standard_io, Request).
 
 request(standard_io, Request) ->
-    request(server(), Request);
+    request(clause_io:leader(), Request);
+request(user, {requests, Requests}) ->
+    requests(user, Requests);
 request(user, Request) ->
-    request(server(), Request);
+    standard_request(io_request(Request));
 request(standard_error, {requests, Requests}) ->
     requests(standard_error, Requests);
 request(standard_error, Request) ->
@@ -146,6 +159,11 @@ execute(Pid, Request) ->
         {'DOWN', Ref, process, Pid, _} ->
             {error, terminated}
     end.
+
+% This node's standard I/O: output is written by the caller, other requests go to the standard input server.
+standard_request({put_chars, _, Chars}) -> put(Chars);
+standard_request({put_chars, _, M, F, A}) -> put({M, F, A});
+standard_request(Request) -> request(server(), Request).
 
 % Requests without an encoding are latin1 requests, as OTP's I/O servers read them.
 io_request({put_chars, Chars}) -> {put_chars, latin1, Chars};
@@ -371,7 +389,7 @@ put({M, F, A}) ->
         _:_ -> {error, F}
     end;
 put(Chars) ->
-    try io:put_chars(Chars) of
+    try io:put_chars(user, Chars) of
         ok -> ok
     catch
         error:badarg -> {error, put_chars}
@@ -406,7 +424,7 @@ lf_end(Line) ->
     end.
 
 % With option echo, consumed input is written to standard output, as OTP's noshell standard_io does.
-echo(Bytes, #{echo := true}) -> io:put_chars(Bytes);
+echo(Bytes, #{echo := true}) -> io:put_chars(user, Bytes);
 echo(_, _) -> ok.
 
 % The size of the first line of Buffer with its newline, or none.

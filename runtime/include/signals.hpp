@@ -134,9 +134,15 @@ class Signals final {
     // 41G1).
     Word group_leader() const noexcept { return group_leader_; }
 
-    void set_group_leader(Word pid) noexcept {
+    // Whether the group leader is this node's standard I/O, written at once instead of through the I/O protocol (plan
+    // 30 step DIST7c).
+    bool standard_io() const noexcept { return standard_io_; }
+
+    // Lead the process by the local `pid`, this node's standard I/O when `standard`.
+    void set_group_leader(Word pid, bool standard) noexcept {
         group_leader_ = pid;
         remote_leader_ = nullptr;
+        standard_io_ = standard;
     }
 
     // Another node's pid as the group leader, in a buffer of its own (plan 30 step DIST5b1), else null.
@@ -145,12 +151,14 @@ class Signals final {
     void set_remote_group_leader(std::shared_ptr<const detail::MessageBuffer> leader) noexcept {
         group_leader_ = 0;
         remote_leader_ = std::move(leader);
+        standard_io_ = false;
     }
 
     // Take the group leader of the spawning `parent`, whose pid word is `parent_pid` for a parent leading itself.
     void inherit_group_leader(const Signals &parent, Word parent_pid) noexcept {
         group_leader_ = parent.remote_leader_ || parent.group_leader_ != 0 ? parent.group_leader_ : parent_pid;
         remote_leader_ = parent.remote_leader_;
+        standard_io_ = parent.standard_io_;
     }
 
     // Remove and return the monitors held on this process, as it ends: each gets a 'DOWN' message.
@@ -181,6 +189,8 @@ class Signals final {
     Word group_leader_ = 0;
     // Another node's pid as the group leader (remote spawns, group_leader/2), plan 30 step DIST5b1.
     std::shared_ptr<const detail::MessageBuffer> remote_leader_ = nullptr;
+    // The group leader is this node's standard I/O: the first process's, or user (plan 30 step DIST7c).
+    bool standard_io_ = true;
     // process_flag(save_calls, N); nothing is saved (plan 21 step LIB9A).
     std::size_t save_calls_ = 0;
 };

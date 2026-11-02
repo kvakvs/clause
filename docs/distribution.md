@@ -24,7 +24,8 @@ signal of a pair of processes in the order sent ([signal order](#signal-order), 
 connect, ping, monitor, message, link, lead and spawn on each other both ways on either kind of epmd
 ([testing](#testing), DIST4b4, DIST5c). `net_kernel` changes tick times, reports and tunes connections, and
 `auth` keeps cookies as OTP's ([managing connections](#managing-connections), [cookies](#cookies), DIST6).
-`rpc`, `erpc` and the `gen` behaviours call other nodes ([remote calls](#remote-calls), DIST7a, DIST7b).
+`rpc`, `erpc` and the `gen` behaviours call other nodes, whose output reaches the caller's group leader
+([remote calls](#remote-calls), DIST7a to DIST7c).
 The other libraries answer as OTP does without distribution (`{badrpc, nodedown}`, `not_alive`). The
 rest of this file is the contract for distribution. Each section becomes current behavior when its
 step lands.
@@ -356,7 +357,7 @@ Current since DIST5b1 (`builtins/erlang/dist_messages.cpp`), as OTP 29's.
 
 - **Another node's leader:** a process's group leader may be another node's pid, kept in a buffer beside the
   process's links: `group_leader/0` and `process_info/2` return it, and the process's spawns inherit it.
-  `standard_io` still writes to this node's standard output ([plan 30](../.agents/30-dist.md) step DIST7).
+  `standard_io` requests go to it through the I/O protocol (DIST7c, [I/O](#io-of-other-nodes-processes)).
 - **`group_leader(Leader, Pid)`:** `Leader` a pid of any node. For another node's `Pid` it queues `GROUP_LEADER`
   `{7, Leader, Pid}` on that node's connection, auto-connecting an idle one, and returns `true`, also when the node
   cannot be reached or this node is not alive; a pid of an earlier incarnation of this node is `badarg`.
@@ -416,7 +417,7 @@ flags (`SEND` without the sender, `EXIT2` without payload), as OTP's do.
 
 ## Remote calls
 
-Current since DIST7a and DIST7b (`library/kernel/erpc.erl`, `library/kernel/rpc.erl`, `library/stdlib/gen.erl`), as
+Current since DIST7a to DIST7c (`library/kernel/erpc.erl`, `library/kernel/rpc.erl`, `library/stdlib/gen.erl`), as
 OTP 29's.
 
 - **`erpc`:** calls, requests, multicalls and casts to another node are spawn requests of `erpc:execute_call/4` or
@@ -435,8 +436,25 @@ OTP 29's.
 - **What a node can run:** a distributed program keeps every export of the modules it links
   ([export liveness](executables.md#export-liveness)), so other nodes may call any of them; a module the program does
   not link is `undef` there.
-- **I/O:** the called process's group leader is the caller's, but its `standard_io` output is still written here
-  ([plan 30](../.agents/30-dist.md) step DIST7c).
+- **I/O:** the called process's group leader is the caller's, so its output appears on the calling node
+  ([I/O](#io-of-other-nodes-processes)).
+
+## I/O of other nodes' processes
+
+Current since DIST7c (`builtins/io.cpp`, `library/stdlib/io.erl`, `library/stdlib/clause_io.erl`), as OTP's.
+
+- **`standard_io`** is the caller's group leader: the `io` builtins and `io:request/1,2` write this node's standard
+  output while the leader is this node's standard I/O (the main process, or `user`), and
+  otherwise send I/O protocol requests to the leader, another node's process or a local one such as a collecting
+  process or an application master. `user` always names this node's standard I/O.
+- **Standard I/O flag:** each process knows whether its leader is this node's standard I/O; spawns inherit it, and
+  `group_leader/2`, `GROUP_LEADER` and spawn requests served here set it from the leader they name.
+- **`user`:** `net_kernel` starts an I/O server registered as `user` with distribution (`clause_io:start_user/0`).
+  It writes output in the order it comes and hands input requests to the standard input server, each in a process
+  of its own. From then on `group_leader/0`, `process_info/2` and spawn requests to other nodes report `user` for a
+  process led by this node's standard I/O, so other nodes' processes started from here answer to it.
+- **Application masters** relay their group's I/O to the group leader they started under; `logger_std_h`'s
+  `standard_io` writes to `user`, as OTP's.
 
 ## Node status messages
 

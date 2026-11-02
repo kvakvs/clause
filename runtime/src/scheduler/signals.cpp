@@ -420,6 +420,19 @@ Word Executor::lookup(ProcessContext &context, Word name) const noexcept {
     return find(context, found->second) || open(found->second) ? found->second : 0;
 }
 
+bool Executor::standard_leader(ProcessContext &context, Word pid) const {
+    // The main process stays this node's standard I/O whatever leads it now; another process that never had a leader
+    // set leads itself the same way.
+    if (auto *process = find(context, pid)) {
+        const auto &signals = process->signals();
+        if (process == main_ ||
+            (signals.standard_io() && signals.group_leader() == 0 && !signals.remote_group_leader())) {
+            return true;
+        }
+    }
+    return pid == lookup(context, atom(context, "user"_atom).word());
+}
+
 bool Executor::name_node(ProcessContext &context, const Term &node, std::uint32_t creation) {
     const auto kernel = atom(context, "net_kernel"_atom).word();
     const std::scoped_lock lock(mutex_);
