@@ -150,4 +150,4 @@ Compact record of the network distribution plan, one bullet per step;
 - **DIST8b** `global_group` with `global_groups`: configuration in a persistent term, group checks at start and nodeup
   (`get_own_nodes/0` through erpc), `conf_check` of `sync/0`, `group_nodeup`/`group_nodedown` to `global`, searches of
   other groups, `monitor_nodes/1`, `publish/2` for `net_kernel`, `global_group_check`; runtime `process_flag(priority, _)`;
-  golden `dist_global_group` (OTP nodes as a, b and c); DIST8 closed — HASH
+  golden `dist_global_group` (OTP nodes as a, b and c); DIST8 closed — a2ca4c4d
