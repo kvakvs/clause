@@ -3,33 +3,24 @@
 How a Clause executable becomes a distributed Erlang node. Decided in plan 30 step DIST0
 (2026-10-30); the steps that implement it are in [plan 30](../.agents/30-dist.md).
 
-**Today** a program is a non-distributed node, `nonode@nohost`. Pids, ports and references of
-other nodes exist as terms ([terms](terms.md#identities-of-other-nodes), DIST1), the node can be
-named ([this node](#this-node), DIST2a), connection entries, node status messages, node monitors
-and the controller data path follow OTP's process-controller interface without moving any signal
-yet ([connections](#connections), DIST2b to DIST2d). `erl_epmd` and `net_adm:names/0,1` speak to an
-epmd, and Clause's epmd server runs as `clause-epmd` ([epmd](#epmd), DIST3a; written beside programs
-with `-daemon`, `-names` and `-kill` in DIST3c) or inside the program when a registration finds none
-(`--epmd bundled`, DIST3b); `--epmd external` starts an epmd program, and `--no-bundled-epmd` leaves
-the bundled epmd out (DIST3d). `net_kernel:start/1,2` and `stop/0` start and end distribution in a
-running program ([starting distribution](#starting-distribution), DIST4b1a), and `--sname`/`--name` before the
-entry ([node start options](#node-start-options), DIST4b1b), with OTP's cookies ([cookies](#cookies), DIST4b1c).
-Nodes connect through OTP's handshake with all its statuses, `allow/1` and dynamic names ([making
-connections](#making-connections), DIST4b2a, DIST4b2b), over IPv4 or IPv6 (DIST4b2c), messages move
-between them ([messages](#messages), DIST4b3a), processes monitor other nodes' processes and `net_adm:ping/1`
-answers ([process monitors](#process-monitors), DIST4b3b1), and they link and send exit signals to each other
-([links and exit signals](#links-and-exit-signals), DIST5a), and lead each other's processes ([group
-leaders](#group-leaders), DIST5b1) and spawn processes on each other ([spawning](#spawning), DIST5b2), every
-signal of a pair of processes in the order sent ([signal order](#signal-order), DIST5c). Clause and OTP 29 nodes
-connect, ping, monitor, message, link, lead and spawn on each other both ways on either kind of epmd
-([testing](#testing), DIST4b4, DIST5c). `net_kernel` changes tick times, reports and tunes connections, and
-`auth` keeps cookies as OTP's ([managing connections](#managing-connections), [cookies](#cookies), DIST6).
-`rpc`, `erpc` and the `gen` behaviours call other nodes, whose output reaches the caller's group leader
-([remote calls](#remote-calls), DIST7a to DIST7c), and `net_adm:world/0,1` finds the nodes epmd names (DIST7d).
-Nodes connect over TLS too, with OTP's options files and certificate checks ([TLS distribution](#tls-distribution),
-DIST12a). The other libraries answer as OTP does without distribution (`{badrpc, nodedown}`, `not_alive`). The
-rest of this file is the contract for distribution. Each section becomes current behavior when its
-step lands.
+**Today** a program is a non-distributed node, `nonode@nohost`, until `--sname`/`--name` name it before the entry
+([node start options](#node-start-options)) or `net_kernel:start/1,2` starts distribution in it ([starting
+distribution](#starting-distribution)), with OTP's cookies ([cookies](#cookies)). A named node:
+
+- finds others through an epmd: the program's bundled epmd, `clause-epmd` beside it, or OTP's ([epmd](#epmd));
+- connects through OTP's handshake with all its statuses, `allow/1` and dynamic names, over TCP on IPv4 or IPv6
+  ([making connections](#making-connections)), over TLS ([TLS distribution](#tls-distribution)) or over a carrier of
+  the program's own ([carriers](#carriers));
+- exchanges every signal with other nodes, in the order sent: messages, monitors, links and exit signals, group
+  leaders, spawns and funs ([messages](#messages) to [signal order](#signal-order));
+- runs OTP's distributed services: `net_kernel` and `auth` ([managing connections](#managing-connections)), `rpc`,
+  `erpc` and the `gen` behaviours ([remote calls](#remote-calls)), `net_adm`, `global` and `global_group`
+  ([global](#global), [global_group](#global_group)) and `pg` ([pg](#pg)).
+
+Clause and OTP 29 nodes do all of this with each other both ways ([testing](#testing)). Not yet done: starting other
+nodes (`peer`, `slave`; plan 30 DIST10) and distributed applications (`dist_ac`, DIST11); the libraries answer as OTP
+does without them (`not_alive`, `noproc`). The rest of this file is the contract for distribution; the sections that
+are current name the step that delivered them.
 
 ## Scope
 
@@ -1070,3 +1061,5 @@ Current since DIST4b1b (`library/kernel/clause_dist_start.erl`, `erl_distributio
 - **TLS** (DIST12a): `dist_tls` runs three nodes on TLS with options files and fixture certificates of its own
   (`data`), OTP nodes as a and as b, and IPv6 and `--ssl-dist-opt` runs with OTP nodes too; the runner listens on
   `::1` for `inet6_tls` as for `inet6_tcp`.
+- **Platforms** (DIST13): the multi-node goldens run on Windows and Linux x86-64; on a host without OTP their
+  `host_otp` runs skip.

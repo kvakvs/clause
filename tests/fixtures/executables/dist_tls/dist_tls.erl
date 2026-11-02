@@ -109,10 +109,20 @@ probes() ->
     {port, Port, _} = erl_epmd:port_please("dtb", localhost),
     show("no certificate", alert(ssl:connect({127, 0, 0, 1}, Port, ?PROBE, 10000))),
     Other = [{certfile, "other_node.pem"} | ?PROBE],
-    show("other root", alert(ssl:connect({127, 0, 0, 1}, Port, Other, 10000))).
+    show("other root", refused(ssl:connect({127, 0, 0, 1}, Port, Other, 10000))).
 
 alert({error, {tls_alert, {Description, _}}}) -> {tls_alert, Description};
 alert(Other) -> Other.
+
+% Whether a server refused a client: during the handshake, or right after it, where a server over libssl before 4.1
+% verifies client certificates (docs/differences.md#ssl).
+refused({error, _}) ->
+    refused;
+refused({ok, Socket}) ->
+    case ssl:recv(Socket, 0, 10000) of
+        {error, _} -> refused;
+        Other -> Other
+    end.
 
 %% A fake node dtfake whose server certificate names otherhost: a's client refuses it.
 fake_node() ->

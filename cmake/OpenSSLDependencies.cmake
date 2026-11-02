@@ -297,7 +297,11 @@ function(clause_add_libssl target crypto_target)
     list(GET prefixes -1 debug)
     clause_openssl_ssl_library("${release}" release_library)
     clause_openssl_ssl_library("${debug}" debug_library)
-    target_link_libraries(${target} PUBLIC "$<IF:$<CONFIG:Debug>,${debug_library},${release_library}>")
+    # libcrypto again after libssl: a static libssl needs it later on the line (GNU ld).
+    get_target_property(crypto_release ${crypto_target} CLAUSE_OPENSSL_RELEASE)
+    get_target_property(crypto_debug ${crypto_target} CLAUSE_OPENSSL_DEBUG)
+    target_link_libraries(${target} PUBLIC "$<IF:$<CONFIG:Debug>,${debug_library},${release_library}>"
+        "$<IF:$<CONFIG:Debug>,${crypto_debug},${crypto_release}>")
     set_target_properties(${target} PROPERTIES CLAUSE_OPENSSL_RELEASE "${release_library}"
         CLAUSE_OPENSSL_DEBUG "${debug_library}")
 endfunction()

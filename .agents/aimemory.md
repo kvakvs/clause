@@ -880,3 +880,9 @@ gotchas and user directions not recorded elsewhere.
   (certs, options files) are staged beside both Clause and OTP nodes; certificates come from a scratch escript over
   public_key:pkix_test_data with validity to 2125. Classifier denied Stop-Process of leftover oracle erl.exe and
   epmd -daemon: ask the user to stop them.
+- DIST13 Linux (2026-11-02): WSL ~/clau had not been built since plan 11; rsync (exclude build/thirdparty/
+  references/.git/.state/build-*) + `gate.sh configure && build` took ~40 min. gate.sh `fast` preset filters most
+  ssl goldens out: run ctest -R directly in ~/clau/build/debug with PATH/LD_LIBRARY_PATH as gate.sh sets them. The
+  Linux build links Ubuntu's OpenSSL 3.4.1 (CLAUSE_OPENSSL_SYSTEM): servers verify client chains after the
+  handshake (libssl < 4.1), and ML-DSA is missing (ssl_suites differs). WSL has no OTP: host_otp tests report
+  "Skipped" when their Clause runs pass.

@@ -10,7 +10,8 @@ direction); formerly backlog item F38.
   ping (DIST4b3b1), link and send exit signals (DIST5a), lead each other's processes (DIST5b1) and spawn on each
   other (DIST5b2), every signal in order and with OTP 29 nodes (DIST5c), and send local funs to each other
   (DIST5d), and call each other through `rpc`, `erpc` (DIST7a) and `gen` (DIST7b), whose output reaches the caller's group
-  leader (DIST7c), find each other through `net_adm`'s worlds (DIST7d), share `global` names and locks (DIST8a) within `global_group`'s groups (DIST8b) and `pg` groups (DIST9);
+  leader (DIST7c), find each other through `net_adm`'s worlds (DIST7d), share `global` names and locks (DIST8a) within `global_group`'s groups (DIST8b) and `pg` groups (DIST9,
+  `start_pg` in DIST13), and connect over TLS and user carriers (DIST12);
   the program's end loses queued packets as
   OTP's `halt` (DIST4b3b2).
   Clause and OTP 29 nodes interoperate on either epmd (DIST4b4). `net_kernel` changes tick times, reports and tunes
@@ -122,16 +123,22 @@ Depends on: DIST8 ([30-finished](30-finished.md)).
 
 ## DIST13. Close distribution
 
-Depends on: [DIST2b](#step-dist2b)–[DIST12](#step-dist12).
+Depends on: DIST2b–DIST12 ([30-finished](30-finished.md)), and the open [DIST10](#step-dist10) and
+[DIST11](#step-dist11): the closing gate and the docs pass wait for them.
 
 - Success criteria
   - [ ] `docs/distribution.md`, `docs/libraries/library.md` rows and `differences.md` describe
         the delivered behavior.
   - [ ] Linux and macOS run the multi-node goldens.
-  - [ ] kernel's `start_pg` parameter (the default `pg` scope under `kernel_sup` at boot; Clause starts
-        `kernel_sup` only at the first use of a service), left out by DIST9.
-  - [ ] Plan 21's MIM1 design updated for several nodes (replicated tables, schema on more than one
-        node) or the single-node scope recorded.
+    - [x] Linux x86-64 (WSL, 2026-11-02): every multi-node golden's Clause runs pass (24 cases); the `host_otp` runs
+          skip, WSL has no OTP. Found and fixed: static libssl linked before libcrypto (GNU ld). `dist_tls`'s
+          other-root probe checks the refusal only, since a server over libssl before 4.1 (Ubuntu's 3.4.1) verifies
+          client chains after the handshake (differences.md). `ssl_suites` differs there by Ubuntu's OpenSSL lacking
+          ML-DSA/SLH-DSA (3.5+), not by Clause.
+    - [ ] macOS (Apple Silicon host, `run-macos.sh`): run the multi-node goldens, OTP ones with Homebrew OTP 29.
+  - [x] kernel's `start_pg` parameter: `pg` under `kernel_safe_sup`, started with `kernel_sup` at the first
+        default-scope call (`e003f91b`).
+  - [x] Plan 21's MIM1 design: single node without `nonode@nohost`, MIM1H outlined for several nodes (`e003f91b`).
 - Tests
   - [ ] Full gate and `check-quality-all`.
 
