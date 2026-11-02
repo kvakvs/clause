@@ -132,4 +132,4 @@ Compact record of the network distribution plan, one bullet per step;
   golden `dist_cookie` extended — 7dbfe4af
 - **DIST7a** `rpc` and `erpc` across nodes: erpc requests and casts as spawn requests on the called node, rex's
   block calls, server calls and broadcasts over `[node() | nodes()]`, OTP's `{From, {call, ...}}`; golden `dist_rpc`
-  with OTP nodes both ways (`host_otp`) — HASH
+  with OTP nodes both ways (`host_otp`) — 89295469
