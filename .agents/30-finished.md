@@ -130,3 +130,6 @@ Compact record of the network distribution plan, one bullet per step;
 - **DIST6b** `auth` as OTP's server (requests, `print/3`, `sync_cookie`, cookie-file checks, configuration-directory
   fallback, `--setcookie` before `--nocookie`); `global` checks `connect_all` and `prevent_overlapping_partitions`;
   golden `dist_cookie` extended — 7dbfe4af
+- **DIST7a** `rpc` and `erpc` across nodes: erpc requests and casts as spawn requests on the called node, rex's
+  block calls, server calls and broadcasts over `[node() | nodes()]`, OTP's `{From, {call, ...}}`; golden `dist_rpc`
+  with OTP nodes both ways (`host_otp`) — HASH

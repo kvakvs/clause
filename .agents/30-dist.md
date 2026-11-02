@@ -9,7 +9,7 @@ direction); formerly backlog item F38.
   connect over IPv4 or IPv6 (DIST4b2a to DIST4b2c), exchange messages (DIST4b3a), monitor each other's processes and
   ping (DIST4b3b1), link and send exit signals (DIST5a), lead each other's processes (DIST5b1) and spawn on each
   other (DIST5b2), every signal in order and with OTP 29 nodes (DIST5c), and send local funs to each other
-  (DIST5d); the program's end loses queued packets as
+  (DIST5d), and call each other through `rpc` and `erpc` (DIST7a); the program's end loses queued packets as
   OTP's `halt` (DIST4b3b2).
   Clause and OTP 29 nodes interoperate on either epmd (DIST4b4). `net_kernel` changes tick times, reports and tunes
   connections, bars nodes under `dist_auto_connect once` and connects passively; `auth` keeps cookies with OTP's
@@ -48,8 +48,7 @@ direction); formerly backlog item F38.
     OTP's (DIST4b2b).
   - Process monitors by pid and by name: `MONITOR_P`, `DEMONITOR_P`, `MONITOR_P_EXIT` and its payload form,
     `'DOWN'` with `noconnection`; `net_adm:ping/1` through `net_kernel`'s `{is_auth, Node}` (DIST4b3b1).
-  - The other libraries answer as OTP does without distribution: `rpc`/`erpc` (`{badrpc, nodedown}`,
-    `noconnection`), `net_kernel` (internals declined), `auth` (`nocookie` until started), `global` and
+  - The other libraries answer as OTP does without distribution: `net_kernel` (internals declined), `auth` (`nocookie` until started), `global` and
     `global_group` (one node, locker internals declined), `pg` (no peers), `peer`/`slave`
     (`not_alive`), `pool` (collector declined), `application` (`takeover/2` exits `noproc`, no
     `dist_ac`).
@@ -86,7 +85,7 @@ direction); formerly backlog item F38.
 
 ## Steps
 
-DIST0 to DIST6 are done, with DIST5's follow-ups DIST5d and DIST5e ([30-finished](30-finished.md)).
+DIST0 to DIST6 and DIST7a are done, with DIST5's follow-ups DIST5d and DIST5e ([30-finished](30-finished.md)).
 
 <a id="step-dist7"></a>
 
@@ -94,22 +93,24 @@ DIST0 to DIST6 are done, with DIST5's follow-ups DIST5d and DIST5e ([30-finished
 
 Depends on: DIST6 ([30-finished](30-finished.md)).
 
-- Success criteria
-  - [ ] `rex` runs while distribution runs; `rpc` remote `call`, `cast`, `multicall`,
-        `async_call`, `sbcast`, `abcast`, `eval_everywhere`, `server_call`, `parallel_eval`, `pmap`
-        with OTP's `badrpc` results; `erpc` over `spawn_request` with OTP's `noconnection` and
-        `timeout` errors.
-  - [ ] `gen:call/3,4` to `{Name, Node}`, `gen_server:multi_call/2,3,4` and `abcast/2,3`,
-        remote `gen_statem` and `gen_event` calls.
-  - [ ] I/O of remote processes reaches their group leaders: output of `rpc:call/4` appears on the
-        calling node. Today `standard_io` always writes to this node's standard output, even for a process whose
-        group leader is another node's pid (DIST5b1 keeps such leaders): route `standard_io` requests to such a
-        leader through the I/O protocol (`clause_io`), and decide with OTP's behavior for local group leaders
-        that are not `user`.
-  - [ ] `net_adm`: `world/0,1`, `world_list/1,2`, `host_file/0`, `localhost/0`,
-        `dns_hostname/1` with real nodes.
-- Tests
-  - [ ] Golden `dist_rpc` between Clause nodes and with an OTP node (`host_otp`).
+Split before coding (2026-11-02); each sub-step extends the golden `dist_rpc` (Clause nodes, and OTP 29 nodes as a
+and as b, `host_otp`).
+
+- **DIST7b** `gen` across nodes
+  - [ ] `gen:call/3,4` to `{Name, Node}` and other nodes' pids (`{nodedown, Node}`, timeouts, late replies
+        dropped), `gen_server:multi_call/2,3,4` and `abcast/2,3` over real nodes, remote `gen_statem` and
+        `gen_event` calls.
+- **DIST7c** I/O to group leaders
+  - [ ] `standard_io` requests (`io` builtins and `io:request/1,2`) go to the process's group leader through the
+        I/O protocol when it is another node's pid or a local process other than this node's standard I/O, as
+        OTP's: output of `rpc:call/4` appears on the calling node. Today `standard_io` always writes to this node's
+        standard output (DIST5b1 keeps other nodes' leaders).
+  - [ ] This node's standard I/O as a group leader other nodes can answer to: an I/O server (OTP's `user`) once
+        distribution starts; the application master relays to the leader it started under.
+  - [ ] DIST6's goldens capture `net_kernel:i/0,1` output instead of masking it.
+- **DIST7d** `net_adm` with real nodes
+  - [ ] `world/0,1`, `world_list/1,2` (epmd names of each host, pings, verbose lines), `host_file/0`,
+        `localhost/0` (long names), `dns_hostname/1`.
 
 <a id="step-dist8"></a>
 

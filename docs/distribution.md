@@ -24,6 +24,7 @@ signal of a pair of processes in the order sent ([signal order](#signal-order), 
 connect, ping, monitor, message, link, lead and spawn on each other both ways on either kind of epmd
 ([testing](#testing), DIST4b4, DIST5c). `net_kernel` changes tick times, reports and tunes connections, and
 `auth` keeps cookies as OTP's ([managing connections](#managing-connections), [cookies](#cookies), DIST6).
+`rpc` and `erpc` call other nodes ([remote calls](#remote-calls), DIST7a).
 The other libraries answer as OTP does without distribution (`{badrpc, nodedown}`, `not_alive`). The
 rest of this file is the contract for distribution. Each section becomes current behavior when its
 step lands.
@@ -412,6 +413,25 @@ flags (`SEND` without the sender, `EXIT2` without payload), as OTP's do.
 - **Send options:** `erlang:send/3` with `noconnect` sends on an up or pending connection and returns `noconnect`
   for a node not connected; `nosuspend` changes nothing, as a connection is never busy here
   ([plan 30](../.agents/30-dist.md) Later); `send_nosuspend/2,3` return `true`, or `false` for `noconnect`.
+
+## Remote calls
+
+Current since DIST7a (`library/kernel/erpc.erl`, `library/kernel/rpc.erl`), as OTP 29's.
+
+- **`erpc`:** calls, requests, multicalls and casts to another node are spawn requests of `erpc:execute_call/4` or
+  `execute_cast/3` there ([spawning](#spawning)); results come back as the child's exit reason. A node that cannot
+  be reached is `{erpc, noconnection}`, also a connection lost during the call; a time-out abandons the request,
+  so no late reply arrives. A local call without a time-out still runs in the caller.
+- **`rpc`:** `call`, `cast`, `multicall`, `async_call` and the yields convert `erpc`'s results to `{badrpc, Reason}`
+  and bad nodes. `block_call` and `pinfo/2` call the node's `rex`; `server_call`, `multi_server_call` and `sbcast`
+  monitor `{Name, Node}`; functions without a node list use `[node() | nodes()]`, and `parallel_eval/1` and
+  `pmap/3` hand the calls to those nodes in turn. `rex` runs with distribution ([kernel_sup](#kernel_sup)), answers
+  `features_request` with `[erpc]` and OTP's `{From, {call, M, F, A, Leader}}` with `{rex, Reply}`.
+- **What a node can run:** a distributed program keeps every export of the modules it links
+  ([export liveness](executables.md#export-liveness)), so other nodes may call any of them; a module the program does
+  not link is `undef` there.
+- **I/O:** the called process's group leader is the caller's, but its `standard_io` output is still written here
+  ([plan 30](../.agents/30-dist.md) step DIST7c).
 
 ## Node status messages
 
@@ -886,7 +906,7 @@ Current since DIST4b1b (`library/kernel/clause_dist_start.erl`, `erl_distributio
   Clause-only cases need no OTP: `epmd_names` runs on `clause-epmd` and on bundled epmds (two
   nodes racing to start one), and `epmd_interop` runs the same program on OTP's `epmd` and with an
   OTP node.
-- **OTP peers** (DIST4b4, DIST5c): `dist_ping`, `dist_connect` and `dist_signals` repeat their first run with node `a` an OTP
+- **OTP peers** (DIST4b4, DIST5c, DIST7a): `dist_ping`, `dist_connect`, `dist_signals` and `dist_rpc` repeat their first run with node `a` an OTP
   node on `clause-epmd` and with node `b` one on OTP's `epmd`; each node's stdout is the oracle's.
   An OTP node's stderr pattern is in OTP's own log format (a `Time level: message` line per report),
   and a node that waits for another's node status messages waits for its epmd marker name first,

@@ -846,3 +846,7 @@ gotchas and user directions not recorded elsewhere.
   node's ref badarg; a pending spawn request's monitor is left out of process_info monitors; UNLINK_ID id 2^64 is an
   invalid distribution message, 2^64 - 1 is acknowledged. spawn_monitor/4 with notsup raises error notsup (only
   noconnection gives the crasher), unlike spawn_opt/5.
+- DIST7a (2026-11-02): library-only step, no runtime change; regenerate.py --case dist_rpc took ~1 min per try. run_case.cmd
+  of a multi-node case needs `--epmd-executable=build/debug/runtime/Debug/clause-epmd.exe` and `--escript=...` (CTest
+  passes both). `rpc:nb_yield(Key, T)` timing out leaves the request outstanding (its `DOWN` arrives later): fixtures
+  yield it afterwards. Distributed programs keep every export of linked modules (dynamic call + list_to_atom).

@@ -99,7 +99,7 @@ to another node, its option split, SPAWN_REQUEST/SPAWN_REPLY read; GROUP_LEADER 
 - `tests/runtime/`, `tests/abi/`: LLVM-free runtime/ABI tests; `tests/prototypes/`: decision
   prototypes (not CTest).
 - Multi-node golden runs (`runs[].nodes`): `tests/compiler/executables/nodes.py` starts the epmd and the nodes for
-  `run.py` and `regenerate.py`; `host_otp` cases (`epmd_interop`; `dist_ping`, `dist_connect` with OTP nodes, DIST4b4; `dist_signals`, DIST5c; `dist_funs`, DIST5d) skip without an escript; `"epmd": "bundled"` runs
+  `run.py` and `regenerate.py`; `host_otp` cases (`epmd_interop`; `dist_ping`, `dist_connect` with OTP nodes, DIST4b4; `dist_signals`, DIST5c; `dist_funs`, DIST5d; `dist_rpc`, DIST7a) skip without an escript; `"epmd": "bundled"` runs
   start no epmd, other runs give Clause nodes `--epmd none`. `CLAUSE_TEST_EPMD` names the `clause-epmd` beside a
   program linked with `--epmd-executable` (OTP's `epmd` under the oracle; case `epmd_executable`).
 - Shared: `tests/cli.cmake`, `tests/compiler/{frontend_cases,printing_roundtrip}.cmake`; `matrix.py`

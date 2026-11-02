@@ -1,7 +1,6 @@
-%% Clause's erpc (plan 21 step LIB25, docs/libraries/library.md): calls run in processes spawned with spawn_request/5 on this
-%% node, with OTP's results and errors ({erpc, Reason}, {exception, Reason, Stack}, ...). A Clause program is one
-%% node: a request to another node gets the spawn reply OTP gets when it cannot connect, noconnection, and casts
-%% to it are dropped.
+%% Clause's erpc (plan 21 step LIB25, docs/libraries/library.md): calls run in processes spawned with spawn_request/5 on
+%% the called node, with OTP's results and errors ({erpc, Reason}, {exception, Reason, Stack}, ...). Requests to other
+%% nodes travel over distribution (plan 30 step DIST7a); a node that cannot be reached replies noconnection.
 -module(erpc).
 -export([
     call/2,
@@ -64,7 +63,7 @@ call(N, M, F, A, #{timeout := T, always_spawn := AlwaysSpawn}) when
 ->
     Timeout = timeout_value(T),
     Res = make_ref(),
-    ReqId = request(N, execute_call, [Res, M, F, A], [{reply, error_only}, monitor], spawn_reply),
+    ReqId = request(N, execute_call, [Res, M, F, A], [{reply, error_only}, monitor]),
     receive
         {spawn_reply, ReqId, error, Reason} -> result(spawn_reply, ReqId, Res, Reason);
         {'DOWN', ReqId, process, _, Reason} -> result(down, ReqId, Res, Reason)
@@ -93,13 +92,8 @@ error_reason(Reason, Stack, M, F, A) ->
         false -> {exception, Reason, trim_stack(Stack, M, F, A)}
     end.
 
-%% A spawn request on this node; for another node the reply OTP gets without a connection.
-request(N, Function, Args, Options, _) when N =:= node() ->
-    spawn_request(?MODULE, Function, Args, Options);
-request(N, _, _, _, ReplyTag) when is_atom(N) ->
-    ReqId = make_ref(),
-    self() ! {ReplyTag, ReqId, error, noconnection},
-    ReqId.
+%% A spawn request of an erpc function on node N, this node or another (plan 30 step DIST7a).
+request(N, Function, Args, Options) -> spawn_request(N, ?MODULE, Function, Args, Options).
 
 %% Requests.
 
@@ -108,7 +102,7 @@ send_request(_, _) -> error({?MODULE, badarg}).
 
 send_request(N, M, F, A) when is_atom(N), is_atom(M), is_atom(F), is_list(A) ->
     Res = make_ref(),
-    ReqId = request(N, execute_call, [Res, M, F, A], [{reply, error_only}, monitor], spawn_reply),
+    ReqId = request(N, execute_call, [Res, M, F, A], [{reply, error_only}, monitor]),
     [Res | ReqId];
 send_request(N, F, L, C) when is_atom(N), is_function(F, 0), is_map(C) ->
     send_request(N, erlang, apply, [F, []], L, C);
@@ -117,7 +111,7 @@ send_request(_, _, _, _) ->
 
 send_request(N, M, F, A, L, C) when is_atom(N), is_atom(M), is_atom(F), is_list(A), is_map(C) ->
     Res = make_ref(),
-    ReqId = request(N, execute_call, [Res, M, F, A], [{reply, error_only}, monitor], spawn_reply),
+    ReqId = request(N, execute_call, [Res, M, F, A], [{reply, error_only}, monitor]),
     maps:put(ReqId, [Res | L], C);
 send_request(_, _, _, _, _, _) ->
     error({?MODULE, badarg}).
@@ -278,9 +272,7 @@ mcall_send_requests(_, [], _, _, _, RIDs, Deadline, _, Count) ->
 mcall_send_requests(Tag, [N | Ns], M, F, A, RIDs, infinity, allow_local_call, Count) when N == node() ->
     mcall_send_requests(Tag, Ns, M, F, A, [local_call | RIDs], infinity, local_call, Count);
 mcall_send_requests(Tag, [N | Ns], M, F, A, RIDs, Deadline, LocalCall, Count) when is_atom(N) ->
-    RID = request(
-        N, execute_call, [Tag, M, F, A], [{reply, error_only}, {reply_tag, Tag}, {monitor, [{tag, Tag}]}], Tag
-    ),
+    RID = request(N, execute_call, [Tag, M, F, A], [{reply, error_only}, {reply_tag, Tag}, {monitor, [{tag, Tag}]}]),
     mcall_send_requests(Tag, Ns, M, F, A, [RID | RIDs], Deadline, LocalCall, Count + 1);
 mcall_send_requests(_, _, _, _, _, RIDs, _, _, Count) ->
     {badarg, RIDs, #{}, Count, expired}.
@@ -354,10 +346,8 @@ cast(Node, M, F, A) when is_atom(Node), is_atom(M), is_atom(F), is_list(A) ->
 cast(_, _, _, _) ->
     error({?MODULE, badarg}).
 
-cast_request(Node, M, F, A) when Node =:= node() ->
-    _ = spawn_request(?MODULE, execute_cast, [M, F, A], [{reply, no}]),
-    ok;
-cast_request(Node, _, _, _) when is_atom(Node) ->
+cast_request(Node, M, F, A) when is_atom(Node) ->
+    _ = request(Node, execute_cast, [M, F, A], [{reply, no}]),
     ok.
 
 %% What spawned requests run.

@@ -1,7 +1,7 @@
 %% Clause's rpc (plan 21 step LIB25, docs/libraries/library.md): OTP's remote procedure calls over erpc, with {badrpc, Reason}
-%% results. The rex server, which block calls, sbcast/2,3 and server messages need, starts under kernel_sup at the first use. A
-%% Clause program is one node, so other nodes are down: calls to them give {badrpc, nodedown} and multicalls list
-%% them as bad nodes.
+%% results. The rex server, which block calls, sbcast/2,3 and server messages need, starts under kernel_sup at the first
+%% use or with distribution. Calls reach other nodes over distribution (plan 30 step DIST7a); nodes that cannot be
+%% reached give {badrpc, nodedown} and multicalls list them as bad nodes.
 -module(rpc).
 -behaviour(gen_server).
 -export([
@@ -84,7 +84,7 @@ init([]) ->
 handle_call({call, Mod, Fun, Args, Leader}, To, State) ->
     Call = fun() ->
         set_group_leader(Leader),
-        gen_server:reply(To, execute_call(Mod, Fun, Args))
+        reply(To, execute_call(Mod, Fun, Args))
     end,
     {_, Monitor} = spawn_monitor(Call),
     {noreply, State#{Monitor => To}};
@@ -113,7 +113,7 @@ handle_info({'DOWN', Monitor, process, _, normal}, State) ->
 handle_info({'DOWN', Monitor, process, _, Reason}, State) ->
     case maps:take(Monitor, State) of
         {To, Rest} ->
-            gen_server:reply(To, {badrpc, {'EXIT', Reason}}),
+            reply(To, {badrpc, {'EXIT', Reason}}),
             {noreply, Rest};
         error ->
             {noreply, State}
@@ -127,6 +127,9 @@ handle_info({From, {send, Name, Message}}, State) ->
         _ -> ok
     end,
     {noreply, State};
+%% OTP's call request of hidden C nodes, answered with {rex, Reply} (plan 30 step DIST7a).
+handle_info({From, {call, Mod, Fun, Args, Leader}}, State) ->
+    handle_call({call, Mod, Fun, Args, Leader}, {?NAME, From}, State);
 handle_info({From, features_request}, State) ->
     From ! {features_reply, node(), [erpc]},
     {noreply, State};
@@ -146,6 +149,13 @@ delivered(Name, Message) ->
 
 set_group_leader(Leader) when is_pid(Leader) -> group_leader(Leader, self());
 set_group_leader(_) -> ok.
+
+%% Answer a gen_server caller, or a {From, {call, ...}} request with {rex, Reply}.
+reply({?NAME, From}, Reply) ->
+    From ! {?NAME, Reply},
+    ok;
+reply(To, Reply) ->
+    gen_server:reply(To, Reply).
 
 %% Kept for OTP's rex_proxy_user, which forwards to user once it starts: Clause's standard I/O needs no user.
 proxy_user_flush() ->
@@ -180,17 +190,16 @@ block_call(N, M, F, A) -> block_call(N, M, F, A, infinity).
 block_call(N, M, F, A, Timeout) when is_atom(N), is_atom(M), is_list(A), ?IS_VALID_TMO(Timeout) ->
     server_request(N, {block_call, M, F, A, group_leader()}, Timeout).
 
-%% A call to rex on `Node`: this node's server, or nodedown for another.
-server_request(Node, Request, Timeout) when Node =:= node() ->
-    ensure_started(),
-    try gen_server:call(?NAME, Request, Timeout) of
+%% A call to rex on `Node`, this node's or another's (plan 30 step DIST7a); the call's alias drops a late reply.
+server_request(Node, Request, Timeout) ->
+    Node =:= node() andalso ensure_started(),
+    try gen_server:call({?NAME, Node}, Request, Timeout) of
         Reply -> Reply
     catch
         exit:{timeout, _} -> {badrpc, timeout};
+        exit:{{nodedown, _}, _} -> {badrpc, nodedown};
         exit:Reason -> {badrpc, {'EXIT', Reason}}
-    end;
-server_request(_, _, _) ->
-    {badrpc, nodedown}.
+    end.
 
 rpcify_exception(throw, {'EXIT', _} = BadRpc) -> {badrpc, BadRpc};
 rpcify_exception(throw, Return) -> Return;
@@ -207,10 +216,10 @@ rpcify_exception(error, Reason) -> error(Reason).
 
 %% Sends {self(), Msg} to Name on Node and waits for {ReplyWrapper, Node, Reply}.
 server_call(Node, Name, ReplyWrapper, Message) when is_atom(Node), is_atom(Name) ->
-    case Node =:= node() of
-        false ->
-            {error, nodedown};
+    case node() =:= nonode@nohost andalso Node =/= nonode@nohost of
         true ->
+            {error, nodedown};
+        false ->
             Ref = erlang:monitor(process, {Name, Node}),
             {Name, Node} ! {self(), Message},
             receive
@@ -230,7 +239,7 @@ cast(Node, Mod, Fun, Args) ->
     end,
     true.
 
-abcast(Name, Message) -> abcast([node()], Name, Message).
+abcast(Name, Message) -> abcast([node() | nodes()], Name, Message).
 
 abcast([Node | Rest], Name, Message) ->
     try
@@ -242,19 +251,19 @@ abcast([Node | Rest], Name, Message) ->
 abcast([], _, _) ->
     abcast.
 
-sbcast(Name, Message) -> sbcast([node()], Name, Message).
+sbcast(Name, Message) -> sbcast([node() | nodes()], Name, Message).
 
 sbcast(Nodes, Name, Message) ->
     ensure_started(),
     receive_nodes(?NAME, send_nodes(Nodes, ?NAME, {sbcast, Name, Message}, [])).
 
-eval_everywhere(Mod, Fun, Args) -> eval_everywhere([node()], Mod, Fun, Args).
+eval_everywhere(Mod, Fun, Args) -> eval_everywhere([node() | nodes()], Mod, Fun, Args).
 
 eval_everywhere(Nodes, Mod, Fun, Args) ->
     lists:foreach(fun(Node) -> cast(Node, Mod, Fun, Args) end, Nodes),
     abcast.
 
-multi_server_call(Name, Message) -> multi_server_call([node()], Name, Message).
+multi_server_call(Name, Message) -> multi_server_call([node() | nodes()], Name, Message).
 
 multi_server_call(Nodes, Name, Message) when is_list(Nodes), is_atom(Name) ->
     receive_nodes(Name, send_nodes(Nodes, Name, Message, [])).
@@ -268,13 +277,16 @@ send_nodes([_ | Rest], Name, Message, Monitors) ->
 send_nodes([], _, _, Monitors) ->
     Monitors.
 
-%% Another node is down at once, as on an OTP node that is not alive.
-start_monitor(Node, Name) when Node =:= node() ->
-    {Node, erlang:monitor(process, {Name, Node})};
+%% Without distribution another node is down at once, as on an OTP node that is not alive.
 start_monitor(Node, Name) ->
-    Ref = make_ref(),
-    self() ! {'DOWN', Ref, process, {Name, Node}, noconnection},
-    {Node, Ref}.
+    case node() =:= nonode@nohost andalso Node =/= nonode@nohost of
+        true ->
+            Ref = make_ref(),
+            self() ! {'DOWN', Ref, process, {Name, Node}, noconnection},
+            {Node, Ref};
+        false ->
+            {Node, erlang:monitor(process, {Name, Node})}
+    end.
 
 receive_nodes(Name, Nodes) -> receive_nodes(Name, Nodes, [], []).
 
@@ -297,7 +309,7 @@ receive_nodes(Name, [{N, R} | Rest], BadNodes, Replies) ->
 multicall(M, F, A) -> multicall(M, F, A, infinity).
 
 multicall(Nodes, M, F, A) when is_list(Nodes) -> multicall(Nodes, M, F, A, infinity);
-multicall(M, F, A, Timeout) -> multicall([node()], M, F, A, Timeout).
+multicall(M, F, A, Timeout) -> multicall([node() | nodes()], M, F, A, Timeout).
 
 multicall(Nodes, M, F, A, Timeout) ->
     Results =
@@ -341,7 +353,14 @@ nb_yield(Key, Timeout) ->
         Class:Reason -> {value, rpcify_exception(Class, Reason)}
     end.
 
-parallel_eval(Calls) -> [yield(async_call(node(), M, F, A)) || {M, F, A} <- Calls].
+%% The calls go to the nodes in turn, this node first (plan 30 step DIST7a).
+parallel_eval(Calls) ->
+    Nodes = [node() | nodes()],
+    [yield(Key) || Key <- map_nodes(Calls, Nodes, Nodes)].
+
+map_nodes([], _, _) -> [];
+map_nodes(Calls, [], Nodes) -> map_nodes(Calls, Nodes, Nodes);
+map_nodes([{M, F, A} | Calls], [Node | Rest], Nodes) -> [async_call(Node, M, F, A) | map_nodes(Calls, Rest, Nodes)].
 
 %% Evaluated from the end of the list, as OTP does; check/2 restores the order.
 pmap({M, F}, Extra, List) when is_atom(M), is_atom(F) ->
