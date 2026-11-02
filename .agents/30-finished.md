@@ -153,4 +153,4 @@ Compact record of the network distribution plan, one bullet per step;
   golden `dist_global_group` (OTP nodes as a, b and c); DIST8 closed — a2ca4c4d
 - **DIST9** `pg` across nodes: `data_publisher`'s discovery at start and nodeup, local data exchange, relayed updates,
   peer monitors dropping a lost node's members, version 0 translations; `pg`'s remote-node global view as OTP's;
-  golden `dist_pg` (OTP nodes as a and as b) — HASH
+  golden `dist_pg` (OTP nodes as a and as b) — a404cd24
