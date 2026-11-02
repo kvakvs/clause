@@ -159,3 +159,6 @@ Compact record of the network distribution plan, one bullet per step;
   `tls_dist_connection_sup`, 4-byte packets inside TLS, OTP's certificate checks), `clause_dist_controller` shared
   with `inet_tcp_dist` (`fam_listen/4`, `fam_setup/4` now OTP's), net_kernel's carrier calls as OTP's, manifest
   `--proto-dist` links the carrier; DIST12 split into DIST12a/12b; golden `dist_tls` (OTP nodes both ways) — 4c20015a
+- **DIST12b** user carriers: a carrier in the guide's `gen_tcp` shape (own code, only the mandatory callbacks, `listen/1`)
+  runs between Clause and OTP nodes; a raising `listen` is OTP's `register/listen error`; `dist_util`'s binary
+  `f_recv` leniency recorded; golden `dist_user_carrier`; DIST12 closed — fc4f24a2
