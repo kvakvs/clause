@@ -566,6 +566,14 @@ User carriers are supported through OTP's interface, current since DIST4b2a
   follow OTP's because carriers set them.
 - Clause's own carriers are written over the same interface, so a third-party carrier and a built-in
   one run the same handshake code.
+- **Calling a carrier** (DIST12a, DIST12b), as OTP's `net_kernel`: `listen(Name, Host)` with the name part as an
+  atom, or `listen(Name)` when the module has no `listen/2`; a listen that raises is a `register/listen error`, and a
+  module the program lacks `not supported`. Only the guide's mandatory callbacks are needed (`listen/1,2`, `accept/1`,
+  `accept_connection/5`, `setup/5`, `close/1`, `select/1`, `address/0`); `childspecs/0`, `setopts/2` and `getopts/2`
+  are used when exported, and connections without `mf_setopts`/`mf_getopts` answer `{error, enotsup}`. The
+  handshake reads `f_recv`'s data as OTP's does from a list, and from a binary too
+  ([differences](differences.md)). Golden `dist_user_carrier` runs a carrier of its own, in the guide's
+  `gen_tcp` shape, between Clause and OTP nodes both ways.
 
 ## TLS distribution
 

@@ -1,0 +1,124 @@
+{
+  "schema": 1,
+  "entry": "dist_user_carrier",
+  "host_otp": true,
+  "runs": [
+    {
+      "nodes": [
+        {
+          "name": "a",
+          "args": [
+            "a"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--setcookie uc --proto-dist uc"
+          },
+          "otp_flags": "-setcookie uc -proto_dist uc",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "node: uca@localhost\nchildren: [net_kernel,auth,erl_epmd]\nping: pong\naddress: [\"localhost\",uc,inet]\ngetopts: {error,enotsup}\nsetopts: {error,enotsup}\nrpc: ucb@localhost\necho: 100000\ndist_user_carrier: ok\n"
+        },
+        {
+          "name": "b",
+          "args": [
+            "b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--setcookie uc --proto-dist uc"
+          },
+          "otp_flags": "-setcookie uc -proto_dist uc",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "node: ucb@localhost\ndist_user_carrier: ok\n"
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "name": "a",
+          "kind": "otp",
+          "args": [
+            "a"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--setcookie uc --proto-dist uc"
+          },
+          "otp_flags": "-setcookie uc -proto_dist uc",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "node: uca@localhost\nchildren: [net_kernel,auth,erl_epmd]\nping: pong\naddress: [\"localhost\",uc,inet]\ngetopts: {error,enotsup}\nsetopts: {error,enotsup}\nrpc: ucb@localhost\necho: 100000\ndist_user_carrier: ok\n"
+        },
+        {
+          "name": "b",
+          "args": [
+            "b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--setcookie uc --proto-dist uc"
+          },
+          "otp_flags": "-setcookie uc -proto_dist uc",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "node: ucb@localhost\ndist_user_carrier: ok\n"
+        }
+      ]
+    },
+    {
+      "epmd": "otp",
+      "nodes": [
+        {
+          "name": "a",
+          "args": [
+            "a"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--setcookie uc --proto-dist uc"
+          },
+          "otp_flags": "-setcookie uc -proto_dist uc",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "node: uca@localhost\nchildren: [net_kernel,auth,erl_epmd]\nping: pong\naddress: [\"localhost\",uc,inet]\ngetopts: {error,enotsup}\nsetopts: {error,enotsup}\nrpc: ucb@localhost\necho: 100000\ndist_user_carrier: ok\n"
+        },
+        {
+          "name": "b",
+          "kind": "otp",
+          "args": [
+            "b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--setcookie uc --proto-dist uc"
+          },
+          "otp_flags": "-setcookie uc -proto_dist uc",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "node: ucb@localhost\ndist_user_carrier: ok\n"
+        }
+      ]
+    },
+    {
+      "args": [
+        "x"
+      ],
+      "env": {
+        "CLAUSE_FLAGS": "--proto-dist nosuch"
+      },
+      "otp_flags": "-proto_dist nosuch",
+      "stderr": "(?s)^.*nodistribution.*$",
+      "exit_status": 0,
+      "stdout": "not supported: {failed_to_start_child,net_kernel,{'EXIT',nodistribution}}\ndist_user_carrier: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
+  },
+  "inputs": {
+    "dist_user_carrier.erl": "545f9b833088bbd29b4a7a8f298e3bd66a8763489f97aac8b88202a58943e41f",
+    "uc_dist.erl": "541c6f4ccfff4497ad3ef80923576cdfae0bee5a08f31198f1064667f55979de"
+  }
+}

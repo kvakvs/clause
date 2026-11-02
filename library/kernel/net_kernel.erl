@@ -381,10 +381,18 @@ listen_carriers([Proto | _], Alive, Host, Node, true) ->
         false ->
             {error, Proto, invalid_node_name};
         true ->
-            case listen(Module, list_to_atom(Alive), Host) of
+            case listened(Module, list_to_atom(Alive), Host) of
                 {ok, {Socket, Address, Creation}} -> {ok, [{Module, Socket, Address}], Creation};
                 {error, Reason} -> {error, Proto, Reason}
             end
+    end.
+
+% A carrier's listen result; one that raises gives its reason as an error, as OTP's (user carriers, DIST12b).
+listened(Module, Name, Host) ->
+    try
+        listen(Module, Name, Host)
+    catch
+        _:Reason -> {error, Reason}
     end.
 
 % The built-in carriers are called by name, so that programs link them. Others are called as OTP calls them: Name is

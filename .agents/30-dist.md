@@ -85,7 +85,7 @@ direction); formerly backlog item F38.
 
 ## Steps
 
-DIST0 to DIST9 and DIST12a are done, with DIST5's follow-ups DIST5d and DIST5e ([30-finished](30-finished.md)).
+DIST0 to DIST9 and DIST12 are done, with DIST5's follow-ups DIST5d and DIST5e ([30-finished](30-finished.md)).
 
 <a id="step-dist10"></a>
 
@@ -117,25 +117,6 @@ Depends on: DIST8 ([30-finished](30-finished.md)).
   - [ ] The `application:takeover/2` row of `differences.md` is removed.
 - Tests
   - [ ] Golden `dist_applications`: an application fails over to a second node and is taken back.
-
-<a id="step-dist12"></a>
-
-## DIST12. TLS distribution and other carriers
-
-Depends on: DIST5 ([30-finished](30-finished.md)). Split 2026-11-02 into DIST12a (TLS, done) and DIST12b.
-
-<a id="step-dist12b"></a>
-
-### DIST12b. User carriers
-
-- Success criteria
-  - [ ] `net_kernel` calls carriers only through OTP's callbacks (DIST12a began: `listen/1` when there is no
-        `listen/2`, the name part as an atom, no `is_node_name/1`, `childspecs/0`, `not supported`); `address/0,1`
-        for `--dist-listen false`; OTP's errors of a carrier that fails.
-  - [ ] A user carrier written against OTP's `dist_util` interface (the carrier guide's `gen_tcp`-based example
-        shape, own code) runs with `--proto-dist`, against Clause and OTP nodes.
-- Tests
-  - [ ] Golden `dist_user_carrier` with the user carrier (OTP nodes both ways, `host_otp`).
 
 <a id="step-dist13"></a>
 
