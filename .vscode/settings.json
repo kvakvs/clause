@@ -3,6 +3,7 @@
   "cmake.configureOnOpen": true,
   "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
   "C_Cpp.default.cppStandard": "c++23",
+  "erlang.erlangPath": "C:\\Erlang\\bin",
   "C_Cpp.default.includePath": [
     "${workspaceFolder}/compiler/include",
     "${workspaceFolder}/compiler/src",
