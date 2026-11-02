@@ -162,7 +162,7 @@ request(Request) ->
 % disconnect/1 without waiting for the connection to end (DIST6).
 async_disconnect(Node) -> gen_server:cast(net_kernel, {async_disconnect, Node}).
 
-% Whether this node is published to the nodes it connects to: not when hidden (DIST4b2a).
+% Whether this node is published to Node: not when hidden (DIST4b2a), except to its global group (DIST8b).
 publish_on_node(Node) -> request({publish_on_node, Node}) =:= true.
 
 %% Whether net_kernel holds a connection to Node up for erlang:dmonitor_node/3; false while no process is registered
@@ -436,8 +436,17 @@ handle_call({spawn_opt, Module, Function, Arguments, Options, Link, Leader}, {Pi
     is_pid(Pid)
 ->
     do_spawn([Link, From, Module, Function, Arguments, Leader], Options, State);
-handle_call({publish_on_node, _Node}, _From, #state{hidden = Hidden} = State) ->
+handle_call({publish_on_node, Host}, _From, #state{hidden = Hidden} = State) when not is_atom(Host) ->
+    % A node asking for a dynamic name, known by its host only, is in no global group.
     {reply, not Hidden, State};
+handle_call({publish_on_node, Node}, _From, #state{hidden = Hidden} = State) ->
+    % A hidden global group's nodes are visible only to their group, a hidden node is visible to its group (DIST8b).
+    Type =
+        case Hidden of
+            true -> hidden;
+            false -> normal
+        end,
+    {reply, global_group:publish(Type, Node), State};
 handle_call({allow, Nodes}, _From, #state{allowed = Allowed} = State) ->
     case is_list(Nodes) andalso lists:all(fun erlang:is_atom/1, Nodes) of
         true -> {reply, ok, State#state{allowed = lists:foldl(fun add_allowed/2, Allowed, Nodes)}};

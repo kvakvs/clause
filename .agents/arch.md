@@ -140,7 +140,7 @@ builtin and service calls), `RuntimeOptions` + `RuntimeExtension` for extension 
   old index), and decoding finds the program's fun or a foreign one the code server keeps (`CodeServer::decoded_fun`),
   which encodes again unchanged and fails when called.
   `global` (DIST8a) runs OTP's protocol 8 between `global_name_server`s with its locker in
-  `clause_global_locker`.
+  `clause_global_locker`; `global_group` (DIST8b) limits it to this node's group through `group_nodeup`.
 - **Memory / GC**: per-process generational heaps, copying collector at safepoints, message and
   persistent-term copies, off-heap binaries (`docs/runtime-heap.md`).
 - **Scheduler**: multi-worker executor with run queues, handed-over wakes and stealing, mailboxes,

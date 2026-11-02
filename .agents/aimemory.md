@@ -865,4 +865,5 @@ gotchas and user directions not recorded elsewhere.
   test: the removed node runs `prevent_overlapping_partitions false` (else both lost_connection reports race). After a
   failed multi-node run, stop orphaned `erl.exe ... oracle.escript` nodes and `epmd -daemon` by PID (leave VS Code's
   `vscode_lsp_entry` erl alone), or run.py cannot remove the work directory.
-
+- DIST8b (2026-11-02): with `global_groups`, each node's global_group asks every group node `get_own_nodes/0` by erpc
+  at its start, which connects them: fixtures must not assume a group peer is unconnected (or no nodeup) before main.

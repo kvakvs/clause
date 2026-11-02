@@ -1,0 +1,193 @@
+{
+  "schema": 1,
+  "entry": "dist_global_group",
+  "host_otp": true,
+  "runs": [
+    {
+      "nodes": [
+        {
+          "name": "a",
+          "args": [
+            "a"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname gga@localhost --setcookie ggr --env kernel global_groups [{g1,[gga@localhost,ggb@localhost]},{g2,[ggc@localhost]}]"
+          },
+          "otp_flags": "-sname gga@localhost -setcookie ggr -kernel global_groups [{g1,[gga@localhost,ggb@localhost]},{g2,[ggc@localhost]}]",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "groups: {g1,[g2]}\nown_nodes: [gga@localhost,ggb@localhost]\nmonitor_nodes: ok\nping_b: pong\nsynced: true\nsync: ok\nping_c: pong\nconnected: [ggb@localhost,ggc@localhost]\nglobal_names: [na,nb]\nglobal_whereis: [ggb@localhost,undefined]\nwhereis: [ggc@localhost,ggc@localhost,ggc@localhost,ggb@localhost,undefined,\n          undefined]\nnames: [[nc],[na,nb],[nc],[]]\nsend: [ggc@localhost,ggc@localhost,{badarg,{nobody,lost}},ggb@localhost]\ntold_c: [hello,hi]\ntold_b: [hey]\nsync_group: ok\ninfo: [{state,synced},\n       {own_group_name,g1},\n       {own_group_nodes,[gga@localhost,ggb@localhost]},\n       {synced_nodes,[ggb@localhost]},\n       {sync_error,[]},\n       {no_contact,[]},\n       {other_groups,[{g2,[ggc@localhost]}]},\n       {monitoring,1}]\nhalted_c: {badrpc,nodedown}\nhalted_b: {badrpc,nodedown}\nnodedown: {nodedown,ggb@localhost}\nunexpected: []\ndist_global_group: ok\n"
+        },
+        {
+          "name": "b",
+          "args": [
+            "b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname ggb@localhost --setcookie ggr --env kernel global_groups [{g1,[gga@localhost,ggb@localhost]},{g2,[ggc@localhost]}]"
+          },
+          "otp_flags": "-sname ggb@localhost -setcookie ggr -kernel global_groups [{g1,[gga@localhost,ggb@localhost]},{g2,[ggc@localhost]}]",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "dist_global_group: ok\n"
+        },
+        {
+          "name": "c",
+          "args": [
+            "c"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname ggc@localhost --setcookie ggr --env kernel global_groups [{g1,[gga@localhost,ggb@localhost]},{g2,[ggc@localhost]}]"
+          },
+          "otp_flags": "-sname ggc@localhost -setcookie ggr -kernel global_groups [{g1,[gga@localhost,ggb@localhost]},{g2,[ggc@localhost]}]",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "dist_global_group: ok\n"
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "name": "a",
+          "kind": "otp",
+          "args": [
+            "a"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname gga@localhost --setcookie ggr --env kernel global_groups [{g1,[gga@localhost,ggb@localhost]},{g2,[ggc@localhost]}]"
+          },
+          "otp_flags": "-sname gga@localhost -setcookie ggr -kernel global_groups [{g1,[gga@localhost,ggb@localhost]},{g2,[ggc@localhost]}]",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "groups: {g1,[g2]}\nown_nodes: [gga@localhost,ggb@localhost]\nmonitor_nodes: ok\nping_b: pong\nsynced: true\nsync: ok\nping_c: pong\nconnected: [ggb@localhost,ggc@localhost]\nglobal_names: [na,nb]\nglobal_whereis: [ggb@localhost,undefined]\nwhereis: [ggc@localhost,ggc@localhost,ggc@localhost,ggb@localhost,undefined,\n          undefined]\nnames: [[nc],[na,nb],[nc],[]]\nsend: [ggc@localhost,ggc@localhost,{badarg,{nobody,lost}},ggb@localhost]\ntold_c: [hello,hi]\ntold_b: [hey]\nsync_group: ok\ninfo: [{state,synced},\n       {own_group_name,g1},\n       {own_group_nodes,[gga@localhost,ggb@localhost]},\n       {synced_nodes,[ggb@localhost]},\n       {sync_error,[]},\n       {no_contact,[]},\n       {other_groups,[{g2,[ggc@localhost]}]},\n       {monitoring,1}]\nhalted_c: {badrpc,nodedown}\nhalted_b: {badrpc,nodedown}\nnodedown: {nodedown,ggb@localhost}\nunexpected: []\ndist_global_group: ok\n"
+        },
+        {
+          "name": "b",
+          "args": [
+            "b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname ggb@localhost --setcookie ggr --env kernel global_groups [{g1,[gga@localhost,ggb@localhost]},{g2,[ggc@localhost]}]"
+          },
+          "otp_flags": "-sname ggb@localhost -setcookie ggr -kernel global_groups [{g1,[gga@localhost,ggb@localhost]},{g2,[ggc@localhost]}]",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "dist_global_group: ok\n"
+        },
+        {
+          "name": "c",
+          "args": [
+            "c"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname ggc@localhost --setcookie ggr --env kernel global_groups [{g1,[gga@localhost,ggb@localhost]},{g2,[ggc@localhost]}]"
+          },
+          "otp_flags": "-sname ggc@localhost -setcookie ggr -kernel global_groups [{g1,[gga@localhost,ggb@localhost]},{g2,[ggc@localhost]}]",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "dist_global_group: ok\n"
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "name": "a",
+          "args": [
+            "a"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname gga@localhost --setcookie ggr --env kernel global_groups [{g1,[gga@localhost,ggb@localhost]},{g2,[ggc@localhost]}]"
+          },
+          "otp_flags": "-sname gga@localhost -setcookie ggr -kernel global_groups [{g1,[gga@localhost,ggb@localhost]},{g2,[ggc@localhost]}]",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "groups: {g1,[g2]}\nown_nodes: [gga@localhost,ggb@localhost]\nmonitor_nodes: ok\nping_b: pong\nsynced: true\nsync: ok\nping_c: pong\nconnected: [ggb@localhost,ggc@localhost]\nglobal_names: [na,nb]\nglobal_whereis: [ggb@localhost,undefined]\nwhereis: [ggc@localhost,ggc@localhost,ggc@localhost,ggb@localhost,undefined,\n          undefined]\nnames: [[nc],[na,nb],[nc],[]]\nsend: [ggc@localhost,ggc@localhost,{badarg,{nobody,lost}},ggb@localhost]\ntold_c: [hello,hi]\ntold_b: [hey]\nsync_group: ok\ninfo: [{state,synced},\n       {own_group_name,g1},\n       {own_group_nodes,[gga@localhost,ggb@localhost]},\n       {synced_nodes,[ggb@localhost]},\n       {sync_error,[]},\n       {no_contact,[]},\n       {other_groups,[{g2,[ggc@localhost]}]},\n       {monitoring,1}]\nhalted_c: {badrpc,nodedown}\nhalted_b: {badrpc,nodedown}\nnodedown: {nodedown,ggb@localhost}\nunexpected: []\ndist_global_group: ok\n"
+        },
+        {
+          "name": "b",
+          "kind": "otp",
+          "args": [
+            "b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname ggb@localhost --setcookie ggr --env kernel global_groups [{g1,[gga@localhost,ggb@localhost]},{g2,[ggc@localhost]}]"
+          },
+          "otp_flags": "-sname ggb@localhost -setcookie ggr -kernel global_groups [{g1,[gga@localhost,ggb@localhost]},{g2,[ggc@localhost]}]",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "dist_global_group: ok\n"
+        },
+        {
+          "name": "c",
+          "args": [
+            "c"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname ggc@localhost --setcookie ggr --env kernel global_groups [{g1,[gga@localhost,ggb@localhost]},{g2,[ggc@localhost]}]"
+          },
+          "otp_flags": "-sname ggc@localhost -setcookie ggr -kernel global_groups [{g1,[gga@localhost,ggb@localhost]},{g2,[ggc@localhost]}]",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "dist_global_group: ok\n"
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "name": "a",
+          "args": [
+            "a"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname gga@localhost --setcookie ggr --env kernel global_groups [{g1,[gga@localhost,ggb@localhost]},{g2,[ggc@localhost]}]"
+          },
+          "otp_flags": "-sname gga@localhost -setcookie ggr -kernel global_groups [{g1,[gga@localhost,ggb@localhost]},{g2,[ggc@localhost]}]",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "groups: {g1,[g2]}\nown_nodes: [gga@localhost,ggb@localhost]\nmonitor_nodes: ok\nping_b: pong\nsynced: true\nsync: ok\nping_c: pong\nconnected: [ggb@localhost,ggc@localhost]\nglobal_names: [na,nb]\nglobal_whereis: [ggb@localhost,undefined]\nwhereis: [ggc@localhost,ggc@localhost,ggc@localhost,ggb@localhost,undefined,\n          undefined]\nnames: [[nc],[na,nb],[nc],[]]\nsend: [ggc@localhost,ggc@localhost,{badarg,{nobody,lost}},ggb@localhost]\ntold_c: [hello,hi]\ntold_b: [hey]\nsync_group: ok\ninfo: [{state,synced},\n       {own_group_name,g1},\n       {own_group_nodes,[gga@localhost,ggb@localhost]},\n       {synced_nodes,[ggb@localhost]},\n       {sync_error,[]},\n       {no_contact,[]},\n       {other_groups,[{g2,[ggc@localhost]}]},\n       {monitoring,1}]\nhalted_c: {badrpc,nodedown}\nhalted_b: {badrpc,nodedown}\nnodedown: {nodedown,ggb@localhost}\nunexpected: []\ndist_global_group: ok\n"
+        },
+        {
+          "name": "b",
+          "args": [
+            "b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname ggb@localhost --setcookie ggr --env kernel global_groups [{g1,[gga@localhost,ggb@localhost]},{g2,[ggc@localhost]}]"
+          },
+          "otp_flags": "-sname ggb@localhost -setcookie ggr -kernel global_groups [{g1,[gga@localhost,ggb@localhost]},{g2,[ggc@localhost]}]",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "dist_global_group: ok\n"
+        },
+        {
+          "name": "c",
+          "kind": "otp",
+          "args": [
+            "c"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname ggc@localhost --setcookie ggr --env kernel global_groups [{g1,[gga@localhost,ggb@localhost]},{g2,[ggc@localhost]}]"
+          },
+          "otp_flags": "-sname ggc@localhost -setcookie ggr -kernel global_groups [{g1,[gga@localhost,ggb@localhost]},{g2,[ggc@localhost]}]",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "dist_global_group: ok\n"
+        }
+      ]
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
+  },
+  "inputs": {
+    "dist_global_group.erl": "a27c79b39781f0817c5cb0b1b992a70b3f7c5f68c7d11855a4fc4fe168536085"
+  }
+}

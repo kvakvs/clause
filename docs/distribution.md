@@ -488,6 +488,29 @@ Current since DIST8a (`library/kernel/global.erl`, `clause_global_locker.erl`), 
 - **Not provided:** OTP's high-level trace for troubleshooting (`high_level_trace_start`, ...), which the server
   reports as unexpected calls.
 
+## global_group
+
+Current since DIST8b (`library/kernel/global_group.erl`), OTP's server and messages, with OTP 29 nodes too.
+
+- **Configuration:** the `kernel` parameter `global_groups`, `[{Name, Nodes} | {Name, normal | hidden, Nodes}]`,
+  read for this node's name and kept in a persistent term; this node's group is the one listing it (listed twice is
+  `{'node defined twice', ...}`), the others are its other groups. Without the parameter, or while the node is not
+  alive, there are no groups (`no_conf`) and every node takes part in `global`.
+- **Group nodes:** at its start and at each nodeup of a group node, the server asks the node for its group
+  (`global_group:get_own_nodes/0` through `erpc`); the same group makes it `sync` and lets `global` sync with it
+  (`group_nodeup`), another one makes it `sync_error`. A connected node outside the group stays connected, but
+  `global` keeps their names apart (`group_nodedown`, and `{disconnect_node, Node}` to the other node's server).
+  `sync/0` checks the group again with `conf_check` messages (`config_ok`, `config_error`, logging OTP's
+  `global_group: Could not synchronize with node ...` report).
+- **Names:** `whereis_name/1,2`, `send/2,3` and `registered_names/1` answer this node's group from `global` and
+  search the other groups, groups or nodes in a search process that asks each node's server (`find_name`,
+  `registered_names`); in a group, the first node that can be reached answers for it.
+- **Other requests:** `global_groups/0`, `own_nodes/0`, `info/0`, `monitor_nodes/1` (`{nodeup, Node}` and
+  `{nodedown, Node}` of the group's nodes), `global_groups_changed/1`, `_added/1`, `_removed/1`, `ng_add_check/2,3`,
+  OTP's test hooks, and `publish/2`, through which `net_kernel` publishes a hidden node to its group and a hidden
+  group's nodes to their group only. The server also registers `global_group_check`, which passes replies of nodes
+  older than OTP 25 on.
+
 ## Node status messages
 
 Current since DIST2b, as OTP's: `process_flag(monitor_nodes, Bool)`,
@@ -819,7 +842,7 @@ Clause starts it at the first use of a kernel service: `rex` (`rpc`), `global_na
 
 - **Children:** `kernel:init/1`'s, in OTP's start order: `rex`, `global_name_server`, `net_sup` (distribution of the
   node start options; otherwise `erl_distribution:start_link/0` answers `ignore` and the child stays without a
-  process), `global_group` (a server without groups) and `kernel_safe_sup`, an empty supervisor other libraries add
+  process), `global_group` ([global groups](#global_group)) and `kernel_safe_sup`, an empty supervisor other libraries add
   children to. One-for-all without restarts, as OTP's. OTP's other children (`code_server`, `file_server_2`,
   `inet_db`, `logger_sup`, `user`, ...) are runtime services in Clause ([differences](differences.md)).
 - **`net_kernel:start/1,2`** adds the `net_sup_dynamic` child, and `stop/0` terminates and deletes it.

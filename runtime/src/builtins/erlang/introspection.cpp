@@ -2,6 +2,7 @@
 #include "../../terms/identities.hpp"
 #include "../typed.hpp"
 #include "dist_messages.hpp"
+#include "processes.hpp"
 #include "terms.hpp"
 #include <algorithm>
 #include <array>
@@ -148,7 +149,9 @@ Term memory(const Inspection &inspection) {
     return integer(inspection, words * sizeof(Word) + sizeof(ProcessContext));
 }
 
-Term priority(const Inspection &inspection) { return atom(inspection.caller, "normal"_atom); }
+Term priority(const Inspection &inspection) {
+    return priority_atom(inspection.caller, inspection.target.signals().priority());
+}
 
 Term error_handler(const Inspection &inspection) { return atom(inspection.caller, "error_handler"_atom); }
 

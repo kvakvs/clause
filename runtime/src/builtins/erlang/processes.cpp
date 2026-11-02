@@ -4,6 +4,7 @@
 #include "dist_messages.hpp"
 #include "ports.hpp"
 #include "spawning.hpp"
+#include <algorithm>
 #include <array>
 
 // The process builtins of the bridge (docs/builtins.md, docs/processes.md): self/0, make_ref/0, spawn/1,3,
@@ -353,8 +354,19 @@ TermResult<Term> monitor_nodes(ProcessContext &context, std::optional<unsigned> 
 
 using Flag = Named<struct FlagRole>;
 
-// process_flag(trap_exit | async_dist, Bool), (min_heap_size, Size), (save_calls, N) or monitor_nodes: the previous
-// setting; every other flag is badarg.
+// process_flag(priority, Level): the previous level, kept for reading back (plan 30 step DIST8b); badarg for another.
+Term priority_flag(ProcessContext &context, const Term &value) {
+    static constexpr std::array<std::string_view, 4> LEVELS{"low", "normal", "high", "max"};
+    const auto found = std::ranges::find(LEVELS, spelling(value));
+    if (found == LEVELS.end()) {
+        bad_argument();
+    }
+    const auto level = static_cast<std::uint8_t>(found - LEVELS.begin());
+    return priority_atom(context, context.signals().set_priority(level));
+}
+
+// process_flag(trap_exit | async_dist, Bool), (priority, Level), (min_heap_size, Size), (save_calls, N) or
+// monitor_nodes: the previous setting; every other flag is badarg.
 TermResult<Term> process_flag(ProcessContext &context, const Flag &flag, const Term &value) {
     if (const auto options = monitor_nodes_options(context, flag.term)) {
         return monitor_nodes(context, node_status_options(*options), value);
@@ -365,6 +377,9 @@ TermResult<Term> process_flag(ProcessContext &context, const Flag &flag, const T
     }
     if (name == "save_calls") {
         return save_calls(context, value);
+    }
+    if (name == "priority") {
+        return priority_flag(context, value);
     }
     const auto setting = spelling(value);
     if ((name != "trap_exit" && name != "async_dist") || (setting != "true" && setting != "false")) {
@@ -508,6 +523,19 @@ TermResult<Term> link_process(ProcessContext &context, const Term &pid) { return
 TermResult<Term> send_exit(ProcessContext &context, const Term &destination, const Term &reason, bool self_normal) {
     return self_normal ? exit_signal<true>(context, destination, reason)
                        : exit_signal<false>(context, destination, reason);
+}
+
+Term priority_atom(ProcessContext &context, std::uint8_t level) {
+    switch (level) {
+    case 0:
+        return atom(context, "low"_atom);
+    case 2:
+        return atom(context, "high"_atom);
+    case 3:
+        return atom(context, "max"_atom);
+    default:
+        return atom(context, "normal"_atom);
+    }
 }
 } // namespace clause::runtime::builtins
 

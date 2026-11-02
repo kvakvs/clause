@@ -8,6 +8,7 @@
 #include <memory>
 
 #include <algorithm>
+#include <cstdint>
 #include <map>
 #include <optional>
 #include <utility>
@@ -39,6 +40,12 @@ class Signals final {
     // process_flag(async_dist, Bool), kept for reading back only: Clause's distribution never suspends a sender (plan
     // 30 step DIST8a, used by global).
     bool set_async_dist(bool async) noexcept { return std::exchange(async_dist_, async); }
+
+    // process_flag(priority, Level) as an index into low, normal, high and max, kept for reading back only: Clause
+    // schedules every process alike (plan 30 step DIST8b, used by global_group).
+    std::uint8_t priority() const noexcept { return priority_; }
+
+    std::uint8_t set_priority(std::uint8_t level) noexcept { return std::exchange(priority_, level); }
 
     // Link to the process of `pid`; nothing when already linked. Allocation failure throws.
     void link(Word pid) {
@@ -199,5 +206,7 @@ class Signals final {
     std::size_t save_calls_ = 0;
     // process_flag(async_dist, Bool); no send waits for a busy connection (plan 30 step DIST8a).
     bool async_dist_ = false;
+    // process_flag(priority, Level): 0 low, 1 normal, 2 high, 3 max; scheduling ignores it (plan 30 step DIST8b).
+    std::uint8_t priority_ = 1;
 };
 } // namespace clause::runtime

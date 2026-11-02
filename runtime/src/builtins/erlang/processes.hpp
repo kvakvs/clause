@@ -13,4 +13,6 @@ bool remote_destination(const Term &destination);
 TermResult<Term> link_process(ProcessContext &context, const Term &pid);
 // exit(Dest, Reason) (`self_normal`: Dest the caller with reason normal ends it) or exit_signal(Dest, Reason).
 TermResult<Term> send_exit(ProcessContext &context, const Term &destination, const Term &reason, bool self_normal);
+// The atom of a process priority level as Signals keeps it (0 low to 3 max), for process_flag/2 and process_info/2.
+Term priority_atom(ProcessContext &context, std::uint8_t level);
 } // namespace clause::runtime::builtins
