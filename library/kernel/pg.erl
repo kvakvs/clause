@@ -1,7 +1,7 @@
-%% Clause's pg (plan 21 step LIB25, docs/libraries/library.md): process groups in scopes, each scope a data_publisher with
-%% this module as its callback module. A scope's ETS table, named after it, holds {Group, Members, LocalMembers};
-%% members are monitored and leave when they end, and monitors of a scope or group get {Ref, join | leave, Group,
-%% Pids} messages. A Clause program is one node, so all members are local.
+%% Clause's pg (plan 21 step LIB25, plan 30 step DIST9, docs/libraries/library.md): process groups in scopes, each scope
+%% a data_publisher with this module as its callback module. A scope's ETS table, named after it, holds {Group, Members,
+%% LocalMembers}; local members are monitored and leave when they end, scopes of the same name on connected nodes share
+%% their members through data_publisher, and monitors of a scope or group get {Ref, join | leave, Group, Pids}.
 -module(pg).
 -behaviour(data_publisher).
 -export([
@@ -117,11 +117,17 @@ stop_global_view({Scope, _}) -> ets:delete(Scope).
 update_local_data([], Local) ->
     Local;
 update_local_data([{Group, Add, Remove} | Rest], Local) ->
-    case Add ++ (maps:get(Group, Local, []) -- Remove) of
-        [] -> update_local_data(Rest, maps:remove(Group, Local));
-        Pids -> update_local_data(Rest, Local#{Group => Pids})
+    case Local of
+        #{Group := Pids} ->
+            case Add ++ (Pids -- Remove) of
+                [] -> update_local_data(Rest, maps:remove(Group, Local));
+                NewPids -> update_local_data(Rest, Local#{Group => NewPids})
+            end;
+        _ ->
+            update_local_data(Rest, Local#{Group => Add})
     end.
 
+%% Members of this node are monitored, other nodes' members only listed (DIST9).
 update_global_view_and_notify(_, [], _, View) ->
     View;
 update_global_view_and_notify(Node, [{Group, Add, Remove} | Rest], Subscriptions, {Scope, Monitors}) ->

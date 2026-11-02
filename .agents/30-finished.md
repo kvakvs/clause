@@ -151,3 +151,6 @@ Compact record of the network distribution plan, one bullet per step;
   (`get_own_nodes/0` through erpc), `conf_check` of `sync/0`, `group_nodeup`/`group_nodedown` to `global`, searches of
   other groups, `monitor_nodes/1`, `publish/2` for `net_kernel`, `global_group_check`; runtime `process_flag(priority, _)`;
   golden `dist_global_group` (OTP nodes as a, b and c); DIST8 closed — a2ca4c4d
+- **DIST9** `pg` across nodes: `data_publisher`'s discovery at start and nodeup, local data exchange, relayed updates,
+  peer monitors dropping a lost node's members, version 0 translations; `pg`'s remote-node global view as OTP's;
+  golden `dist_pg` (OTP nodes as a and as b) — HASH

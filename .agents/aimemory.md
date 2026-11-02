@@ -867,3 +867,7 @@ gotchas and user directions not recorded elsewhere.
   `vscode_lsp_entry` erl alone), or run.py cannot remove the work directory.
 - DIST8b (2026-11-02): with `global_groups`, each node's global_group asks every group node `get_own_nodes/0` by erpc
   at its start, which connects them: fixtures must not assume a group peer is unconnected (or no nodeup) before main.
+- DIST9 (2026-11-02): OTP 29's pg is a data_publisher callback module; all of the wire protocol (discover,
+  local_data cast, update, peer DOWN) lives in data_publisher. nodedown changes nothing: the peer monitor's
+  noconnection drops a node's members. Group order in data_diff follows map key order (atom index in OTP), so
+  fixtures sort notifications of one batch. Library-only step; dist_pg golden passed on the first Clause run.

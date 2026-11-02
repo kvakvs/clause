@@ -1,0 +1,111 @@
+{
+  "schema": 1,
+  "entry": "dist_pg",
+  "host_otp": true,
+  "runs": [
+    {
+      "nodes": [
+        {
+          "name": "a",
+          "args": [
+            "a"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname dpga@localhost --setcookie dpg"
+          },
+          "otp_flags": "-sname dpga@localhost -setcookie dpg",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "alone: [{g1,[a1]}]\nping: pong\ndiscovered: [{join,g1,[b2,b1]},{join,g2,[b2]}]\ndiscovered_g2: [{join,g2,[b2]}]\nmembers: [{g1,[b2,b1,a1]},{g2,[b2]}]\nlocal: [{g1,[a1]},{g2,[]}]\nnolocal: {error,{nolocal,b1}}\njoin_b: ok\njoined: [{join,g2,[b1]}]\njoined_g2: [{join,g2,[b1]}]\nleave_b: ok\nleft: [{leave,g1,[b2]}]\nnot_joined_b: not_joined\njoined_a: [{join,g2,[a2]}]\njoined_a_g2: [{join,g2,[a2]}]\nmembers_b: [{g1,[a1,b1]},{g2,[a2,b1,b2]}]\ngroups: [g1,g2]\nlocal_groups: [g1,g2]\nother: [{g1,[b3]}]\nother_local: []\nother_monitor: [b3]\nother_demonitor: ok\ndemonitor: ok\nended: normal\nended_updates: [{leave,g1,[b1]},{leave,g2,[b1]}]\ndisconnect: true\ndropped: [{leave,g2,[b2]}]\nmembers_alone: [{g1,[a1]},{g2,[a2]}]\nother_alone: []\nping_again: pong\nrediscovered: [{join,g2,[b2]}]\nmembers_again: [{g1,[a1]},{g2,[b2,a2]}]\nmembers_b_again: [{g1,[a1]},{g2,[a2,b2]}]\nhalted: {badrpc,nodedown}\nhalted_dropped: [{leave,g2,[b2]}]\nunexpected: [{nodeup,dpgb@localhost},{nodedown,dpgb@localhost}]\ndist_pg: ok\n"
+        },
+        {
+          "name": "b",
+          "args": [
+            "b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname dpgb@localhost --setcookie dpg"
+          },
+          "otp_flags": "-sname dpgb@localhost -setcookie dpg",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "dist_pg: ok\n"
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "name": "a",
+          "kind": "otp",
+          "args": [
+            "a"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname dpga@localhost --setcookie dpg"
+          },
+          "otp_flags": "-sname dpga@localhost -setcookie dpg",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "alone: [{g1,[a1]}]\nping: pong\ndiscovered: [{join,g1,[b2,b1]},{join,g2,[b2]}]\ndiscovered_g2: [{join,g2,[b2]}]\nmembers: [{g1,[b2,b1,a1]},{g2,[b2]}]\nlocal: [{g1,[a1]},{g2,[]}]\nnolocal: {error,{nolocal,b1}}\njoin_b: ok\njoined: [{join,g2,[b1]}]\njoined_g2: [{join,g2,[b1]}]\nleave_b: ok\nleft: [{leave,g1,[b2]}]\nnot_joined_b: not_joined\njoined_a: [{join,g2,[a2]}]\njoined_a_g2: [{join,g2,[a2]}]\nmembers_b: [{g1,[a1,b1]},{g2,[a2,b1,b2]}]\ngroups: [g1,g2]\nlocal_groups: [g1,g2]\nother: [{g1,[b3]}]\nother_local: []\nother_monitor: [b3]\nother_demonitor: ok\ndemonitor: ok\nended: normal\nended_updates: [{leave,g1,[b1]},{leave,g2,[b1]}]\ndisconnect: true\ndropped: [{leave,g2,[b2]}]\nmembers_alone: [{g1,[a1]},{g2,[a2]}]\nother_alone: []\nping_again: pong\nrediscovered: [{join,g2,[b2]}]\nmembers_again: [{g1,[a1]},{g2,[b2,a2]}]\nmembers_b_again: [{g1,[a1]},{g2,[a2,b2]}]\nhalted: {badrpc,nodedown}\nhalted_dropped: [{leave,g2,[b2]}]\nunexpected: [{nodeup,dpgb@localhost},{nodedown,dpgb@localhost}]\ndist_pg: ok\n"
+        },
+        {
+          "name": "b",
+          "args": [
+            "b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname dpgb@localhost --setcookie dpg"
+          },
+          "otp_flags": "-sname dpgb@localhost -setcookie dpg",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "dist_pg: ok\n"
+        }
+      ]
+    },
+    {
+      "epmd": "otp",
+      "nodes": [
+        {
+          "name": "a",
+          "args": [
+            "a"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname dpga@localhost --setcookie dpg"
+          },
+          "otp_flags": "-sname dpga@localhost -setcookie dpg",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "alone: [{g1,[a1]}]\nping: pong\ndiscovered: [{join,g1,[b2,b1]},{join,g2,[b2]}]\ndiscovered_g2: [{join,g2,[b2]}]\nmembers: [{g1,[b2,b1,a1]},{g2,[b2]}]\nlocal: [{g1,[a1]},{g2,[]}]\nnolocal: {error,{nolocal,b1}}\njoin_b: ok\njoined: [{join,g2,[b1]}]\njoined_g2: [{join,g2,[b1]}]\nleave_b: ok\nleft: [{leave,g1,[b2]}]\nnot_joined_b: not_joined\njoined_a: [{join,g2,[a2]}]\njoined_a_g2: [{join,g2,[a2]}]\nmembers_b: [{g1,[a1,b1]},{g2,[a2,b1,b2]}]\ngroups: [g1,g2]\nlocal_groups: [g1,g2]\nother: [{g1,[b3]}]\nother_local: []\nother_monitor: [b3]\nother_demonitor: ok\ndemonitor: ok\nended: normal\nended_updates: [{leave,g1,[b1]},{leave,g2,[b1]}]\ndisconnect: true\ndropped: [{leave,g2,[b2]}]\nmembers_alone: [{g1,[a1]},{g2,[a2]}]\nother_alone: []\nping_again: pong\nrediscovered: [{join,g2,[b2]}]\nmembers_again: [{g1,[a1]},{g2,[b2,a2]}]\nmembers_b_again: [{g1,[a1]},{g2,[a2,b2]}]\nhalted: {badrpc,nodedown}\nhalted_dropped: [{leave,g2,[b2]}]\nunexpected: [{nodeup,dpgb@localhost},{nodedown,dpgb@localhost}]\ndist_pg: ok\n"
+        },
+        {
+          "name": "b",
+          "kind": "otp",
+          "args": [
+            "b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname dpgb@localhost --setcookie dpg"
+          },
+          "otp_flags": "-sname dpgb@localhost -setcookie dpg",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "dist_pg: ok\n"
+        }
+      ]
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
+  },
+  "inputs": {
+    "dist_pg.erl": "97258007da41d237edfdcef4b9f2d2cbd2c063691ecda1d3d2d636c3c1e5fc2a"
+  }
+}

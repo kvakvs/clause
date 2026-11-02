@@ -10,7 +10,7 @@ direction); formerly backlog item F38.
   ping (DIST4b3b1), link and send exit signals (DIST5a), lead each other's processes (DIST5b1) and spawn on each
   other (DIST5b2), every signal in order and with OTP 29 nodes (DIST5c), and send local funs to each other
   (DIST5d), and call each other through `rpc`, `erpc` (DIST7a) and `gen` (DIST7b), whose output reaches the caller's group
-  leader (DIST7c), find each other through `net_adm`'s worlds (DIST7d) and share `global` names and locks (DIST8a) within `global_group`'s groups (DIST8b);
+  leader (DIST7c), find each other through `net_adm`'s worlds (DIST7d), share `global` names and locks (DIST8a) within `global_group`'s groups (DIST8b) and `pg` groups (DIST9);
   the program's end loses queued packets as
   OTP's `halt` (DIST4b3b2).
   Clause and OTP 29 nodes interoperate on either epmd (DIST4b4). `net_kernel` changes tick times, reports and tunes
@@ -51,7 +51,7 @@ direction); formerly backlog item F38.
   - Process monitors by pid and by name: `MONITOR_P`, `DEMONITOR_P`, `MONITOR_P_EXIT` and its payload form,
     `'DOWN'` with `noconnection`; `net_adm:ping/1` through `net_kernel`'s `{is_auth, Node}` (DIST4b3b1).
   - The other libraries answer as OTP does without distribution: `net_kernel` (internals declined), `auth` (`nocookie` until started),
-    `pg` (no peers), `peer`/`slave`
+    `peer`/`slave`
     (`not_alive`), `pool` (collector declined), `application` (`takeover/2` exits `noproc`, no
     `dist_ac`).
 - **Goal:** a Clause executable is a distributed Erlang node that connects to OTP 29 nodes and to
@@ -85,21 +85,7 @@ direction); formerly backlog item F38.
 
 ## Steps
 
-DIST0 to DIST8 are done, with DIST5's follow-ups DIST5d and DIST5e ([30-finished](30-finished.md)).
-
-<a id="step-dist9"></a>
-
-## DIST9. `pg` across nodes
-
-Depends on: DIST6 ([30-finished](30-finished.md)).
-
-- Success criteria
-  - [ ] Scope processes discover peers on `nodeup`, exchange memberships, relay joins and leaves,
-        drop a node's members on `nodedown`, as OTP's `pg` does on the wire.
-  - [ ] `monitor_scope/0,1` and `monitor/1,2,3` notify about remote members.
-  - [ ] The `differences.md` row on `pg` and `global` is removed.
-- Tests
-  - [ ] Golden `dist_pg` between Clause nodes and with an OTP node (`host_otp`).
+DIST0 to DIST9 are done, with DIST5's follow-ups DIST5d and DIST5e ([30-finished](30-finished.md)).
 
 <a id="step-dist10"></a>
 
@@ -159,6 +145,8 @@ Depends on: [DIST2b](#step-dist2b)–[DIST12](#step-dist12).
   - [ ] `docs/distribution.md`, `docs/libraries/library.md` rows and `differences.md` describe
         the delivered behavior.
   - [ ] Linux and macOS run the multi-node goldens.
+  - [ ] kernel's `start_pg` parameter (the default `pg` scope under `kernel_sup` at boot; Clause starts
+        `kernel_sup` only at the first use of a service), left out by DIST9.
   - [ ] Plan 21's MIM1 design updated for several nodes (replicated tables, schema on more than one
         node) or the single-node scope recorded.
 - Tests

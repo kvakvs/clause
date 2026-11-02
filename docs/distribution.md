@@ -96,7 +96,7 @@ The work is split as in OTP: the runtime moves signals, and Erlang code makes co
     carrier runs a controller process over `gen_tcp` through the `dist_ctrl_*` functions;
   - later `inet_tls_dist` and `inet6_tls_dist` in `library/ssl`.
 - **Registered processes:** `net_sup`, `net_kernel`, `auth`, `erl_epmd` and `rex` start with
-  distribution, as in OTP. The `global` and `pg` servers keep their OTP names and protocols.
+  distribution, as in OTP. The `global` and `pg` servers keep their OTP names and protocols ([pg](#pg)).
 
 ## This node
 
@@ -511,7 +511,22 @@ Current since DIST8b (`library/kernel/global_group.erl`), OTP's server and messa
   group's nodes to their group only. The server also registers `global_group_check`, which passes replies of nodes
   older than OTP 25 on.
 
-## Node status messages
+## pg
+
+Current since DIST9 (`library/kernel/data_publisher.erl`, `pg.erl`), OTP 29's `data_publisher` messages between scope
+servers of the same name, with OTP 29 nodes too.
+
+- **Discovery:** a scope that is not `standalone` monitors nodes (`net_kernel:monitor_nodes/1`); at its start and at
+  each `nodeup` it sends `{discover, Self, Version}` to the scope of its name on the node (`noconnect`). A scope
+  answers each discover with its local data (`{local_data, Self, Version, Data}` as a cast), and discovers back a peer
+  it did not know, monitoring it.
+- **Members:** each node sends its own members only. A local join or leave goes to the peers as `{update, Self,
+  Update}`; a peer's local data or update goes into the scope's ETS table as the difference to what the peer had, and
+  notifies `monitor_scope/0,1` and `monitor/1,2` subscribers of remote members as of local ones. A peer's end, or the
+  loss of its node's connection (`noconnection`), removes its members; `nodedown` itself changes nothing.
+- **Older peers:** a peer of version 0 (OTP before 29) gets `pg`'s plain `join`, `leave` and `sync` messages, and its
+  messages are translated back.
+- **Not provided:** kernel's `start_pg` parameter; programs start the default scope with `pg:start_link/0`.
 
 Current since DIST2b, as OTP's: `process_flag(monitor_nodes, Bool)`,
 `process_flag({monitor_nodes, Options}, Bool)` and `net_kernel:monitor_nodes/1,2` over them.
