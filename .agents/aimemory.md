@@ -894,3 +894,8 @@ gotchas and user directions not recorded elsewhere.
   mnesia goldens need a stderr pattern for the `application: mnesia exited: stopped` INFO reports (oracle and runner
   send logger output to stderr) and a `memory -> N` stdout mask. `library_freshness` already fails on
   `ssl_crl_cache_api.terms` (not mnesia).
+- MIM1B mnesia (2026-11-03): OTP quirks kept: a new table read lock returns `ok` (held: `[Node]`), a held table write
+  lock returns the majority flag (`false`), bag `all_keys` is descending (`mnesia_lib:uniq`), a select/4 chunk after
+  merged writes runs `orig` (records, not the spec's body). `mnesia:ets(F)` turning a returned `{aborted, R}` into an
+  exit swallowed a whole fixture list once: wrap each item. Hash-table result order differs from OTP's ets: goldens
+  sort set/bag results. Probe OTP quickly with erlc + `erl -noshell -pa . -eval` in F:/CLAUSE/scratch/mnesia/otp.
