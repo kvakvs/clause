@@ -24,7 +24,8 @@
 // binary_to_term/1,2 (plan step 41E, docs/builtins.md#external-term-format): decodes iteratively, checking every
 // length against the input before allocating; malformed input and pids of this node the program never created are
 // badarg, identities of other nodes become their cells (plan 30 step DIST1), compressed input is inflated first (plan
-// step 41Q). Bytes after the term are ignored, as in OTP.
+// step 41Q), local funs become the program's or foreign ones (funs across nodes). Bytes after the term are ignored, as
+// in OTP.
 namespace clause::runtime::builtins {
 namespace {
 namespace external = abi::external;
@@ -104,6 +105,9 @@ class Decoder {
         if (item.kind_ == Kind::export_fun) {
             return export_fun().word();
         }
+        if (item.kind_ == Kind::local_fun) {
+            return local_fun(item);
+        }
         return leaf(item);
     }
 
@@ -141,6 +145,11 @@ class Decoder {
         }
         if (kind == external::ItemKind::list) {
             return list(children.first(children.size() - 1), children.back());
+        }
+        if (kind == external::ItemKind::local_fun) {
+            const auto identity = fun_heads_.back();
+            fun_heads_.pop_back();
+            return fun(identity, children);
         }
         return map(children).word();
     }
@@ -370,6 +379,45 @@ class Decoder {
         return need(factory_.fun(definition, {}));
     }
 
+    // A local fun's header and the items before its free values: its module, old index, old uniq (small integers)
+    // and creator pid, which is read and dropped as OTP drops it. Finished at once without free values, else opened
+    // as a container of them (funs across nodes).
+    std::optional<Word> local_fun(const external::Item &item) {
+        FunIdentity identity{.module = atom(reader_.atom()).word(),
+                             .index = static_cast<std::size_t>(item.identity_[1]),
+                             .arity = static_cast<std::size_t>(item.identity_[0]),
+                             .captures = item.count_};
+        std::ranges::copy(std::as_bytes(std::span(item.bytes_)), identity.uniq.begin());
+        identity.old_index = fun_number(reader_.next());
+        identity.old_uniq = fun_number(reader_.next());
+        auto pid = reader_.next();
+        if (pid.kind_ != external::ItemKind::pid) {
+            reader_.fail("expected a pid");
+        }
+        reader_.atom();
+        reader_.identity(pid);
+        if (identity.captures == 0) {
+            return fun(identity, {});
+        }
+        fun_heads_.push_back(identity);
+        open_->push_back({external::ItemKind::local_fun, identity.captures, children_->size()});
+        return std::nullopt;
+    }
+
+    // A local fun's old index or old uniq: an integer item.
+    std::int64_t fun_number(const external::Item &item) {
+        if (item.kind_ != external::ItemKind::integer) {
+            reader_.fail("expected a small integer");
+        }
+        return item.integer_;
+    }
+
+    // The fun of a decoded identity with its captured values, which this decoder made.
+    Word fun(const FunIdentity &identity, std::span<const Word> captures) {
+        const auto &definition = context_.code_server().decoded_fun(identity);
+        return need(factory_.fun_words(definition, captures)).word();
+    }
+
     ProcessContext &context_;
     // One factory for the whole decoding: binding one costs a lifetime check (word-level decoding).
     TermFactory factory_;
@@ -381,6 +429,8 @@ class Decoder {
     Scratch<std::vector<Word>, struct ChildrenSlot> children_;
     // Atom words by encoding ('L' or 'U', then the name bytes), interned once per decoding.
     std::unordered_map<std::string, Word> atoms_;
+    // The identities of the local funs still collecting their free values, the innermost last (funs across nodes).
+    std::vector<FunIdentity> fun_heads_;
 };
 
 // The size OTP accepts for decompressed term data, against corrupt sizes.

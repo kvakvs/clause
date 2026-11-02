@@ -2,6 +2,7 @@
 #include "../builtins/erlang/term_decoding.hpp"
 #include "../builtins/erlang/term_encoding.hpp"
 #include "../terms/identities.hpp"
+#include "../terms/integers.hpp"
 #include "../terms/service_errors.hpp"
 #include "signal_messages.hpp"
 #include <algorithm>
@@ -189,7 +190,7 @@ void Executor::take_unlink(ProcessContext &controller, Connection &connection, W
         forget_link(connection, pid, other, node);
     }
     // Acknowledged also for no link or no process, as OTP's.
-    const auto id = built(TermFactory(controller).integer(static_cast<std::int64_t>(signal.id)));
+    const auto id = built(detail::IntegerAccess::make(controller.heap(), detail::Integer{signal.id}));
     const std::array parts{id, signal.to, signal.from};
     queue_packet(controller, connection, packet_of(controller, control(controller, UNLINK_ID_ACK, parts)));
 }
@@ -267,7 +268,7 @@ void Executor::end_remote_links(ProcessContext &process, Word node, const Term &
         try {
             queue_packet(process, connection, exit_packet(process, connection.flags, true, {self, to, reason}));
         } catch (const builtins::BuiltinFailure &) {
-            // A reason the external format cannot hold here (a local fun) arrives as notsup (docs/differences.md).
+            // A reason the external format cannot hold here (a native record) arrives as notsup (docs/differences.md).
             const std::array parts{self, to, atom(process, "notsup"_atom)};
             queue_packet(process, connection, exit_packet(process, connection.flags, true, parts));
         }

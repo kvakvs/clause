@@ -8,7 +8,8 @@ direction); formerly backlog item F38.
   `--sname`/`--name` (DIST4b1b), with OTP's cookies (DIST4b1c), under `kernel_sup` (DIST4b1d); started nodes
   connect over IPv4 or IPv6 (DIST4b2a to DIST4b2c), exchange messages (DIST4b3a), monitor each other's processes and
   ping (DIST4b3b1), link and send exit signals (DIST5a), lead each other's processes (DIST5b1) and spawn on each
-  other (DIST5b2), every signal in order and with OTP 29 nodes (DIST5c); the program's end loses queued packets as
+  other (DIST5b2), every signal in order and with OTP 29 nodes (DIST5c), and send local funs to each other
+  (DIST5d); the program's end loses queued packets as
   OTP's `halt` (DIST4b3b2).
   Clause and OTP 29 nodes interoperate on either epmd (DIST4b4). `net_kernel` changes tick times, reports and tunes
   connections, bars nodes under `dist_auto_connect once` and connects passively; `auth` keeps cookies with OTP's
@@ -85,24 +86,7 @@ direction); formerly backlog item F38.
 
 ## Steps
 
-DIST0 to DIST6 are done ([30-finished](30-finished.md)).
-
-<a id="step-dist5-followups"></a>
-
-## DIST5 follow-ups
-
-DIST5 is done ([30-finished](30-finished.md)). Left from it, each small, to pick up with the step that needs it or
-on their own:
-
-- [ ] Funs across nodes: encode local funs (`NEW_FUN_EXT` with the module's MD5, index and free variables) and
-      decode another node's, so messages, exit reasons and `spawn(Node, Fun)` with a local fun work as in OTP
-      between Clause nodes of the same program and with OTP nodes that load the module; today they raise
-      `notsup` or arrive as `notsup` (`docs/differences.md`). Needed by `rpc`/`erpc` funs (DIST7).
-- [ ] Observe and match: `process_info(Pid, initial_call)` and `current_function` of a child another node spawned
-      (OTP runs `erts_internal:dist_spawn_init/1`); `spawn_request_abandon/1` and `demonitor/1,2` of another
-      node's reference; `process_info(Self, monitors)` while a spawn request with `monitor` is pending.
-- [ ] `UNLINK_ID`/`UNLINK_ID_ACK` ids above small integers (OTP accepts any below 2^64; `docs/differences.md`).
-- [ ] The useless pid's warning report `** Can not start M:F,A on Node **` (`docs/differences.md`).
+DIST0 to DIST6 are done, with DIST5's follow-ups DIST5d and DIST5e ([30-finished](30-finished.md)).
 
 <a id="step-dist7"></a>
 

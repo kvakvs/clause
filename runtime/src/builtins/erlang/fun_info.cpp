@@ -2,7 +2,6 @@
 #include "../text.hpp"
 #include "../typed.hpp"
 #include "conversion_text.hpp"
-#include "md5.hpp"
 #include "terms.hpp"
 #include <array>
 #include <clause/runtime/atoms.hpp>
@@ -10,8 +9,8 @@
 #include <clause/runtime/output.hpp>
 
 // fun_info/1,2, fun_to_list/1 and is_builtin/3 (plan step 41G3, docs/funs.md#fun-information). A local fun's
-// new_uniq is the MD5 of its module name and its uniq the low 27 bits of that, Clause's own stable values; pid is
-// undefined.
+// new_uniq is the MD5 of its module name and its uniq the first 24 bits of that, Clause's own stable values, or
+// another node's for a foreign fun; pid is undefined.
 namespace clause::runtime::builtins {
 namespace {
 Term integer(ProcessContext &context, std::int64_t value) { return need(TermFactory(context).integer(value)); }
@@ -23,14 +22,6 @@ detail::FunView fun_of(const Term &fun) {
         bad_argument();
     }
     return *view;
-}
-
-// The MD5 of a module name: a local fun's new_uniq.
-std::array<std::byte, 16> module_digest(ProcessContext &context, Word module) {
-    Md5 state;
-    const auto name = need(need(context.atom_storage().lookup(module)).atom_spelling());
-    state.update(std::as_bytes(std::span(name)));
-    return state.finish();
 }
 
 // The captured values of a fun as a list.
@@ -61,21 +52,22 @@ std::optional<Term> common_item(ProcessContext &context, const detail::FunView &
     return std::nullopt;
 }
 
-// The identity items of a local fun (undefined for an external one): index and new_index, uniq and new_uniq.
+// The identity items of a local fun (undefined for an external one): index and new_index, uniq and new_uniq, as
+// its definition keeps them for NEW_FUN_EXT.
 Term identity_item(ProcessContext &context, const FunDefinition &definition, std::string_view item) {
     if (definition.external) {
         return atom(context, "undefined"_atom);
     }
-    if (item == "index" || item == "new_index") {
+    if (item == "new_index") {
         return integer(context, static_cast<std::int64_t>(definition.index));
     }
-    const auto digest = module_digest(context, definition.module);
-    if (item == "new_uniq") {
-        return need(TermFactory(context).binary(digest));
+    if (item == "index") {
+        return integer(context, definition.old_index);
     }
-    return integer(context, std::to_integer<std::int64_t>(digest[0]) << 16 |
-                                std::to_integer<std::int64_t>(digest[1]) << 8 |
-                                std::to_integer<std::int64_t>(digest[2]));
+    if (item == "new_uniq") {
+        return need(TermFactory(context).binary(definition.uniq));
+    }
+    return integer(context, definition.old_uniq);
 }
 
 // The value of one fun_info item; badarg for an unknown one.

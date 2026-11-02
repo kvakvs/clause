@@ -8,6 +8,7 @@
 #include "records.hpp"
 #include <algorithm>
 #include <array>
+#include <compare>
 #include <new>
 #include <stdexcept>
 
@@ -188,7 +189,31 @@ int fun_kinds(const Pair &values, const FunDefinition &left, const FunDefinition
     return left.external ? 1 : -1;
 }
 
-// Local funs order by module and index, then by their captured values in order.
+// Local funs of two definitions order by module, index and old uniq (OTP erts_cmp); another node's fun may share
+// them with one of this program (funs across nodes).
+int local_funs(const Pair &values, const FunDefinition &left, const FunDefinition &right) {
+    if (const auto order = atom_words(values, left.module, right.module); order != 0) {
+        return order;
+    }
+    if (const auto order = sizes(left.index, right.index); order != 0) {
+        return order;
+    }
+    if (left.old_uniq != right.old_uniq) {
+        return left.old_uniq < right.old_uniq ? -1 : 1;
+    }
+    return 0;
+}
+
+// Two definitions alike for erts_cmp are still not exactly equal, as OTP's eq wants one fun entry: they order by
+// uniq, then arity, which with the module, index and captured value count tell definitions apart (funs across nodes).
+int fun_definitions(const FunDefinition &left, const FunDefinition &right) {
+    if (const auto order = left.uniq <=> right.uniq; order != 0) {
+        return order < 0 ? -1 : 1;
+    }
+    return sizes(left.arity, right.arity);
+}
+
+// Local funs order by module, index, old uniq and captured value count, then by their captured values in order.
 TermResult<int> funs(const Pair &values, std::vector<Pair> &pending) {
     const auto lhs = fun_view(values.left).value();
     const auto rhs = fun_view(values.right).value();
@@ -197,9 +222,15 @@ TermResult<int> funs(const Pair &values, std::vector<Pair> &pending) {
     if (left.external || right.external) {
         return fun_kinds(values, left, right);
     }
-    if (&left != &right) {
-        const auto order = atom_words(values, left.module, right.module);
-        return order != 0 ? order : sizes(left.index, right.index);
+    const bool same = &left == &right;
+    if (const auto order = same ? 0 : local_funs(values, left, right); order != 0) {
+        return order;
+    }
+    if (const auto order = sizes(lhs.captures.size(), rhs.captures.size()); order != 0) {
+        return order;
+    }
+    if (!same && values.exact) {
+        return fun_definitions(left, right);
     }
     for (std::size_t i = lhs.captures.size(); i > 0; --i) {
         pending.push_back({TermAccess::child(values.left, lhs.captures[i - 1]).value(),

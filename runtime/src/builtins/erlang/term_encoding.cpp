@@ -25,8 +25,7 @@
 
 // term_to_binary/1,2, term_to_iovec/1,2 and external_size/1,2 (plan step 41E, docs/builtins.md#external-term-format):
 // OTP's encoding of a local, non-distributed node, walked iteratively with an explicit stack. `compressed` zlib-
-// compresses the encoding as OTP does when the result is smaller (plan step 41Q); a local fun or a native record
-// raises notsup.
+// compresses the encoding as OTP does when the result is smaller (plan step 41Q); a native record raises notsup.
 namespace clause::runtime::builtins {
 namespace {
 namespace external = abi::external;
@@ -104,9 +103,18 @@ class Encoder {
     }
 
   private:
+    // Pushed after a local fun's captured values, so that its size is patched once they are written: a header word,
+    // which no term is (funs across nodes).
+    static constexpr Word FUN_END = detail::layout::BoxHeader::make(BoxedKind::fun_closure, 0);
+
     // Write one term's tag; its children are pushed to be written next, in order. Small integers, atoms, lists and
     // tuples are read as words: a builtin is a critical section, so no collection moves them (word-level encoding).
     void one(Word word) {
+        if (word == FUN_END) [[unlikely]] {
+            writer_.fun_size(fun_sizes_.back());
+            fun_sizes_.pop_back();
+            return;
+        }
         if (const auto value = small(word)) {
             writer_.integer(*value);
             return;
@@ -317,17 +325,40 @@ class Encoder {
         writer_.identity_word(static_cast<std::uint32_t>(number >> 50U));
     }
 
-    // fun M:F/A; a local fun has no portable encoding here.
+    // fun M:F/A, or a local fun as OTP's NEW_FUN_EXT.
     void fun(const Term &term) {
         const auto view = term.is_function() ? detail::fun_view(term) : std::unexpected(TermError::wrong_type);
-        if (!view || !view->definition->external) {
+        if (!view) {
             unsupported(context_);
         }
-        const auto &atoms = context_.atom_storage();
+        if (!view->definition->external) {
+            local_fun(*view);
+            return;
+        }
         writer_.export_fun();
-        atom(need(need(atoms.lookup(view->definition->module)).atom_spelling()));
-        atom(need(need(atoms.lookup(view->definition->function)).atom_spelling()));
+        atom_word(view->definition->module);
+        atom_word(view->definition->function);
         writer_.integer(static_cast<std::int64_t>(view->definition->arity));
+    }
+
+    // A local fun's identity, init's pid <0.0.0> as its creator (as OTP writes), then its captured values in order
+    // and its size (funs across nodes).
+    void local_fun(const detail::FunView &view) {
+        const auto &definition = *view.definition;
+        const auto &uniq = definition.uniq;
+        fun_sizes_.push_back(writer_.local_fun(
+            definition.arity, {reinterpret_cast<const char *>(uniq.data()), uniq.size()},
+            static_cast<std::uint32_t>(definition.index), static_cast<std::uint32_t>(view.captures.size())));
+        atom_word(definition.module);
+        writer_.integer(definition.old_index);
+        writer_.integer(definition.old_uniq);
+        writer_.pid();
+        atom(detail::this_node_name());
+        writer_.identity_word(0);
+        writer_.identity_word(0);
+        writer_.creation(detail::this_node_creation());
+        pending_->push_back(FUN_END);
+        pending_->insert(pending_->end(), view.captures.rbegin(), view.captures.rend());
     }
 
     ProcessContext &context_;
@@ -337,6 +368,8 @@ class Encoder {
     Scratch<std::vector<Word>, struct PendingSlot> pending_;
     // The elements of the list being written, reused across lists.
     Scratch<std::vector<Word>, struct ElementsSlot> elements_;
+    // Where the sizes of the local funs being written go, the innermost last (funs across nodes).
+    std::vector<std::size_t> fun_sizes_;
 };
 
 // The compressed form <<131, 80, Size:32, Zlib/binary>> of an encoding when zlib fits it in five bytes fewer than the

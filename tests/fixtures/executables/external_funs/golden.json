@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "external_funs",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "equal: [true,true,true,true]\ncalls: [8,true,120,8]\nshape: [{true,1,1},{true,1,2},{true,1,0},{true,1,0}]\nsizes: [true,true,true,true]\ncompressed: true\nenv: [[false],[false,true],[],[]]\nfun_info: [true]\nrebuilt: [true,10]\nnested: true\nforeign: #Fun<nosuch.6.123> #Fun<nosuch.6.123> #Fun<nosuch.6.123>\ninfo: [{module,nosuch},\n       {new_index,5},\n       {new_uniq,<<1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16>>},\n       {index,6},\n       {uniq,123},\n       {name,[]},\n       {arity,1},\n       {env,[a,1]},\n       {type,local}]\nagain: true\nis_function: [true,true,false]\nsent: true\nets: true\nouter: true\nsize ignored: true\ncall: {error,undef,{#Fun<nosuch.6.123>,[3],[]}}\nbadarity: {badarity,{#Fun<nosuch.6.123>,[3,4]}}\nno arguments: {error,undef,{#Fun<nosuch.6.1>,[],[]}}\nloaded module: {badfun,#Fun<lists.6.123>}\nown module: {badfun,#Fun<external_funs.0.0>}\napply: {badfun,#Fun<lists.6.123>}\nsame: [true,true,#Fun<nosuch.6.123>]\nother uniq: [false,true,false,false]\nother arity: [false,true]\norder: [true,true,true,false]\nsorted: [{4,[a,1]},{5,[a]},{5,[a,1]},{5,[b,1]}]\nhash: true\nmap: found\nno pid: badarg\natom index: badarg\ntruncated: badarg\nmissing free: badarg\nexternal_funs: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
+  },
+  "inputs": {
+    "external_funs.erl": "81490665dc4d3749007cdfe4fa58c8421b38cb83da69cc17080c5cde920ca5e9"
+  }
+}

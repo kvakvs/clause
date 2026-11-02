@@ -117,6 +117,11 @@ Compact record of the network distribution plan, one bullet per step;
 - **DIST5c** Signal order (pending and up connections, between nodes), aliases and send options checked across nodes;
   `dist_signals` with OTP 29 nodes as a and as b (`host_otp`), no runtime change needed; DIST5 closed, follow-ups
   in the plan — d0e00ea5
+- **DIST5d** Funs across nodes: local funs as OTP's `NEW_FUN_EXT` (Clause's uniq = MD5 of the module name),
+  decoded to the program's fun or a foreign one the code server keeps (prints, compares, encodes and fails as OTP's
+  stubs), in messages, exit reasons and spawns; goldens `external_funs`, `dist_funs` (`host_otp`) — HASH5D
+- **DIST5e** Other nodes' references in `spawn_request_abandon/1` and `demonitor/1,2`, `UNLINK_ID` ids below 2^64,
+  the useless pid's `** Can not start ... **` warning (`clause_dist_spawn:crasher/6`); `dist_signals` extended — HASH5D
 - **DIST6a** `net_kernel` complete: tick time changes (aux ticker, `{ongoing_change_to, T}`), `node_info/1,2`,
   `nodes_info/0`, `i/0,1`, `getopts/2`/`setopts/2` (also `new`; `mf_setopts`/`mf_getopts` in `inet_tcp_dist`),
   `dist_auto_connect once`, passive connects, `net_setuptime`, `net_tickintensity`, `verbose/1`, `kernel_apply/3`,

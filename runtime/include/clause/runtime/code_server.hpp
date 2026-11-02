@@ -3,7 +3,10 @@
 #include "callable.hpp"
 #include "features.hpp"
 #include "interpreted_modules.hpp"
+#include <array>
 #include <compare>
+#include <cstddef>
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <optional>
@@ -84,6 +87,36 @@ struct FunDefinition final {
     std::size_t captures = 0;
     // The FrameDescriptor a call enters; null for an external fun the program does not export.
     const void *frame = nullptr;
+    // A local fun's identity on the wire (NEW_FUN_EXT): its new uniq (fun_info's new_uniq, the MD5 of its module
+    // name), old uniq (the first 24 bits of that) and old index (its index). Added for funs across nodes.
+    std::array<std::byte, 16> uniq{};
+    std::int64_t old_uniq = 0;
+    std::int64_t old_index = 0;
+    // Another node's local fun this program has no code for: its function is [] and frame null; calls fail.
+    bool foreign = false;
+};
+
+// A local fun as NEW_FUN_EXT names it: the key of decoded funs, then the old index and old uniq a new foreign
+// definition keeps. Added for funs across nodes.
+struct FunIdentity final {
+    Word module = 0;
+    std::size_t index = 0;
+    std::size_t arity = 0;
+    std::array<std::byte, 16> uniq{};
+    std::size_t captures = 0;
+    std::int64_t old_index = 0;
+    std::int64_t old_uniq = 0;
+};
+
+// The part of a FunIdentity OTP's fun table looks entries up by (module, index, arity, uniq), with the captured
+// value count Clause's cells need.
+struct FunKey final {
+    Word module = 0;
+    std::size_t index = 0;
+    std::size_t arity = 0;
+    std::array<std::byte, 16> uniq{};
+    std::size_t captures = 0;
+    auto operator<=>(const FunKey &) const = default;
 };
 
 // A function named by runtime atom words of its module and name, and its arity; the key of dynamic calls.
@@ -236,7 +269,11 @@ class CodeServer final {
     // The definition of external fun Module:Function/Arity built at run time (fun M:F/A with variables) from atoms,
     // created on first use and kept for the server's lifetime; may throw std::bad_alloc.
     const FunDefinition &external_fun(const Term &module, const Term &function, std::size_t arity);
-    // Whether `definition` is a registered module's fun definition or an external fun this server built.
+    // The local fun a decoded NEW_FUN_EXT names: a registered module's with that key, else the foreign definition
+    // of the key, created on first use with the identity's old index and old uniq and kept for the server's lifetime,
+    // as OTP's fun table keeps a stub; may throw std::bad_alloc. Added for funs across nodes.
+    const FunDefinition &decoded_fun(const FunIdentity &identity);
+    // Whether `definition` is a registered module's fun definition or an external or foreign fun this server built.
     bool owns(const FunDefinition &definition) const noexcept;
     // The definition of a native record records:create/4 builds, created on first use and kept for the server's
     // lifetime, so equal creations share it; may throw std::bad_alloc (plan 21 step LIB8B).
@@ -283,6 +320,10 @@ class CodeServer final {
     std::map<std::string, std::shared_ptr<const LoadedModule>, std::less<>> modules_;
     // External funs built from runtime operands, by module, function and arity; fun cells point at them.
     std::map<FunctionAtoms, std::unique_ptr<FunDefinition>> external_funs_;
+    // Other nodes' local funs this program has no code for, by key; fun cells point at them (funs across nodes).
+    std::map<FunKey, std::unique_ptr<FunDefinition>> foreign_funs_;
+    // The registered module's local fun of `key`; null when none (funs across nodes).
+    const FunDefinition *find_local_fun(const FunKey &key) const noexcept;
     // Native record definitions records:create/4 built; indexed in records_ under their own addresses.
     std::map<CreatedRecordKey, std::unique_ptr<RecordDefinition>> created_records_;
     // Find a registered module's bindings by its module atom word.

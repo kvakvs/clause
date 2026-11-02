@@ -115,6 +115,49 @@ void undefined_fun(ProcessContext &context, const FunDefinition &definition, std
     }
     raise_undef(context, *module, *function, *list);
 }
+
+// Whether the program has a module of that atom: registered, or one only builtins implement (code.cpp's loaded
+// modules).
+bool loaded_module(ProcessContext &context, Word module) {
+    const auto name = Term::from_word(module, context).and_then([](const Term &atom) { return atom.atom_spelling(); });
+    const auto &server = context.code_server();
+    return name && (server.find_module(*name).has_value() || std::ranges::contains(server.builtins().modules(), *name));
+}
+
+// A call of another node's fun the program has no code for, as OTP's error_handler:undefined_lambda/3 fails it:
+// {badfun, Fun} when its module is in the program, else undef with {Fun, Args, []} on top (funs across nodes).
+void foreign_fun(ProcessContext &context, const Term &fun, std::span<const Word> arguments) {
+    if (loaded_module(context, fun_view(fun)->definition->module)) {
+        raise_call_error(context, ErrorReason::badfun, fun);
+        return;
+    }
+    TermFactory factory(context);
+    const auto frame = argument_list(context, arguments).and_then([&](const Term &args) {
+        return factory.nil().and_then([&](const Term &nil) { return factory.tuple(std::array{fun, args, nil}); });
+    });
+    if (!frame) {
+        context.generated_calls().fail_service(term_status(frame.error()));
+        return;
+    }
+    context.generated_calls().fail(
+        {.code = CallError::erlang_exception, .reason = ErrorReason::undef, .missing = *frame});
+}
+
+// A call of a fun without code in the program: another node's fails, an external fun of an interpreted module enters
+// its route, any other raises undef; null unless it enters a route.
+const void *without_code(ProcessContext &context, const Term &fun, const FunDefinition &definition, Word *arguments) {
+    if (definition.foreign) {
+        foreign_fun(context, fun, {arguments, definition.arity});
+        return nullptr;
+    }
+    if (const auto *route = interpreted_fun(context, definition, arguments)) {
+        return route;
+    }
+    if (!context.generated_calls().failure()) {
+        undefined_fun(context, definition, {arguments, definition.arity});
+    }
+    return nullptr;
+}
 } // namespace
 
 const void *prepare_fun_call(ProcessContext &context, const Term &fun, std::size_t arity, Word *arguments) {
@@ -134,13 +177,7 @@ const void *prepare_fun_call(ProcessContext &context, const Term &fun, std::size
         return nullptr;
     }
     if (!definition.frame) {
-        if (const auto *route = interpreted_fun(context, definition, arguments)) {
-            return route;
-        }
-        if (!context.generated_calls().failure()) {
-            undefined_fun(context, definition, {arguments, arity});
-        }
-        return nullptr;
+        return without_code(context, fun, definition, arguments);
     }
     std::ranges::copy(view->captures, arguments + arity);
     return definition.frame;

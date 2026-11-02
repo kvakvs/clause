@@ -116,7 +116,8 @@ TermResult<void> fun_atom(const Term &fun, Word atom, bool quoted, TextOutput &o
 }
 } // namespace
 
-// Both styles use the emulator's text (erlang:fun_to_list/1); the uniq part of a local fun is always 0.
+// Both styles use the emulator's text (erlang:fun_to_list/1); the uniq part of a local fun is always 0, another node's
+// fun prints its old index and old uniq, as OTP's.
 TermResult<void> print_fun(const Term &value, TermStyle, TextOutput &out) {
     const auto view = fun_view(value);
     if (!view) {
@@ -126,6 +127,10 @@ TermResult<void> print_fun(const Term &value, TermStyle, TextOutput &out) {
     out.append(definition.external ? "fun " : "#Fun<");
     if (const auto module = fun_atom(value, definition.module, definition.external, out); !module) {
         return module;
+    }
+    if (definition.foreign) {
+        out.append("." + std::to_string(definition.old_index) + "." + std::to_string(definition.old_uniq) + ">");
+        return {};
     }
     if (!definition.external) {
         out.append("." + std::to_string(definition.index) + ".0>");

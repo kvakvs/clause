@@ -107,7 +107,7 @@ void Executor::remote_exit(ProcessContext &process, Word node, const ReferenceId
     try {
         monitor_exit(process, *connection, parts, reason);
     } catch (const builtins::BuiltinFailure &) {
-        // A reason the external format cannot hold here (a local fun) arrives as notsup (docs/differences.md).
+        // A reason the external format cannot hold here (a native record) arrives as notsup (docs/differences.md).
         monitor_exit(process, *connection, parts, atom(process, "notsup"_atom));
     }
 }

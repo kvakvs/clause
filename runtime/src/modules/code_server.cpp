@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <clause/abi/equality.hpp>
 #include <clause/runtime/code_server.hpp>
 #include <mutex>
 
@@ -248,10 +249,55 @@ std::optional<std::vector<Word>> CodeServer::module_features(Word module) const 
     return atoms == nullptr ? std::nullopt : std::optional{atoms->features};
 }
 
+const FunDefinition *CodeServer::find_local_fun(const FunKey &key) const noexcept {
+    const auto *atoms = find_module_atoms(key.module);
+    if (atoms == nullptr) {
+        return nullptr;
+    }
+    const auto found = std::ranges::find_if(atoms->funs, [&](const FunDefinition &fun) {
+        return !fun.external && fun.index == key.index && fun.arity == key.arity && fun.uniq == key.uniq &&
+               fun.captures == key.captures;
+    });
+    return found == atoms->funs.end() ? nullptr : &*found;
+}
+
+const FunDefinition &CodeServer::decoded_fun(const FunIdentity &identity) {
+    const FunKey key{identity.module, identity.index, identity.arity, identity.uniq, identity.captures};
+    {
+        const std::shared_lock lock(mutex_);
+        if (const auto *local = find_local_fun(key)) {
+            return *local;
+        }
+        if (const auto found = foreign_funs_.find(key); found != foreign_funs_.end()) {
+            return *found->second;
+        }
+    }
+    const std::unique_lock lock(mutex_);
+    // Another worker may have built the definition between the two locks.
+    auto &definition = foreign_funs_[key];
+    if (!definition) {
+        definition = std::make_unique<FunDefinition>(FunDefinition{.module = key.module,
+                                                                   .function = abi::v1::empty_list,
+                                                                   .arity = key.arity,
+                                                                   .index = key.index,
+                                                                   .captures = key.captures,
+                                                                   .uniq = key.uniq,
+                                                                   .old_uniq = identity.old_uniq,
+                                                                   .old_index = identity.old_index,
+                                                                   .foreign = true});
+    }
+    return *definition;
+}
+
 bool CodeServer::owns(const FunDefinition &definition) const noexcept {
     const std::shared_lock lock(mutex_);
     if (definition.descriptor) {
         return find_fun(definition.descriptor) == &definition;
+    }
+    if (definition.foreign) {
+        const auto found = foreign_funs_.find(
+            {definition.module, definition.index, definition.arity, definition.uniq, definition.captures});
+        return found != foreign_funs_.end() && found->second.get() == &definition;
     }
     const auto found = external_funs_.find({definition.module, definition.function, definition.arity});
     return found != external_funs_.end() && found->second.get() == &definition;

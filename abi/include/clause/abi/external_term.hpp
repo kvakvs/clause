@@ -40,6 +40,8 @@ enum Tag : std::uint8_t {
     NEW_PORT = 89,
     NEWER_REFERENCE = 90,
     EXPORT = 113,
+    // A local fun with its module's uniq, index and free values (NEW_FUN_EXT). Added for funs across nodes.
+    NEW_FUN = 112,
     V4_PORT = 120,
     // The older identity encodings binary_to_term/1 still reads, with one-byte creations (plan 30 step DIST1).
     REFERENCE = 101,
@@ -78,7 +80,10 @@ enum class ItemKind : std::uint8_t {
     pid,
     port,
     reference,
-    export_fun
+    export_fun,
+    // A local fun: its module atom, old index, old uniq and creator pid follow, then its free values (funs across
+    // nodes).
+    local_fun
 };
 
 // Most identity words a NEWER_REFERENCE_EXT carries.
@@ -97,9 +102,10 @@ struct Item {
     std::int64_t integer_ = 0;
     double float_ = 0;
     // Tuple arity, list element count (excluding the tail), map pair count, binary bit count, external fun arity,
-    // reference word count.
+    // reference word count, a local fun's free value count.
     std::size_t count_ = 0;
-    // Pid number and serial, port number, or reference words (low word first), and the node's creation.
+    // Pid number and serial, port number, or reference words (low word first), and the node's creation; a local
+    // fun's arity and index (its 16-byte uniq is in bytes_).
     std::array<std::uint64_t, REFERENCE_WORDS> identity_{};
     std::uint32_t creation_ = 0;
     // The tag an identity was read from, which fixes the widths of its numbers and creation (plan 30 step DIST1).
@@ -184,6 +190,28 @@ class Writer {
 
     // An external fun header; its module and function atoms and then its arity follow.
     void export_fun() { tag(EXPORT); }
+
+    // A local fun's header: a size fun_size() patches once its free values are written, then its arity, uniq (16
+    // bytes), index and free value count; returns where the size goes. Added for funs across nodes.
+    std::size_t local_fun(const std::size_t arity, const std::string_view uniq, const std::uint32_t index,
+                          const std::uint32_t free) {
+        tag(NEW_FUN);
+        const auto at = out_.size();
+        put<4>(0);
+        put<1>(arity);
+        out_ += uniq;
+        put<4>(index);
+        put<4>(free);
+        return at;
+    }
+
+    // Patch the size of the local fun whose header local_fun() wrote at `at`: the bytes from the size field to here.
+    void fun_size(const std::size_t at) {
+        const auto size = out_.size() - at;
+        for (std::size_t byte = 0; byte < 4; ++byte) {
+            out_[at + byte] = static_cast<char>((size >> ((3 - byte) * 8)) & 0xFFU);
+        }
+    }
 
     // Container headers; `length` elements and then the tail follow a list header.
     void tuple(const std::size_t arity) {
@@ -453,6 +481,8 @@ class Reader {
             return encoded(ItemKind::port, tag);
         case EXPORT:
             return item(ItemKind::export_fun);
+        case NEW_FUN:
+            return local_fun();
         default:
             return reference_header(tag);
         }
@@ -472,6 +502,21 @@ class Reader {
         result.count_ = static_cast<std::size_t>(take<2>());
         if (result.count_ > REFERENCE_WORDS) {
             fail("invalid reference length");
+        }
+        return result;
+    }
+
+    // A local fun's header; its size is skipped, as OTP ignores it. Every free value needs at least one more byte.
+    Item local_fun() {
+        constexpr std::size_t UNIQ = 16;
+        take<4>();
+        auto result = item(ItemKind::local_fun);
+        result.identity_[0] = take<1>();
+        result.bytes_ = take_bytes(UNIQ);
+        result.identity_[1] = take<4>();
+        result.count_ = static_cast<std::size_t>(take<4>());
+        if (result.count_ > bytes_.size() - at_) {
+            fail("fun larger than its input");
         }
         return result;
     }

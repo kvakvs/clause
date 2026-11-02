@@ -155,28 +155,39 @@ DemonitorOptions demonitor_options(const ListArgument &options) {
 }
 
 // Whether `message` is a 5-tuple whose second element is the reference `reference`, as a 'DOWN' message is.
-bool monitor_message(ProcessContext &context, Word message, const ReferenceIdentity &reference) {
+bool monitor_message(ProcessContext &context, Word message, const Term &reference) {
     const auto term = Term::from_word(message, context);
     if (!term || !term->is_tuple() || term->tuple_size_unchecked() != 5) {
         return false;
     }
     const auto element = term->tuple_element_unchecked(1);
-    return element.is_reference() && element.reference_value_unchecked() == reference;
+    if (element.is_reference() && reference.is_reference()) {
+        return element.reference_value_unchecked() == reference.reference_value_unchecked();
+    }
+    return element.exactly_equal(reference).value_or(false);
+}
+
+bool earlier_incarnation(ProcessContext &context, const Term &identity);
+
+// Whether demonitor/1,2 may take `reference`: this node's, or one of an earlier incarnation of it, which monitors
+// nothing (OTP's demonitor answers false for it, DIST5e); another node's is badarg.
+bool demonitor_reference(ProcessContext &context, const Term &reference) {
+    return reference.is_reference() || (reference.is_external_reference() && earlier_incarnation(context, reference));
 }
 
 // demonitor(Ref, Options): stop the monitor; with flush, remove one {_, Ref, _, _, _} message when the monitor
 // was no longer active; with info, whether it was.
 TermResult<Term> demonitor_options_call(ProcessContext &context, const Term &reference, const ListArgument &options) {
     const auto parsed = demonitor_options(options);
-    if (!reference.is_reference()) {
+    if (!demonitor_reference(context, reference)) {
         bad_argument();
     }
-    const auto identity = reference.reference_value_unchecked();
-    const bool active = detail::Executor::demonitor(context, identity);
+    const bool active =
+        reference.is_reference() && detail::Executor::demonitor(context, reference.reference_value_unchecked());
     if (!active && parsed.flush) {
         // A 'DOWN' of another node's process is posted among the arrivals (DIST4b3b1).
         need(detail::MessageBuffer::take_arrivals(context));
-        context.mailbox().remove([&](Word message) { return monitor_message(context, message, identity); });
+        context.mailbox().remove([&](Word message) { return monitor_message(context, message, reference); });
     }
     return TermFactory(context).boolean(active || !parsed.info);
 }

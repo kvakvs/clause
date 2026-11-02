@@ -1,9 +1,9 @@
-%% Links and exit signals across nodes (plan 30 step DIST5a), group leaders (DIST5b1), spawns (DIST5b2), and the
-%% order of signals, aliases and send options (DIST5c). Node a controls connections to a node that does not
-%% exist (setnode/3 with its own process): the LINK, UNLINK_ID and EXIT2 packets of its links and exits, the fake
-%% node's links, unlinks, link exits and exit signals put back, the links a lost connection ends, and the data OTP
-%% calls an invalid distribution message. Then links and exits between a's processes and b's agents, and b's node
-%% going down.
+%% Links and exit signals across nodes (plan 30 step DIST5a), group leaders (DIST5b1), spawns (DIST5b2), the order
+%% of signals, aliases and send options (DIST5c), and other nodes' references and large unlink ids (DIST5e). Node a
+%% controls connections to a node that does not exist (setnode/3 with its own process): the LINK, UNLINK_ID and EXIT2
+%% packets of its links and exits, the fake node's links, unlinks, link exits and exit signals put back, the links a
+%% lost connection ends, and the data OTP calls an invalid distribution message. Then links and exits between a's
+%% processes and b's agents, and b's node going down.
 -module(dist_signals).
 -export([main/1, served/1, report/1, ready/0]).
 
@@ -22,6 +22,7 @@ main(["a"]) ->
     fake_served(),
     fake_order(),
     faults(),
+    references(),
     B = peer("dsb"),
     wait_registered("dsb_ready"),
     show("ping", net_adm:ping(B)),
@@ -161,7 +162,10 @@ fake_relinks() ->
         show("after old ack", links()),
         ok = deliver(DH, {{24, remote_pid(5), Self}, relinked}),
         true = link(remote_pid(6)),
-        [ok = deliver(DH, Put) || Put <- [{35, 99, remote_pid(6), Self}, {35, 98, remote_pid(7), Self}]],
+        Unlinks = [
+            {35, 99, remote_pid(6), Self}, {35, 98, remote_pid(7), Self}, {35, 1 bsl 64 - 1, remote_pid(7), Self}
+        ],
+        [ok = deliver(DH, Put) || Put <- Unlinks],
         ok = deliver(DH, {1, remote_pid(8), Self}),
         ok = deliver(DH, {1, remote_pid(8), Self}),
         show("fake unlinks", [[named(Message) || Message <- flush()], links(), [decoded(P) || P <- take(DH)]])
@@ -308,7 +312,7 @@ fake_requests() ->
         Second = spawn_request(?FAKE, m, f, [], [{reply, error_only}]),
         Third = spawn_request(?FAKE, m, f, [], [{reply, success_only}]),
         show("requests", [decoded(Packet) || Packet <- take(DH)]),
-        show("pending", [demonitor(First), links()]),
+        show("pending", [demonitor(First), links(), process_info(self(), monitors)]),
         Replies = [{31, First, Self, 3, remote_pid(7)}, {31, Second, Self, 0, badarg}, {31, Third, Self, 0, badarg}],
         [ok = deliver(DH, Reply) || Reply <- Replies],
         show("replies", [named(Message) || Message <- flush()]),
@@ -397,6 +401,7 @@ faults() ->
         {"unlink", fun(Self) -> {4, remote_pid(1), Self} end},
         {"link from here", fun(Self) -> {1, Self, Self} end},
         {"unlink id 0", fun(Self) -> {35, 0, remote_pid(1), Self} end},
+        {"unlink id 2^64", fun(Self) -> {35, 1 bsl 64, remote_pid(1), Self} end},
         {"exit to there", fun(_) -> {3, remote_pid(1), remote_pid(2), x} end},
         {"group leader", fun(Self) -> {7, x, Self} end},
         {"spawn request", fun(Self) -> {29, make_ref(), Self, Self, {m, f, 0}, []} end},
@@ -413,6 +418,30 @@ faults() ->
         end)
      || {Label, Data} <- Faults
     ].
+
+%% References of other nodes (DIST5e): no spawn request of this process to abandon; an earlier incarnation's monitors
+%% nothing (demonitor/2 flushes its 'DOWN' still), another node's is badarg to demonitor/1,2.
+references() ->
+    Old = old_ref(),
+    self() ! {'DOWN', Old, process, gone, normal},
+    show("references", [
+        spawn_request_abandon(remote_ref(1)),
+        spawn_request_abandon(Old),
+        demonitor(Old),
+        demonitor(Old, [info]),
+        demonitor(Old, [flush, info]),
+        flush(),
+        failure(fun() -> demonitor(remote_ref(1)) end),
+        failure(fun() -> demonitor(remote_ref(1), [info]) end)
+    ]).
+
+% The error reason of Fun(), or its value.
+failure(Fun) ->
+    try
+        Fun()
+    catch
+        error:Reason -> Reason
+    end.
 
 %% Links between a and b: an exit of a linked process of b arrives as a message while trapping exits, a link ended by
 %% unlink/1 brings none, and b's process links to a's processes. A link to a process of b that is not there exits
@@ -741,6 +770,12 @@ named(Term) ->
 remote_pid(N) -> binary_to_term(<<131, 88, 119, 11, "fake@nohost", N:32, 0:32, 77:32>>).
 remote_alias() -> binary_to_term(<<131, 90, 3:16, 119, 11, "fake@nohost", 77:32, 1:32, 2:32, 3:32>>).
 remote_ref(N) -> binary_to_term(<<131, 90, 3:16, 119, 11, "fake@nohost", 77:32, N:32, 0:32, 0:32>>).
+
+% A reference of an earlier incarnation of this node.
+old_ref() ->
+    Name = atom_to_binary(node()),
+    Creation = erts_internal:get_creation() + 1,
+    binary_to_term(<<131, 90, 3:16, 119, (byte_size(Name)), Name/binary, Creation:32, 1:32, 0:32, 0:32>>).
 
 % A pid of an earlier incarnation of this node.
 old_self() ->

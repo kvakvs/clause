@@ -298,8 +298,12 @@ TermResult<Term> spawn_request5(ProcessContext &context, const Term &node, const
 }
 
 // spawn_request_abandon(ReqId): a local request's reply was already sent when it returned, so false; a request to
-// another node still waiting for its reply is abandoned (plan 30 step DIST5b2).
+// another node still waiting for its reply is abandoned (plan 30 step DIST5b2). Another node's reference is no
+// request of this process: false, as OTP's (DIST5e).
 TermResult<Term> spawn_request_abandon(ProcessContext &context, const Term &request) {
+    if (request.is_external_reference()) {
+        return TermFactory(context).boolean(false);
+    }
     if (!request.is_reference()) {
         bad_argument();
     }

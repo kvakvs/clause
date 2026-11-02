@@ -202,6 +202,9 @@ of the call, much as OTP's `inline_list_funcs` option does:
 - `erlang:display/1`, `~w` and uncaught-exception reports print an external fun
   as `fun m:f/1` (atoms quoted like the emulator does) and a local fun as
   `#Fun<m.Index.0>`.
+- A fun read from another node or from `binary_to_term/1` whose code the
+  program lacks prints, compares and fails when called as OTP's
+  ([distribution](distribution.md#funs)).
 
 ## Differences
 

@@ -257,6 +257,31 @@ speaking the protocol and with a test process as a connection's controller.
   `{dist_ctrlr, ...}` of a process that set up no connection, such as a test process calling
   `setnode/3`, among them.
 
+## Funs
+
+Current since DIST5d (`builtins/erlang/term_encoding.cpp`, `term_decoding.cpp`, `modules/code_server.cpp`), as
+OTP 29's `external.c` and `erl_fun.c`, observed with crafted encodings and between Clause and OTP nodes.
+
+- **Sent:** a local fun in a message, an exit reason, a `'DOWN'` reason or spawn arguments (`spawn(Node, Fun)`) is
+  OTP's `NEW_FUN_EXT`: arity, new uniq, index, free value count, module, old index, old uniq, init's pid `<0.0.0>` as
+  its creator, the captured values, and the size of it all. Clause's new uniq is the MD5 of the module name, its old
+  uniq the first 24 bits of that and its old index the index (`fun_info/1`'s `new_uniq`, `uniq` and `index`), so the
+  bytes differ from OTP's, which hashes the BEAM code. `term_to_binary/1,2` writes the same bytes. A native record
+  still raises `notsup` there, and arrives as `notsup` in exit reasons.
+- **Read:** a `NEW_FUN_EXT` names a local fun of the program by module, index, arity and new uniq, and its captured
+  value count: between nodes of the same program, funs travel both ways and are called. Any other is a fun of
+  another node's code, kept by the code server for the program's lifetime with the old index and old uniq of the
+  first reading, as OTP's fun table keeps a stub. The size and the creator pid (which must be a pid) are not used;
+  an old index or old uniq that is not an integer is `badarg`.
+- **Another node's funs** print as OTP prints them, `#Fun<M.OldIndex.OldUniq>`; `fun_info/1` gives their items and
+  `name` `[]`. Encoded again, in a message or `term_to_binary/1`, they are the bytes they were read from, so a fun
+  that went to an OTP node and back is the node's own fun again. Calls fail as OTP's `error_handler:undefined_lambda/3`
+  fails them: `{badfun, Fun}` when the program has the module, else `undef` with `{Fun, Args, []}` on top of the stack.
+- **Comparison:** `=:=` wants the same fun (OTP's `eq` wants the same fun entry); `==` and the order compare module,
+  index, old uniq, captured value count, then the captured values, as OTP's `erts_cmp`.
+- An OTP node cannot call a Clause node's funs, nor Clause an OTP node's, since the uniq never matches; funs still
+  travel there and back (golden `dist_funs`, `host_otp`; `external_funs` decodes crafted encodings).
+
 ## Process monitors
 
 Current since DIST4b3b1 (`scheduler/remote_monitors.cpp`), as OTP 29's `dist.c`, observed with a
@@ -273,7 +298,9 @@ test process as a connection's controller and between two nodes.
   another node is `badarg` there), and with `noproc` at once for a pid of an earlier incarnation of
   this node.
 - **Ending:** `demonitor/1,2` and the watcher's end send `DEMONITOR_P` `{20, Watcher, Pid | Name,
-  Ref}`; `flush` also finds a `'DOWN'` that came from another node.
+  Ref}`; `flush` also finds a `'DOWN'` that came from another node. A reference of an earlier incarnation of this
+  node monitors nothing (`demonitor/1` `true`, `info` `false`, `flush` still flushes); another node's is `badarg`
+  (DIST5e).
 - **Monitored here:** another node's `MONITOR_P` watches the process here it names by pid or
   registered name; one that is not there (no process, a port's name, a pid of an earlier
   incarnation) is answered with `noproc` at once. The process's end sends `MONITOR_P_EXIT` naming it
@@ -310,16 +337,16 @@ connection's controller and between two nodes.
   `exit/2,3` of another node's pid sends `EXIT2` `{8, From, To, Reason}` or `PAYLOAD_EXIT2` `{26, From, To}`; to
   another node's alias nothing, as the node lacks `ALTACT_SIG`, and `priority` changes nothing.
 - **Taken from another node:** its `LINK` links the process here, or is answered at once by an exit `noproc` for
-  no process or a pid of an earlier incarnation; its `UNLINK_ID` ends a link not being unlinked here and is always
-  acknowledged; its link exits (`EXIT`, `PAYLOAD_EXIT` and their `_TT` forms) end the link and signal the process
+  no process or a pid of an earlier incarnation; its `UNLINK_ID` (any id below 2^64) ends a link not being unlinked
+  here and is always acknowledged; its link exits (`EXIT`, `PAYLOAD_EXIT` and their `_TT` forms) end the link and signal the process
   as a link does, dropped without a link; its exit signals (`EXIT2`, `PAYLOAD_EXIT2`, `_TT` forms) act as `exit/2`
   (`kill` ends a process that traps exits as `killed`), dropped for no process or an earlier incarnation. Exit
   signals reach a process running on another worker when its slice ends.
 - **Connection loss:** every link to the node's processes exits `noconnection`, before the monitors' `'DOWN'`
   messages and the `nodedown` of node monitors, as OTP orders them.
 - **Checks:** a link signal whose sender is no pid of the connection's node, whose receiver is no pid here (also a
-  pid of an earlier incarnation for `LINK` and `EXIT2`), or an `UNLINK_ID` of id 0, is an invalid distribution
-  message ([messages](#messages)).
+  pid of an earlier incarnation for `LINK` and `EXIT2`), or an `UNLINK_ID` of id 0 or one that is no integer below
+  2^64, is an invalid distribution message ([messages](#messages)).
 - `process_info/2`'s `links` shows the other node's pids.
 
 ## Group leaders
@@ -351,16 +378,18 @@ connection's controller and between two nodes.
   no atom, or an improper argument or option list.
 - **Replies:** the node's `SPAWN_REPLY` `{31, ReqId, To, Flags, Result}` makes the link (flag 1) and the monitor
   (flag 2, the request id as its reference, with its tag and alias) active, then brings `{Tag, ReqId, ok, Pid}` or
-  `{Tag, ReqId, error, Reason}` as `{reply, Mode}` asks. Until then `demonitor/1` of the id does nothing. A lost
-  connection fails pending requests with `noconnection`.
-- **Abandoned or orphaned:** `spawn_request_abandon/1` of a pending request returns `true` (`false` once replied
-  or for another process's); its child, once spawned, gets the link's exit `abandoned`. A requester that ended has
+  `{Tag, ReqId, error, Reason}` as `{reply, Mode}` asks. Until then `demonitor/1` of the id does nothing and
+  `process_info/2`'s `monitors` leaves the monitor out. A lost connection fails pending requests with
+  `noconnection`.
+- **Abandoned or orphaned:** `spawn_request_abandon/1` of a pending request returns `true` (`false` once replied,
+  for another process's or for another node's reference); its child, once spawned, gets the link's exit `abandoned`. A requester that ended has
   its child demonitored (`DEMONITOR_P`) and unlinked with the requester's exit reason. A reply to no pending request
   does nothing.
 - **Blocking spawns:** `spawn/2,4`, `spawn_link/2,4`, `spawn_monitor/2,4` and `spawn_opt/3,5` naming another node
   continue in `clause_dist_spawn:spawn/5`, a request and its reply as OTP's `spawn_opt/5`: the pid, or `{Pid, Ref}`
   with `monitor`; `badopt` is `badarg`, as are the reply options; `noconnection` and `notsup` give OTP's useless
-  pid, a process here that exits with that reason. `spawn(Node, Fun)` runs `erlang:apply(Fun, [])` there.
+  pid, a process here (`clause_dist_spawn:crasher/6`, OTP's `erts_internal:crasher/6`) that logs the warning
+  `** Can not start M:F,Args on Node **` (`(Options)` before `on` when there are any) and exits with that reason. `spawn(Node, Fun)` runs `erlang:apply(Fun, [])` there.
 - **Served here:** another node's `SPAWN_REQUEST` starts `Module:Function(Args...)` with the request's group leader
   ([group leaders](#group-leaders)), linked to and monitored by the requester as its options ask, and queues its
   `SPAWN_REPLY` before the child can run, so the reply comes before anything the child sends. Options that are no

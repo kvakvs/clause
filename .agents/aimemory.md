@@ -831,3 +831,18 @@ gotchas and user directions not recorded elsewhere.
   stderr patterns need ` ?`. OTP's node_info/nodes_info/i raise badarg without distribution (missing sys_dist ets).
   OTP's cookie is the printable run up to the first other character, trailing blanks kept. build/ had been wiped: a
   fresh configure + Debug build took ~25 min at affinity FFFFFF.
+- DIST5d (2026-11-01): OTP's fun table keys a stub by (module, new index, arity, 16-byte uniq); a later decode with
+  another old index/old uniq gets the first entry's values. `=:=` of local funs wants the same entry (OTP eq), `==`
+  and order compare module, index, old_uniq, num_free, env (erts_cmp): funs differing only in uniq or arity are `==`
+  but not `=:=`. A stub's call: undef with `{Fun, Args, []}` on top when the module is not loaded, else badfun; its
+  fun_info name is `[]`, pid `<0.0.0>` (OTP encodes init's pid as every local fun's creator). OTP's compiler folds
+  constant captures (`Y = 7`) out of closures: fixtures take captured values from arguments. Clause's
+  `list_to_pid("<0.0.0>")` is badarg (never issued): craft pid bytes. A program's end loses queued dist packets, so
+  a fixture's last `stop` to a peer needs monitor_node + nodedown before returning. Orphaned OTP oracle nodes
+  (`erl.exe ... oracle.escript`) of a timed-out multi-node run keep the case's work directory busy, and OTP nodes
+  leave `epmd -daemon` instances behind: the user wants such leftovers stopped after testing (2026-11-02).
+- DIST5e (2026-11-01): OTP 29: spawn_request_abandon(other node's ref) false; demonitor of an earlier incarnation's
+  ref returns false internally (demonitor/1 true, [info] false, [flush] still flushes a {_, Ref, _, _, _}), another
+  node's ref badarg; a pending spawn request's monitor is left out of process_info monitors; UNLINK_ID id 2^64 is an
+  invalid distribution message, 2^64 - 1 is acknowledged. spawn_monitor/4 with notsup raises error notsup (only
+  noconnection gives the crasher), unlike spawn_opt/5.

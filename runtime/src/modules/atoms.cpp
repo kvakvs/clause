@@ -1,4 +1,5 @@
 #include "atoms.hpp"
+#include "../builtins/erlang/md5.hpp"
 #include <algorithm>
 #include <atomic>
 #include <clause/abi/funs.hpp>
@@ -121,27 +122,52 @@ const void *fun_frame(const ModuleAtoms &bindings, const abi::v1::FunDescriptor 
     return module && function ? builtins.find(*module, *function, fun.arity) : nullptr;
 }
 
+// The MD5 of the module's name: its local funs' new uniq, whose first 24 bits are their old uniq. Added for funs
+// across nodes.
+std::array<std::byte, 16> module_digest(const abi::v1::ModuleDescriptor &descriptor) {
+    builtins::Md5 state;
+    state.update(std::as_bytes(std::span(descriptor.name, descriptor.name_size)));
+    return state.finish();
+}
+
+// The first 24 bits of a module's digest: its local funs' old uniq.
+std::int64_t old_uniq(const std::array<std::byte, 16> &digest) {
+    return std::to_integer<std::int64_t>(digest[0]) << 16 | std::to_integer<std::int64_t>(digest[1]) << 8 |
+           std::to_integer<std::int64_t>(digest[2]);
+}
+
+// The definition of one fun of the module: bound to its atom words, a local fun with the module's digest as its
+// identity on the wire.
+FunDefinition fun_definition(const ModuleAtoms &bindings, const abi::v1::FunDescriptor &fun,
+                             const std::array<std::byte, 16> &digest, const BuiltinRegistry &builtins) {
+    const bool external = fun.external != 0;
+    const std::size_t captures = external || !fun.frame ? 0 : fun.frame->arity - fun.arity;
+    return FunDefinition{.descriptor = &fun,
+                         .module = bindings.slots[fun.module_atom].word(),
+                         .function = bindings.slots[fun.function_atom].word(),
+                         .arity = fun.arity,
+                         .index = fun.index,
+                         .external = external,
+                         .captures = captures,
+                         .frame = fun_frame(bindings, fun, builtins),
+                         .uniq = external ? std::array<std::byte, 16>{} : digest,
+                         .old_uniq = external ? 0 : old_uniq(digest),
+                         .old_index = external ? 0 : static_cast<std::int64_t>(fun.index)};
+}
+
 // Bind every fun definition to the module's atom words in descriptor order; only an external fun may lack code.
 CodeResult<void> bind_funs(ModuleAtoms &bindings, const abi::v1::ModuleDescriptor &descriptor,
                            const BuiltinRegistry &builtins) {
     if (descriptor.fun_count && !descriptor.funs) {
         return std::unexpected(CodeError::invalid_module);
     }
-    const auto word = [&](std::size_t slot) { return bindings.slots[slot].word(); };
+    const auto digest = descriptor.fun_count ? module_digest(descriptor) : std::array<std::byte, 16>{};
     bindings.funs.reserve(descriptor.fun_count);
     for (const auto &fun : std::span(descriptor.funs, descriptor.fun_count)) {
         if (!valid_fun(descriptor, fun)) {
             return std::unexpected(CodeError::invalid_module);
         }
-        const std::size_t captures = fun.external || !fun.frame ? 0 : fun.frame->arity - fun.arity;
-        bindings.funs.push_back(FunDefinition{.descriptor = &fun,
-                                              .module = word(fun.module_atom),
-                                              .function = word(fun.function_atom),
-                                              .arity = fun.arity,
-                                              .index = fun.index,
-                                              .external = fun.external != 0,
-                                              .captures = captures,
-                                              .frame = fun_frame(bindings, fun, builtins)});
+        bindings.funs.push_back(fun_definition(bindings, fun, digest, builtins));
     }
     return {};
 }

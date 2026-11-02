@@ -135,7 +135,10 @@ builtin and service calls), `RuntimeOptions` + `RuntimeExtension` for extension 
   Another node's group leader is a buffer in `Signals` (DIST5b1). Spawns across nodes (`scheduler/remote_spawns.cpp`,
   `builtins/erlang/dist_spawns.cpp`, DIST5b2): pending requests in `Executor::spawn_requests_` until SPAWN_REPLY; a
   served request's child is published by `launch_requested` under the lock, after its link, monitor and reply; the
-  blocking spawns continue in Erlang (`clause_dist_spawn:spawn/5`, a builtin continuation).
+  blocking spawns continue in Erlang (`clause_dist_spawn:spawn/5`, a builtin continuation). Local funs travel as
+  `NEW_FUN_EXT` (DIST5d): each `FunDefinition` keeps its wire identity (new uniq = MD5 of the module name, old uniq,
+  old index), and decoding finds the program's fun or a foreign one the code server keeps (`CodeServer::decoded_fun`),
+  which encodes again unchanged and fails when called.
 - **Memory / GC**: per-process generational heaps, copying collector at safepoints, message and
   persistent-term copies, off-heap binaries (`docs/runtime-heap.md`).
 - **Scheduler**: multi-worker executor with run queues, handed-over wakes and stealing, mailboxes,

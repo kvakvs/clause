@@ -106,7 +106,7 @@ SpawnSent Executor::request_spawn(ProcessContext &requester, const Term &node, c
     if (connection.state == Connection::State::up && (connection.flags & dflags::SPAWN) == 0) {
         return SpawnSent::notsup;
     }
-    // Arguments the external format cannot hold here (a local fun) raise notsup before anything is kept.
+    // Arguments the external format cannot hold here (a native record) raise notsup before anything is kept.
     auto bytes = packet();
     pending.node = node.word();
     pending.requester = pid_of(requester);
@@ -234,7 +234,7 @@ std::string Executor::orphan_reason(ProcessContext &process) {
     try {
         return encoded(process, built(exit_reason(process)));
     } catch (const builtins::BuiltinFailure &) {
-        // A reason the external format cannot hold here (a local fun) arrives as notsup (docs/differences.md).
+        // A reason the external format cannot hold here (a native record) arrives as notsup (docs/differences.md).
         return encoded(process, atom(process, "notsup"_atom));
     }
 }

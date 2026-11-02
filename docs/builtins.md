@@ -141,19 +141,21 @@ OTP's trapping BIFs.
 stacks.
 
 - `term_to_binary/1,2`: OTP's bytes for this node's name and creation; options
-  `minor_version`, `deterministic`, `compressed`; local funs and native records
-  are `notsup`. Identities of other nodes keep their node and creation
-  ([terms](terms.md#identities-of-other-nodes)).
+  `minor_version`, `deterministic`, `compressed`; native records are `notsup`.
+  Identities of other nodes keep their node and creation
+  ([terms](terms.md#identities-of-other-nodes)); local funs are OTP's
+  `NEW_FUN_EXT` with Clause's uniq ([distribution](distribution.md#funs)).
 - `term_to_iovec/1,2`, `external_size/1,2`.
 - `binary_to_term/1,2`: lengths checked before allocating; `safe`, `used`;
   malformed input and pids or ports of this node the program never created are
   `badarg`; identities of other nodes, in the current and older encodings, become
-  their cells.
+  their cells; a local fun is the program's fun or another node's
+  ([distribution](distribution.md#funs)).
 - The codec's stacks and `term_to_binary`'s encoded bytes are per-thread
   buffers kept between calls (up to 1 MB each, `builtins/scratch.hpp`), so a
   large term does not take fresh pages each call; small integers skip the
   general item path both ways.
-- CTests `executables_external_terms`, `builtins_etf_fuzz`.
+- CTests `executables_external_terms`, `executables_external_funs`, `builtins_etf_fuzz`.
 
 ## Time
 

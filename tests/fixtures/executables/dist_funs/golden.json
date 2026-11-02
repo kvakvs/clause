@@ -1,0 +1,114 @@
+{
+  "schema": 1,
+  "entry": "dist_funs",
+  "host_otp": true,
+  "runs": [
+    {
+      "nodes": [
+        {
+          "name": "a",
+          "args": [
+            "a",
+            "calls"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname dfa@localhost --setcookie df"
+          },
+          "otp_flags": "-sname dfa@localhost -setcookie df",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "ping: pong\nechoed: [true,true,true,[118,10,{118,113}]]\nothers: [[true,dist_funs,local,true],\n         [true,dist_funs,local,false],\n         [true,dist_funs,local,true]]\nchecked there: [true,[17,8,{17,13}]]\ndown: [true,114]\nlink exit: [true,115]\nexit signal: [true,116]\ntheirs here: 14\ncalled there: [{called,{ok,119}},{called,{ok,12}},{called,{ok,{119,113}}}]\nbadarity there: {called,{error,badarity}}\nsent from there: [dfb@localhost,113]\nspawned: [true,dfb@localhost,{114,113}]\ndist_funs: ok\n"
+        },
+        {
+          "name": "b",
+          "args": [
+            "b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname dfb@localhost --setcookie df"
+          },
+          "otp_flags": "-sname dfb@localhost -setcookie df",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "dist_funs: ok\n"
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "name": "a",
+          "kind": "otp",
+          "args": [
+            "a",
+            "echo"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname dfa@localhost --setcookie df"
+          },
+          "otp_flags": "-sname dfa@localhost -setcookie df",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "ping: pong\nechoed: [true,true,true,[118,10,{118,113}]]\nothers: [[true,dist_funs,local,true],\n         [true,dist_funs,local,false],\n         [true,dist_funs,local,true]]\nchecked there: [true,[17,8,{17,13}]]\ndown: [true,114]\nlink exit: [true,115]\nexit signal: [true,116]\ndist_funs: ok\n"
+        },
+        {
+          "name": "b",
+          "args": [
+            "b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname dfb@localhost --setcookie df"
+          },
+          "otp_flags": "-sname dfb@localhost -setcookie df",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "dist_funs: ok\n"
+        }
+      ]
+    },
+    {
+      "epmd": "otp",
+      "nodes": [
+        {
+          "name": "a",
+          "args": [
+            "a",
+            "echo"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname dfa@localhost --setcookie df"
+          },
+          "otp_flags": "-sname dfa@localhost -setcookie df",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "ping: pong\nechoed: [true,true,true,[118,10,{118,113}]]\nothers: [[true,dist_funs,local,true],\n         [true,dist_funs,local,false],\n         [true,dist_funs,local,true]]\nchecked there: [true,[17,8,{17,13}]]\ndown: [true,114]\nlink exit: [true,115]\nexit signal: [true,116]\ndist_funs: ok\n"
+        },
+        {
+          "name": "b",
+          "kind": "otp",
+          "args": [
+            "b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname dfb@localhost --setcookie df"
+          },
+          "otp_flags": "-sname dfb@localhost -setcookie df",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "dist_funs: ok\n"
+        }
+      ]
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
+  },
+  "inputs": {
+    "dist_funs.erl": "262f37e62d4ed9c4cbcf6b700ccca5a491d730ccbe306e8924ac5447c2b7af42"
+  }
+}

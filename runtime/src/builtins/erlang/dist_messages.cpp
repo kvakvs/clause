@@ -2,12 +2,14 @@
 #include "../../process/exits.hpp"
 #include "../../scheduler/executor.hpp"
 #include "../../terms/identities.hpp"
+#include "../../terms/integers.hpp"
 #include "dist_spawns.hpp"
 #include "term_decoding.hpp"
 #include "term_encoding.hpp"
 #include <algorithm>
 #include <array>
 #include <clause/runtime/output.hpp>
+#include <limits>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -171,10 +173,19 @@ bool links(Signal signal) { return signal >= Signal::link; }
 
 bool unlinks(Signal signal) { return signal == Signal::unlink || signal == Signal::unlink_ack; }
 
-// Whether the id of UNLINK_ID or UNLINK_ID_ACK is one OTP's dist.c accepts: not negative, UNLINK_ID's not 0.
+// The id of UNLINK_ID or UNLINK_ID_ACK when it is an integer below 2^64, as OTP's dist.c reads it (DIST5e).
+std::optional<std::uint64_t> unlink_number(const Term &control) {
+    const auto id = detail::integer_read(control.tuple_element_unchecked(1));
+    if (!id || *id < 0 || *id > std::numeric_limits<std::uint64_t>::max()) {
+        return std::nullopt;
+    }
+    return id->convert_to<std::uint64_t>();
+}
+
+// Whether the id of UNLINK_ID or UNLINK_ID_ACK is one OTP's dist.c accepts: below 2^64, UNLINK_ID's not 0.
 bool unlink_id(const Shape &shape, const Term &control) {
-    const auto id = small(control.tuple_element_unchecked(1).word());
-    return id && *id >= 0 && (*id != 0 || shape.signal == Signal::unlink_ack);
+    const auto id = unlink_number(control);
+    return id && (*id != 0 || shape.signal == Signal::unlink_ack);
 }
 
 // Whether a link signal from `node` names what OTP's dist.c accepts: that node's pid as the sender and a pid here as
@@ -387,7 +398,7 @@ void signal_link(ProcessContext &context, Word node, const Reading &reading) {
     detail::RemoteLinkSignal signal{
         .kind = link_kind(shape.signal), .from = element(first), .to = element(first + 1), .id = 0, .reason = {}};
     if (unlinks(shape.signal)) {
-        signal.id = static_cast<std::uint64_t>(small(element(1).word()).value_or(0));
+        signal.id = unlink_number(reading.control).value_or(0);
     }
     if (shape.payload) {
         signal.reason = reading.message;
