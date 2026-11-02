@@ -886,3 +886,11 @@ gotchas and user directions not recorded elsewhere.
   Linux build links Ubuntu's OpenSSL 3.4.1 (CLAUSE_OPENSSL_SYSTEM): servers verify client chains after the
   handshake (libssl < 4.1), and ML-DSA is missing (ssl_suites differs). WSL has no OTP: host_otp tests report
   "Skipped" when their Clause runs pass.
+- MIM1A mnesia (2026-11-02): OTP's mnesia exports no types (no `.types.hrl`). `table_info(Tab, all)` and
+  `schema/1` are the raw `mnesia_gvar` rows `{{Tab, Item}, V}` plus size/memory/master_nodes, so Clause keeps the same
+  row set (a remote-only table lacks `index_info`/`where_to_wlock`). Check orders came from reading
+  references/otp mnesia_schema/mnesia/mnesia_index (behavior only); the golden matched OTP on the first Clause run.
+  Every schema change counts one commit or failure (start = 2 commits); `create_table(N, NonList)` counts none.
+  mnesia goldens need a stderr pattern for the `application: mnesia exited: stopped` INFO reports (oracle and runner
+  send logger output to stderr) and a `memory -> N` stdout mask. `library_freshness` already fails on
+  `ssl_crl_cache_api.terms` (not mnesia).

@@ -26,7 +26,7 @@ internal functions stay out unless a public function needs them (user direction 
   documented functions.
 - **Done:** every documented module of `erts`, `kernel` and `stdlib`, `crypto` (LIB79),
   `public_key` (LIB80) and `ssl` (LIB81A–D5) (`21-finished.md`).
-- **Left:** MongooseIM's missing applications (MIM1–MIM9, `test-mim.toml`), optional `ssl` steps
+- **Left:** MongooseIM's missing applications (MIM1B–MIM9, `test-mim.toml`; `mnesia` PARTIAL since MIM1A), optional `ssl` steps
   on request (LIB81D3c, LIB81D4b, LIB81E) and test support (LIB82 `eunit`, LIB83 `common_test`,
   the appendix).
 - **Declined** (`00-reject.md`): the 20 `erlang` functions of the LIB9 remainder, LIB78
@@ -166,23 +166,14 @@ dependencies, non-test sources.
       Pid}` transaction ids, `table_info`/`system_info` items, event messages, the backup callback
       interface, registered names of the processes Clause has (`mnesia_sup`, `mnesia_monitor`,
       `mnesia_locker`, `mnesia_tm`, `mnesia_controller`, `mnesia_subscr`, `mnesia_event`).
-    - `mnesia` enters `library/` in MIM1A as PARTIAL (`library_modules.py`) and leaves it in
+    - `mnesia` is in `library/` as PARTIAL (`library_modules.py`) since MIM1A and leaves it in
       MIM1G. Docs in `docs/libraries/mnesia.md`; one golden per step, generated from OTP.
-  - **MIM1A Foundation, schema in memory and dirty access:**
-    - Observe `mnesia` and `mnesia_frag_hash` into `documented.terms`; inventories, stubs and
-      `mnesia.types.hrl`; catalog rows; `mnesia.app` (4.27) with `clause_mnesia_app`.
-    - `start/0`, `stop/0` with OTP's results and reports; answers when not started.
-    - ram schema: `create_table/2` with option validation (`type`, `attributes`, `record_name`,
-      `index`, `ram_copies`, `local_content`, `user_properties`, `storage_properties`,
-      `load_order`, `access_mode`, `majority`), `delete_table/1`, `table_info/2`, `system_info/1`,
-      `schema/0,1`, `wait_for_tables/2`, `error_description/1`.
-    - Dirty functions: `dirty_read/1,2`, `dirty_write/1,2`, `dirty_delete/1,2`,
-      `dirty_delete_object/1,2`, `dirty_update_counter/2,3`, `dirty_match_object/1,2`,
-      `dirty_select/2`, `dirty_select_reverse/2`, `dirty_all_keys/1`, `dirty_first/last/next/prev`,
-      `dirty_index_read/3`, `dirty_index_match_object/2,3`.
-    - Indexes: `add_table_index/2`, `del_table_index/2`, index tables kept on every write.
-    - Golden `mnesia_dirty`.
+    - Since MIM1A (`21-finished.md`): `mnesia_monitor` owns every table and runs schema changes one at a
+      time; `mnesia_gvar` holds OTP's `{Tab, Item}` rows; dirty access runs in the caller.
   - **MIM1B Transactions and activities:**
+    - Schema changes become schema transactions: `{aborted, nested_transaction}` inside an
+      activity, the schema write lock, `create_table`'s lock on the new table; `table_info/2` inside an
+      activity through its access module.
     - `mnesia_locker`: read and write locks on records and tables, OTP's age order (an older
       transaction waits, a younger one restarts with the same tid), release on commit, abort and
       exit.
@@ -285,8 +276,8 @@ dependencies, non-test sources.
 
 ### Order
 
-1. MIM1A–MIM1G (paused 2026-10-30 for plan 30, network distribution in `30-dist.md`; the design
-   was revised for named nodes in DIST13), then MIM9's record wildcard fix, MIM6, MIM7
+1. MIM1B–MIM1G (MIM1A done 2026-11-02; the design was revised for named nodes in DIST13), then
+   MIM9's record wildcard fix, MIM6, MIM7
    (small), MIM3, MIM4, MIM2, MIM5; MIM8 after a user decision.
 2. LIB81D3c, LIB81D4b and LIB81E on request.
 3. LIB82, LIB83 last (test support).

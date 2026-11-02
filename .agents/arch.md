@@ -27,7 +27,7 @@ ABI:
 - `runtime/` → `clause_runtime`, LLVM-free static archive, plus optional extension archives
   (`clause_runtime_crypto`, `clause_runtime_ssl`) linked only when a program needs them.
 - `library/` → Clause's reimplementation of OTP applications (erts, kernel, stdlib, crypto, ssl,
-  public_key, asn1, syntax_tools, ...) as Erlang sources; their C++ halves live in the runtime as
+  public_key, asn1, syntax_tools, mnesia, ...) as Erlang sources; their C++ halves live in the runtime as
   builtins.
 - `tests/` black-box CLI/executable tests with owned OTP-generated goldens; build and test need no
   OTP (`docs/validation.md`). `references/otp` is a transient reference checkout only.
@@ -178,5 +178,7 @@ behavior (`docs/differences.md` lists gaps).
   `tls_client_ticket_store`, stateful server tickets in the engine context; early data read before the handshake
   goes on, binder sets for anti_replay; sni_hosts/sni_fun pause the ClientHello and switch the server context;
   key_update_at/renegotiate_at counted in the connection's send path; CRL status checks in the verify fun over
-  crl_cache modules; PSK keys from user_lookup_fun after the engine scans the peer's plaintext handshake). Distribution and tracing
+  crl_cache modules; PSK keys from user_lookup_fun after the engine scans the peer's plaintext handshake), mnesia
+  (PARTIAL, MIM1A: RAM schema, dirty access and indexes over ets tables owned by `mnesia_monitor`, schema changes
+  serialized there; `mnesia_gvar` keeps OTP's `{Tab, Item}` rows, so `table_info`/`schema/1` list OTP's items). Distribution and tracing
   answer as a non-alive node.
