@@ -251,3 +251,8 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   `merl_templates` golden identical to OTP — `c674dcba`
 - **MIM1A** mnesia foundation (PARTIAL): OTP's tree with `mnesia_monitor` owning the tables, the RAM schema with OTP's
   definition checks and `mnesia_gvar` rows, dirty access and indexes; `mnesia_dirty` golden identical to OTP — `f29fb82d`
+- **MIM1B** mnesia transactions and activities: `mnesia_locker` (age order, queue, `#cyclic{}` restarts, sticky
+  locks), `mnesia_tm` (tids, stores, commit in the server, release on exit), reads merging own writes in OTP's order
+  (select chunks included), nesting, activities and access modules, schema changes as schema transactions (the new
+  table's lock of `create_table` is not taken: nothing can hold it); `mnesia_transactions` golden identical to OTP —
+  `fd700851`
