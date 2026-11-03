@@ -264,4 +264,4 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **MIM1D** mnesia disc storage: `create_schema` (FALLBACK.BUP installed at start), `delete_schema`, the disc schema
   in schema.DAT, `disc_copies` (LATEST.LOG of `#commit{}`, dumps to DCD/DCL by `dc_dump_limit`, thresholds),
   `disc_only_copies` over dets with dets bag indexes, `dump_log`, `sync_log`, `dump_tables`, storage type changes of
-  tables and of the schema; OTP's file names and terms; `mnesia_disc` golden identical to OTP — `PENDING`
+  tables and of the schema; OTP's file names and terms; `mnesia_disc` golden identical to OTP — `cf580ff8`
