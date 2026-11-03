@@ -154,13 +154,8 @@ dependencies, non-test sources.
       hard-coding `nonode@nohost` (the `dir` default is `Mnesia.<node()>`, `schema/0` names `node()`), and keep
       the node lists of schema records, `{tid, N, Pid}` and lock owners as OTP's so that MIM1H adds nodes
       without changing formats.
-    - MIM1H (after MIM1G, optional): several nodes over distribution, written from OTP's documentation
-      and observed messages so that Clause and OTP nodes share a schema: `create_schema/1` and
-      `start/0` with `extra_db_nodes`, `change_config/2`, replicas on other nodes (`add_table_copy/3`,
-      `del_table_copy/2`, `move_table_copy/3`), table loading from other nodes, the transaction
-      manager's two-phase commit across nodes, `{mnesia_down, Node}` and `inconsistent_database`
-      events, `set_master_nodes/1,2`, majority checks, and fragments over nodes. Golden with OTP nodes
-      as peers (`host_otp`).
+    - MIM1H (optional, after MIM1G): several nodes, Clause and OTP nodes in one database. See
+      **MIM1H Several nodes** below for its steps.
     - What programs observe stays OTP's: tables are public named `ets` tables (keypos 2) that
       code may read directly, `{aborted, Reason}` and `exit({aborted, Reason})` terms, the `{tid, N,
       Pid}` transaction ids, `table_info`/`system_info` items, event messages, the backup callback
@@ -176,6 +171,118 @@ dependencies, non-test sources.
       `mnesia_subscr` keeps event subscriptions, events are reported where they happen; checkpoints are processes
       under `mnesia_checkpoint_sup`, backups go through OTP's `mnesia_backup`, fragments through `mnesia_frag`.
       `mnesia_tm:get_info/1` (prometheus) goes to MIM7.
+- **MIM1H Several nodes (optional; replanned 2026-11-03):** Clause and OTP 29 nodes share one mnesia database:
+  same wire protocol (protocol version `{8,6}`, accepting `{8,5}`), same files in each node's directory, so that a
+  Clause node can join an OTP cluster, be replaced by an OTP node on the same directory, and the reverse.
+  - **Rules for every step:**
+    - Observe before writing. Run the step's scenario on two OTP nodes in scratch (`erl -sname`, `sys:trace`/`dbg`
+      on `mnesia_monitor`, `mnesia_controller`, `mnesia_recover`, `mnesia_tm`, `mnesia_locker`, `mnesia_loader`) and
+      record the message shapes, the `rpc` calls and the file terms as observations in a new
+      `docs/libraries/mnesia-protocol.md` (message tables, not OTP code). Write Clause's side from that table and
+      OTP's documentation, never from OTP's sources.
+    - Records that cross nodes or files stay OTP's, field for field: `#cstruct{}`, `#commit{}`, `#log_header{}`,
+      `#tid{}`, `#decision{}`, `#transient_decision{}`, `#participant{}`, `#checkpoint_args{}`, `#retainer{}`,
+      `#frag_state{}`, `#hash_state{}`, `#cyclic{}`. Clause's `#checkpoint_args{}` has fewer fields today: align it
+      in H2.
+    - OTP nodes reach a peer through registered processes and `rpc` into OTP's internal module names
+      (`mnesia_lib:is_running/0`, `mnesia_controller:get_remote_cstructs/0`, `mnesia_schema:remote_read_schema/0`,
+      `mnesia_monitor:call/1`, `mnesia_recover:call/1`, `mnesia_checkpoint:tm_prepare/1`, `mnesia_rpc`'s
+      `{apply, M, F, A}`, `mnesia_lib:db_get/2`, `mnesia_tm:fixtable/3`, ...). Clause provides those module names as
+      thin library modules over the `clause_mnesia_*` servers, each with an inventory whose functions no peer calls
+      are `declined` ("internal, not reached by other nodes").
+    - Servers that OTP runs as raw receive loops (`mnesia_tm`, `mnesia_locker`, `mnesia_checkpoint`) receive OTP's
+      raw `{From, Request}` messages and answer in OTP's reply form (`{mnesia_locker, Node, Reply}`,
+      `{mnesia_tm, Node, Reply}`, ...), in `handle_info` where the Clause server is a `gen_server`.
+    - Tests: one golden per step, `host_otp`, multi-node runs whose peers are Clause nodes and OTP nodes
+      (`runs[].nodes[].kind = otp`), generated with every node on OTP. Each scenario runs both ways where it can
+      (the Clause node as the one that starts the operation, and as the one that answers). Disc scenarios give each
+      node its own `dir`.
+  - **MIM1H1 Directory parity on one node:** the files of OTP's directory, so that OTP mnesia starts on a
+    directory Clause wrote and the reverse.
+    - `DECISION_TAB.LOG` (decision log, version "3.0") with OTP's terms: `mnesia_down`/`mnesia_up` history,
+      master nodes, decisions; `PREVIOUS.LOG` in dumps as OTP rotates it; `dump_disc_copies_at_startup false`
+      keeping `DCL` files; synchronous logging of `sync_transaction/sync_dirty`.
+    - The disc-related rows of `docs/differences.md` (`Files of mnesia's directory`, fallback `DCD`/`DCL`, the
+      `disc_only_copies` retainer `.RET` file, backup header versions "0.1"/"1.1" converted) fixed or kept with a
+      reason.
+    - Golden `mnesia_dir_exchange`: an OTP node creates a schema and tables and stops, then a Clause node starts on
+      that directory, checks the data, writes, stops; then the OTP node starts again on it (and the reverse).
+  - **MIM1H2 Schema operations as OTP's terms:** every schema change produces OTP's `{op, ...}` tuples
+    (`create_table`, `delete_table`, `add_index`, `del_index`, `transform`, `add_table_copy`, `del_table_copy`,
+    `change_table_copy_type`, `change_table_access_mode`, `change_table_load_order`, `change_table_majority`,
+    `write_property`, `delete_property`, `add_snmp`, `del_snmp`, `dump_table`, `change_table_frag`,
+    `restore_recreate`, `clear_table`, `merge_schema`, `announce_im_running`, `sync_trans`, `rec`) with OTP's
+    `vsn_cs2list` table definitions, carried in `#commit.schema_ops` and logged in `LATEST.LOG` as OTP logs them;
+    `mnesia_monitor` applies op tuples, whoever made them.
+    - Records aligned with OTP's (above), `#checkpoint_args{}` included.
+    - Still one node. Golden `mnesia_schema_ops`: the `LATEST.LOG` terms of each change before its dump, compared
+      with OTP's (cookies and times hidden), and `mnesia_dir_exchange` extended with schema changes left in the log.
+  - **MIM1H3 OTP's module names and remote queries:** the registered processes OTP peers expect and are missing
+    (`mnesia_recover`, `mnesia_controller`, `mnesia_late_loader`, `mnesia_rpc`, `mnesia_checkpoint_sup`'s
+    children as OTP names them), and the OTP-named library modules for the peers' `rpc` calls (rules above), each
+    answering a peer's query: `is_running`, `get_node_number`, `remote_read_schema`, `get_remote_cstructs`,
+    `db_get`, `mnesia_rpc`'s `{apply, M, F, A}`.
+    - Golden `mnesia_remote_queries`: an OTP node `rpc`s each query into a Clause node running mnesia, and the
+      reverse.
+  - **MIM1H4 Connecting:** `mnesia_monitor`'s protocol negotiation (`{negotiate_protocol, Mon, Version,
+    Protocols}`, accept and reject, `{protocol, Node}` variables), the links between monitors, `mnesia_recover`'s
+    `connect_nodes`, `announce_all` and decision exchange (`what_decision`, `decisions`), `mnesia_down` from a link
+    or `nodedown`, `has_remote_mnesia_down` and the `inconsistent_database` event.
+    - Golden `mnesia_connect`: OTP and Clause nodes with RAM schemas negotiate (via `mnesia_monitor:
+      negotiate_protocol/1` as the test's entry), see each other's `mnesia_up`/`mnesia_down` system events and
+      `recover_nodes`, both ways.
+  - **MIM1H5 Schema merge:** `mnesia_controller`'s merge: `get_cstructs`, the `merge_schema` schema transaction
+    with `announce_im_running`, `im_running`, `adopt_orphans`, `i_have_tab`, `schema_is_merged`; `extra_db_nodes`
+    at start and through `change_config/2`; `db_nodes`, `running_db_nodes`, tables held elsewhere becoming known
+    (`where_to_read` the other node); `{merge_schema_failed, ...}` and cookie clashes as OTP reports them.
+    - Golden `mnesia_merge`: RAM-schema nodes, each with its own tables, join both ways; table information on both
+      sides; one node stops and starts again.
+  - **MIM1H6 Remote reads and dirty writes:** reads of a table held only on the other node (`dirty_rpc` through
+    `mnesia_rpc`, `remote_dirty_select`, `table_info/2` there), and dirty writes sent to the holder as OTP's
+    `{async_dirty, Tid, Commit, Tab}` and `{sync_dirty, Tid, Commit, Tab}` messages with `#commit{}` records,
+    answered as OTP's.
+    - Golden `mnesia_remote_dirty`: each node reads and dirty-writes the other's tables.
+  - **MIM1H7 Remote locks:** `mnesia_locker`'s protocol between nodes: `{From, {write | read | read_write |
+    ix_read | sync_release_tid | test_set_sticky | is_locked, ...}}` requests, `{mnesia_locker, Node, Reply}`
+    replies (`granted`, `{not_granted, #cyclic{}}`, `{switch, ...}`), `release_tid` and sticky `stick`/`unstick`
+    casts, waiting and restarts across nodes, locks of nodes that go down.
+    - Golden `mnesia_remote_locks`: transactions on both nodes contend for each other's records and tables.
+  - **MIM1H8 Two-phase commit:** transactions writing tables held on several nodes: `#commit{}` per node,
+    `sym_trans`/`sync_sym_trans` with `{Tid, ask_commit}`, votes, `pre_commit`, `committed`, `do_commit`,
+    `do_abort`, `simple_commit` for read-only; `asym_trans` for schema operations over several nodes; decisions in
+    `mnesia_decision` (`#decision{}`) and `DECISION_TAB.LOG`; outcomes after a participant goes down
+    (`what_happened`, `wait_for_decision`, `max_wait_for_decision`). Replicated tables stay identical.
+    - Golden `mnesia_two_phase`: replicated RAM tables written from both nodes, an abort voted by the other node, a
+      node killed between `pre_commit` and `committed` (via a test hook observed on OTP, or a forced `mnesia_down`).
+  - **MIM1H9 Replicas and table loading:** `add_table_copy/3` to and from the other node, `mnesia_loader`'s table
+    transfer (`{first, Size}`, `more`, `{more_z, ...}` with `send_compressed`, `max_transfer_size` chunks,
+    `no_more`, the receiver's subscription during the transfer), `del_table_copy/2`, `move_table_copy/3`,
+    `change_table_copy_type/3` on another node, load at start from a running node (`load_reason`
+    `{active_remote, Node}`), `wait_for_tables/2`, `force_load_table/1`, `load_order`, `no_table_loaders`,
+    `mnesia_late_loader`.
+    - Golden `mnesia_replicas`: copies added, moved and dropped both ways, a node restarting and loading its
+      replicas from the other.
+  - **MIM1H10 Disc nodes:** `create_schema/1` over several nodes (both ways), disc schemas joined at start,
+    `delete_schema/1` of a remote node, schema changes logged and dumped on each disc node, `master_nodes`
+    (`set_master_nodes/1,2` deciding loads), `majority` checks (`{no_majority, Tab}`), `move_table_copy/3` between
+    disc nodes, partitions: `inconsistent_database` with `running_partitioned_network` and
+    `starting_partitioned_network`.
+    - Golden `mnesia_disc_nodes`: two disc nodes, one OTP and one Clause, created together, restarted in turn,
+      partitioned and rejoined.
+  - **MIM1H11 Checkpoints, backups and fallbacks over nodes:** retainers on other nodes (`max`/`min` redundancy,
+    `allow_remote`, `most_local_node`, `tm_prepare`, `collect_pending` and `{activate, Pending}`, retainers moving
+    with `add_table_copy`), backups reading remote retainers (`tab_copier`/`tab_receiver`), global fallbacks
+    installed on every disc node (`fallback_receiver`), `uninstall_fallback/0` everywhere, `restore/2` with
+    `recreate_tables` over nodes, `{mnesia_checkpoint_deactivated, Name}` when the last retainer node goes.
+    - Golden `mnesia_remote_backups`.
+  - **MIM1H12 Events and fragments over nodes:** table subscriptions where the replica is elsewhere
+    (`not_active_local`), `{mnesia_down, Node}` and `{mnesia_up, Node}` system events, activity events of
+    distributed transactions; fragmented tables spread over a `node_pool` of OTP and Clause nodes (`frag_dist`,
+    `remote_select`/`local_select`), `del_table_copy(schema, Node)` removing the node from pools
+    (`mnesia_frag:remove_node/2`). Golden `mnesia_remote_frag`.
+  - **Order and size:** H1 and H2 are single-node refactors and unlock the rest; H3–H5 make the nodes meet; H6–H8
+    are the transaction core; H9–H12 build on it. Each step is one commit with its golden; H8 and H9 are the largest
+    and may split further once their message tables are written.
 - **MIM2 `eldap`** (`eldap.hrl` and module `eldap`): `open`, `simple_bind`, `search` with the
   filter constructors (`equalityMatch`, `substrings`, `present`, `approxMatch`,
   `greaterOrEqual`, `lessOrEqual`, `extensibleMatch`), `close`. LDAPv3 over `gen_tcp`/`ssl` with
@@ -231,7 +338,7 @@ dependencies, non-test sources.
 
 ### Order
 
-1. MIM9's record wildcard fix, MIM6, MIM7 (MIM1A-MIM1G done 2026-11-02/03; MIM1H optional)
+1. MIM9's record wildcard fix, MIM6, MIM7 (MIM1A-MIM1G done 2026-11-02/03; MIM1H1-H12 optional, in order)
    (small), MIM3, MIM4, MIM2, MIM5; MIM8 after a user decision.
 2. LIB81D3c, LIB81D4b and LIB81E on request.
 3. LIB82, LIB83 last (test support).
