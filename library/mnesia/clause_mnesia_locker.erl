@@ -5,7 +5,7 @@
 -module(clause_mnesia_locker).
 -behaviour(gen_server).
 -export([start_link/0, held_locks/0, lock_queue/0, release_tid/1, release_tid_sync/1]).
--export([rlock/3, rlock_table/3, wlock/3, wlock_table/3, load_lock_table/3, rwlock/3]).
+-export([rlock/3, rlock_table/3, wlock/3, wlock_table/3, wlock_no_exist/4, load_lock_table/3, rwlock/3]).
 -export([sticky_wlock/3, sticky_wlock_table/3, sticky_rwlock/3, global_lock/5]).
 -export([init/1, handle_call/3, handle_cast/2]).
 
@@ -80,6 +80,19 @@ wlock(Tid, Store, {Tab, Key} = Oid, Op) ->
 
 wlock_table(Tid, Store, Tab) ->
     wlock(Tid, Store, {Tab, ?ALL}).
+
+% A table write lock taken while the table has active replicas, whether it is written anywhere or not, as
+% change_table_access_mode/2 takes it (MIM1C).
+wlock_no_exist(_, _, _, []) ->
+    ok;
+wlock_no_exist(Tid, Store, Tab, _Active) ->
+    case need_lock(Store, Tab, ?ALL, write) of
+        yes ->
+            ets:insert(Store, {{locks, Tab, ?ALL}, write}),
+            granted(request({write, Tid, {Tab, ?ALL}}), {Tab, ?ALL});
+        no ->
+            ok
+    end.
 
 load_lock_table(Tid, Store, Tab) ->
     wlock(Tid, Store, {Tab, ?ALL}).

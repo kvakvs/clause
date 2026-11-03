@@ -4,6 +4,8 @@
     {modules, [
         clause_mnesia_access,
         clause_mnesia_app,
+        clause_mnesia_change,
+        clause_mnesia_event,
         clause_mnesia_index,
         clause_mnesia_locker,
         clause_mnesia_monitor,

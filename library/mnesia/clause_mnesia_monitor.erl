@@ -1,10 +1,10 @@
 %% mnesia's monitor, registered as mnesia_monitor as in OTP (plan 21 step MIM1A, docs/libraries/mnesia.md#processes):
 %% it owns mnesia_gvar, the schema and every table, so they live as long as mnesia runs, reads the configuration
 %% parameters, and applies schema changes one at a time. Each change runs in a schema transaction (MIM1B), which takes
-%% OTP's locks before the monitor checks and applies it.
+%% OTP's locks and makes OTP's checks before the monitor applies it (MIM1C).
 -module(clause_mnesia_monitor).
 -behaviour(gen_server).
--export([start_link/0, schema_transaction/1, val/1, is_running/0, get_env/1, check_env/2, increment/1]).
+-export([start_link/0, schema_transaction/1, important/2, val/1, is_running/0, get_env/1, check_env/2, increment/1]).
 -export([init/1, handle_call/3, handle_cast/2, terminate/2]).
 
 -include("clause_mnesia.hrl").
@@ -12,7 +12,7 @@
 start_link() ->
     gen_server:start_link({local, mnesia_monitor}, ?MODULE, [], [{timeout, infinity}]).
 
-% A schema change (create_table, delete_table, add_index or del_index) as a schema transaction, run by a process of
+% A schema change (clause_mnesia_change:prepare/1's operations) as a schema transaction, run by a process of
 % its own as OTP's schema coordinator does: {atomic, ok} or {aborted, Reason}.
 schema_transaction(Operation) ->
     case is_running() of
@@ -28,27 +28,21 @@ schema_transaction(Operation) ->
             {aborted, {node_not_running, node()}}
     end.
 
-% The schema's write lock and the table's lock as OTP's schema transactions take them, then the change.
+% The change's locks and checks in the schema transaction, then the monitor applies it.
 schema_change(Operation) ->
-    {_, Tid, #tidstore{store = Store}} = get(mnesia_activity_state),
-    case Operation of
-        {_, schema} -> ok;
-        {_, schema, _} -> ok;
-        _ -> clause_mnesia_locker:wlock_table(Tid, Store, schema)
-    end,
-    table_lock(Tid, Store, Operation),
-    case gen_server:call(mnesia_monitor, {schema, Operation}, infinity) of
-        ok -> ok;
-        {aborted, Reason} -> mnesia:abort(Reason);
-        {not_implemented, _} = NotImplemented -> NotImplemented
+    case clause_mnesia_change:prepare(Operation) of
+        {not_implemented, _} = NotImplemented ->
+            NotImplemented;
+        Changes ->
+            case gen_server:call(mnesia_monitor, {schema, Changes}, infinity) of
+                ok -> ok;
+                {aborted, Reason} -> mnesia:abort(Reason)
+            end
     end.
 
-table_lock(Tid, Store, {delete_table, Tab}) when Tab =/= schema ->
-    ets:member(?GVAR, {Tab, cstruct}) andalso clause_mnesia_locker:wlock_table(Tid, Store, Tab);
-table_lock(Tid, Store, {Index, Tab, _}) when Index =:= add_index orelse Index =:= del_index, Tab =/= schema ->
-    clause_mnesia_locker:rlock_table(Tid, Store, Tab);
-table_lock(_, _, _) ->
-    ok.
+% A report to mnesia_event's handler, which prints it, as OTP's mnesia_lib:important/2 does (MIM1C).
+important(Format, Args) ->
+    gen_event:notify(mnesia_event, {mnesia_system_event, {mnesia_info, Format, Args}}).
 
 % A global variable; a missing table's where_to_read is nowhere, its writers and replicas none, and any other
 % missing variable aborts with node_not_running or no_exists.
@@ -229,6 +223,7 @@ positives() ->
 init([]) ->
     process_flag(trap_exit, true),
     ets:new(?GVAR, [set, public, named_table]),
+    ets:new(mnesia_decision, [set, public, named_table, {keypos, 2}]),
     set(mnesia_status, starting),
     [set(Name, get_env(Name)) || Name <- parameters()],
     {ok, Version} = application:get_key(mnesia, vsn),
@@ -238,22 +233,16 @@ init([]) ->
     set(mnesia_status, running),
     {ok, []}.
 
-% A schema change, checked and applied: ok or {aborted, Reason}.
-handle_call({schema, Operation}, _From, State) ->
+% A schema transaction's changes, applied in order: ok or {aborted, Reason}.
+handle_call({schema, Changes}, _From, State) ->
     Result =
         try
-            run(Operation)
+            lists:foreach(fun clause_mnesia_schema:apply_change/1, Changes)
         catch
             exit:{aborted, Reason} -> {aborted, Reason};
-            throw:{not_implemented, _} = NotImplemented -> NotImplemented;
-            Class:Reason:Stack when Class =/= throw -> {aborted, {Reason, Stack}}
+            _:Reason:Stack -> {aborted, {Reason, Stack}}
         end,
     {reply, Result, State}.
-
-run({create_table, Def}) -> clause_mnesia_schema:create_table(Def);
-run({delete_table, Tab}) -> clause_mnesia_schema:delete_table(Tab);
-run({add_index, Tab, Attribute}) -> clause_mnesia_schema:add_index(Tab, Attribute);
-run({del_index, Tab, Attribute}) -> clause_mnesia_schema:del_index(Tab, Attribute).
 
 handle_cast(_, State) ->
     {noreply, State}.

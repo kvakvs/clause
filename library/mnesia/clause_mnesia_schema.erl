@@ -1,6 +1,6 @@
 %% mnesia's schema (plan 21 step MIM1A, docs/libraries/mnesia.md#schema): table definitions checked as OTP checks
-%% them, the properties each table keeps in mnesia_gvar, and the schema operations. Operations run in the
-%% mnesia_monitor process, which owns every table; their checks abort with OTP's reasons in OTP's order.
+%% them, the properties each table keeps in mnesia_gvar, and the changes of schema transactions, which
+%% clause_mnesia_change prepares and the mnesia_monitor process, owner of every table, applies here.
 -module(clause_mnesia_schema).
 -export([
     cstruct/1,
@@ -8,10 +8,9 @@
     cs2list/1,
     schema_cstruct/0,
     init_schema/0,
-    create_table/1,
-    delete_table/1,
-    add_index/2,
-    del_index/2,
+    apply_change/1,
+    storage/1,
+    storage/2,
     properties/1,
     attribute_position/2,
     print/1
@@ -21,6 +20,8 @@
 
 %% The fields a table definition may name (create_table/2's options).
 -define(FIELDS, record_info(fields, cstruct)).
+%% The properties a table keeps as it runs, which a changed definition leaves alone (MIM1C).
+-define(RUNTIME, [checkpoints, commit_work, index, load_by_force, subscribers]).
 
 % A table definition ({Option, Value} list with name) as a cstruct, with OTP's checks of the options.
 cstruct(Def) when is_list(Def) ->
@@ -279,117 +280,106 @@ init_schema() ->
     set({schema, local_tables}, []),
     insert(Cs, initial).
 
-% create_table/1: the definition checked, then the table, its indexes and properties made on this node.
-create_table(Def) ->
-    Cs0 = cstruct(Def),
-    Tab = Cs0#cstruct.name,
-    exists(Tab) andalso abort({already_exists, Tab}),
-    Cs = verify(Cs0),
-    Running = val({current, db_nodes}),
-    [
-        abort({not_active, Tab, N})
-     || N <- Cs#cstruct.disc_copies ++ Cs#cstruct.disc_only_copies, not lists:member(N, Running)
-    ],
-    check_local_storage(Cs),
-    Cs#cstruct.frag_properties =:= [] orelse throw({not_implemented, frag_properties}),
-    insert(Cs, {dumper, create_table}),
-    ok.
+% A schema transaction's change, applied in mnesia_monitor, which owns the tables (MIM1C).
+apply_change({create, Cs}) ->
+    insert(Cs, {dumper, create_table});
+apply_change({delete, Tab}) ->
+    drop_replica(Tab),
+    ets:match_delete(?GVAR, {{Tab, '_'}, '_'}),
+    ets:match_delete(?GVAR, {{Tab, '_', '_'}, '_'}),
+    ets:delete(schema, Tab),
+    set({schema, tables}, lists:delete(Tab, val({schema, tables})));
+apply_change({add_index, #cstruct{name = Tab} = Cs, Index}) ->
+    redefine(Cs),
+    clause_mnesia_index:add(Tab, Index);
+apply_change({del_index, #cstruct{name = Tab} = Cs, Pos}) ->
+    redefine(Cs),
+    clause_mnesia_index:drop(Tab, Pos);
+apply_change({transform, #cstruct{name = Tab, type = Type} = Cs, Changes}) ->
+    Positions = lists:reverse([P || {{P, _}, _} <- (val({Tab, index_info}))#index.pos_list]),
+    [clause_mnesia_index:drop(Tab, P) || P <- Positions],
+    [transform_key(Tab, Type, Change) || Change <- Changes],
+    redefine(Cs),
+    [clause_mnesia_index:add(Tab, {P, ordered}) || P <- Positions];
+apply_change({redefine, Cs}) ->
+    redefine(Cs).
 
-% A RAM schema holds no disc tables on this node.
-check_local_storage(#cstruct{name = Tab} = Cs) ->
-    case storage(Cs) of
-        disc_copies -> abort({bad_type, Tab, disc_copies, node()});
-        disc_only_copies -> abort({bad_type, Tab, disc_only_copies, node()});
-        _ -> ok
+% A key's transformed records replace its old ones; a bag's key keeps only its written records, as in OTP.
+transform_key(Tab, bag, {Key, Written, _}) ->
+    ets:delete(Tab, Key),
+    ets:insert(Tab, Written);
+transform_key(Tab, _, {Key, [], _}) ->
+    ets:delete(Tab, Key);
+transform_key(Tab, _, {_, Written, _}) ->
+    ets:insert(Tab, Written).
+
+% A changed definition replaces the schema record and the properties it sets; a replica on this node comes or goes
+% with its node lists, and its writers follow the access mode and majority.
+redefine(#cstruct{name = Tab} = Cs) ->
+    ets:insert(schema, {schema, Tab, cs2list(Cs)}),
+    [set({Tab, Item}, Value) || {Item, Value} <- definition_properties(Cs), not lists:member(Item, ?RUNTIME)],
+    ets:match_delete(?GVAR, {{Tab, user_property, '_'}, '_'}),
+    set_user_properties(Cs),
+    case {val({Tab, storage_type}), storage(Cs)} of
+        {unknown, unknown} ->
+            ok;
+        {unknown, Storage} ->
+            Tab =/= schema andalso make_storage(Cs),
+            loaded(Cs, Storage, {dumper, add_table_copy});
+        {_, unknown} ->
+            drop_replica(Tab),
+            [set({Tab, Item}, Value) || {Item, Value} <- absent_properties()];
+        {_, Storage} ->
+            [set({Tab, Item}, Value) || {Item, Value} <- writer_properties(Cs, Storage)]
     end.
 
-exists(Tab) ->
-    ets:member(?GVAR, {Tab, cstruct}).
-
-% delete_table/1: the table, its index tables and properties go.
-delete_table(schema) ->
-    abort({bad_type, schema});
-delete_table(Tab) ->
-    exists(Tab) orelse abort({no_exists, Tab}),
-    active(Tab),
-    val({Tab, where_to_write}) =:= [] andalso abort({read_only, Tab}),
-    [ets:delete(Ixt) || {_, {ram, Ixt}} <- (val({Tab, index_info}))#index.pos_list],
-    storage(val({Tab, cstruct})) =:= ram_copies andalso ets:delete(Tab),
-    ets:match_delete(?GVAR, {{Tab, '_'}, '_'}),
-    ets:delete(schema, Tab),
-    set({schema, tables}, lists:delete(Tab, val({schema, tables}))),
-    set({schema, local_tables}, lists:delete(Tab, val({schema, local_tables}))),
-    ok.
-
-% A schema change needs the table active here.
-active(Tab) ->
-    val({Tab, active_replicas}) =:= [] andalso abort({no_exists, Tab}).
-
-% add_table_index/2: a new index position, filled from the table's records.
-add_index(schema, _) ->
-    abort({bad_type, schema});
-add_index(Tab, Attribute) ->
-    readable(Tab),
-    Pos = attribute_position(Attribute, val({Tab, attributes})),
-    Cs = next_version(val({Tab, cstruct})),
-    active(Tab),
-    lists:keymember(index_position(Pos), 1, Cs#cstruct.index) andalso abort({already_exists, Tab, Pos}),
-    Cs2 = verify(Cs#cstruct{index = lists:sort([Pos | Cs#cstruct.index])}),
-    update(Cs2),
-    clause_mnesia_index:add(Tab, lists:keyfind(Pos, 1, Cs2#cstruct.index)),
-    ok.
-
-% del_table_index/2: the position's index goes.
-del_index(schema, _) ->
-    abort({bad_type, schema});
-del_index(Tab, Attribute) ->
-    readable(Tab),
-    Pos = attribute_position(Attribute, val({Tab, attributes})),
-    Cs = next_version(val({Tab, cstruct})),
-    active(Tab),
-    lists:keymember(Pos, 1, Cs#cstruct.index) orelse abort({no_exists, Tab, Pos}),
-    update(verify(Cs#cstruct{index = lists:keydelete(Pos, 1, Cs#cstruct.index)})),
-    clause_mnesia_index:drop(Tab, Pos),
-    ok.
-
-% A table read lock's check: the table has a replica to read.
-readable(Tab) ->
-    val({Tab, where_to_read}) =:= nowhere andalso abort({no_exists, Tab}).
-
-index_position({P, _}) -> P;
-index_position(P) -> P.
-
-% A changed definition gets the next major version, stamped with this node and the time.
-next_version(#cstruct{version = {{Major, _}, _}} = Cs) ->
-    Cs#cstruct{version = {{Major + 1, 0}, {node(), erlang:timestamp()}}}.
-
-% A changed definition replaces the schema record and the properties it sets.
-update(#cstruct{name = Tab} = Cs) ->
-    ets:insert(schema, {schema, Tab, cs2list(Cs)}),
-    set({Tab, cstruct}, Cs),
-    set({Tab, version}, Cs#cstruct.version).
+% This node's replica of a table goes: its storage, its index tables and its properties as a local table.
+drop_replica(Tab) ->
+    case val({Tab, storage_type}) of
+        unknown ->
+            ok;
+        Storage ->
+            #index{pos_list = Positions} = val({Tab, index_info}),
+            [ets:delete(Ixt) || {_, {ram, Ixt}} <- Positions],
+            Storage =:= ram_copies andalso ets:delete(Tab),
+            ets:match_delete(?GVAR, {{Tab, {index, '_'}}, '_'}),
+            ets:delete(?GVAR, {Tab, index_info}),
+            set({Tab, commit_work}, []),
+            set({schema, local_tables}, lists:delete(Tab, val({schema, local_tables})))
+    end.
 
 % A new table: its record in the schema, its properties and, on this node, its storage and indexes.
 insert(#cstruct{name = Tab} = Cs, Reason) ->
     ets:insert(schema, {schema, Tab, cs2list(Cs)}),
     [set({Tab, Item}, Value) || {Item, Value} <- definition_properties(Cs)],
     set({schema, tables}, [Tab | val({schema, tables})]),
+    set_user_properties(Cs),
     case storage(Cs) of
         unknown ->
             [set({Tab, Item}, Value) || {Item, Value} <- absent_properties()];
         Storage ->
             Tab =/= schema andalso make_storage(Cs),
-            [set({Tab, Item}, Value) || {Item, Value} <- loaded_properties(Cs, Storage, Reason)],
-            set({schema, local_tables}, [Tab | val({schema, local_tables})]),
-            [clause_mnesia_index:add(Tab, P) || P <- Cs#cstruct.index]
+            loaded(Cs, Storage, Reason)
     end.
+
+% A replica loaded on this node: its properties, its place among the local tables and its indexes.
+loaded(#cstruct{name = Tab} = Cs, Storage, Reason) ->
+    [set({Tab, Item}, Value) || {Item, Value} <- loaded_properties(Cs, Storage, Reason)],
+    set({schema, local_tables}, [Tab | val({schema, local_tables})]),
+    [clause_mnesia_index:add(Tab, P) || P <- Cs#cstruct.index].
+
+% read_table_property/2's rows: each user property under its key (MIM1C).
+set_user_properties(#cstruct{name = Tab, user_properties = Properties}) ->
+    [set({Tab, user_property, element(1, P)}, P) || P <- Properties].
 
 make_storage(#cstruct{name = Tab, type = Type, storage_properties = Properties}) ->
     ets:new(Tab, [Type, public, named_table, {keypos, 2} | proplists:get_value(ets, Properties, [])]).
 
-% This node's storage of a table: ram_copies, disc_copies, disc_only_copies or unknown.
-storage(#cstruct{ram_copies = Ram, disc_copies = Disc, disc_only_copies = DiscOnly}) ->
-    Node = node(),
+% A node's storage of a table: ram_copies, disc_copies, disc_only_copies or unknown.
+storage(Cs) ->
+    storage(node(), Cs).
+
+storage(Node, #cstruct{ram_copies = Ram, disc_copies = Disc, disc_only_copies = DiscOnly}) ->
     case {lists:member(Node, Ram), lists:member(Node, Disc), lists:member(Node, DiscOnly)} of
         {true, _, _} -> ram_copies;
         {_, true, _} -> disc_copies;
@@ -413,7 +403,7 @@ definition_properties(#cstruct{attributes = Attributes, record_name = RecordName
         {disc_only_copies, Cs#cstruct.disc_only_copies},
         {external_copies, Cs#cstruct.external_copies},
         {frag_properties, Cs#cstruct.frag_properties},
-        {index, [index_position(P) || P <- Cs#cstruct.index]},
+        {index, [P || {P, _} <- Cs#cstruct.index]},
         {load_by_force, false},
         {load_order, Cs#cstruct.load_order},
         {local_content, Cs#cstruct.local_content},
@@ -442,22 +432,28 @@ absent_properties() ->
         {where_to_write, []}
     ].
 
-% The properties of a table loaded on this node; a read_only table is written nowhere.
-loaded_properties(#cstruct{access_mode = Access, majority = Majority, type = Type}, Storage, Reason) ->
+% The properties of a table loaded on this node.
+loaded_properties(#cstruct{type = Type} = Cs, Storage, Reason) ->
     Node = node(),
-    Writers =
-        case Access of
-            read_write -> [Node];
-            read_only -> []
-        end,
     [
         {active_replicas, [Node]},
         {index_info, #index{setorbag = Type}},
         {load_node, Node},
         {load_reason, Reason},
         {storage_type, Storage},
+        {where_to_read, Node}
+        | writer_properties(Cs, Storage)
+    ].
+
+% Where a loaded table is written: nowhere when read_only.
+writer_properties(#cstruct{access_mode = Access, majority = Majority}, Storage) ->
+    Writers =
+        case Access of
+            read_write -> [node()];
+            read_only -> []
+        end,
+    [
         {where_to_commit, [{N, Storage} || N <- Writers]},
-        {where_to_read, Node},
         {where_to_wlock, {Writers, Majority}},
         {where_to_write, Writers}
     ].
@@ -470,7 +466,10 @@ properties(Tab) ->
             [];
         Rows ->
             Measured = [{size, mnesia:table_info(Tab, size)}, {memory, mnesia:table_info(Tab, memory)}],
-            lists:sort([{master_nodes, []} | Measured] ++ [{Item, Value} || {{_, Item}, Value} <- Rows])
+            lists:sort(
+                [{master_nodes, mnesia:table_info(Tab, master_nodes)} | Measured] ++
+                    [{Item, Value} || {{_, Item}, Value} <- Rows]
+            )
     end.
 
 % schema/1: a table's properties on the terminal.

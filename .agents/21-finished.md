@@ -256,3 +256,8 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   (select chunks included), nesting, activities and access modules, schema changes as schema transactions (the new
   table's lock of `create_table` is not taken: nothing can hold it); `mnesia_transactions` golden identical to OTP —
   `fd700851`
+- **MIM1C** mnesia schema changes: `clear_table` (a transaction cleared at the commit), `transform_table`, table copies
+  and copy types, user properties, access mode, load order, majority, master nodes (`mnesia_decision`),
+  `force_load_table`, `change_config`, `set_debug_level`; schema transactions take OTP's locks and checks in the
+  coordinator (`clause_mnesia_change`) and `mnesia_monitor` applies; default `mnesia_event` handler for info reports;
+  `mnesia_schema_changes` golden identical to OTP — `PENDING`

@@ -182,5 +182,7 @@ behavior (`docs/differences.md` lists gaps).
   (PARTIAL, MIM1A: RAM schema, dirty access and indexes over ets tables owned by `mnesia_monitor`, schema changes
   serialized there; `mnesia_gvar` keeps OTP's `{Tab, Item}` rows, so `table_info`/`schema/1` list OTP's items;
   MIM1B: transactions run in the caller over a store ets owned by `mnesia_tm`, which commits; `mnesia_locker` queues
-  older/refuses younger; schema changes are schema transactions in a spawned coordinator). Distribution and tracing
+  older/refuses younger; schema changes are schema transactions in a spawned coordinator; MIM1C: the coordinator takes
+  OTP's locks and checks (`clause_mnesia_change`, transform functions too), `mnesia_monitor` applies the changes).
+  Distribution and tracing
   answer as a non-alive node.

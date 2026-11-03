@@ -18,9 +18,13 @@ stop(_State) ->
 start_supervisor(Name) ->
     supervisor:start_link({local, Name}, ?MODULE, Name).
 
-% The event manager mnesia reports system events to.
+% The event manager mnesia reports system events to, with the event_module parameter's handler (MIM1C).
 start_event() ->
-    gen_event:start_link({local, mnesia_event}).
+    {ok, Pid} = gen_event:start_link({local, mnesia_event}),
+    case clause_mnesia_event:add_handler() of
+        ok -> {ok, Pid};
+        Error -> Error
+    end.
 
 % Every child stops mnesia as a whole: none restarts.
 init(mnesia_sup) ->

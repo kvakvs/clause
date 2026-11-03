@@ -1,7 +1,8 @@
 %% Clause's mnesia (plan 21 step MIM1, docs/libraries/mnesia.md): a database of ets tables owned by mnesia_monitor,
 %% with OTP's results, errors and table properties. Step MIM1A provides starting and stopping, the RAM schema and its
 %% information, dirty access and indexes; MIM1B transactions, activities and access modules. Disc storage, events,
-%% backups and fragments follow in MIM1C-MIM1G, and their functions raise not_implemented until then.
+%% backups and fragments follow in MIM1D-MIM1G, and their functions raise not_implemented until then. Step MIM1C
+%% adds the other schema changes, user properties, master nodes and configuration changes.
 -module(mnesia).
 -export([
     start/0,
@@ -13,6 +14,25 @@
     delete_table/1,
     add_table_index/2,
     del_table_index/2,
+    clear_table/1,
+    clear_table/4,
+    transform_table/3,
+    transform_table/4,
+    add_table_copy/3,
+    del_table_copy/2,
+    move_table_copy/3,
+    change_table_copy_type/3,
+    read_table_property/2,
+    write_table_property/2,
+    delete_table_property/2,
+    change_table_access_mode/2,
+    change_table_load_order/2,
+    change_table_majority/2,
+    set_master_nodes/1,
+    set_master_nodes/2,
+    force_load_table/1,
+    change_config/2,
+    set_debug_level/1,
     table_info/2,
     table_info/4,
     raw_table_info/2,
@@ -135,43 +155,27 @@
 -export([
     activate_checkpoint/1,
     add_backend_type/2,
-    add_table_copy/3,
     backup/1,
     backup/2,
     backup_checkpoint/2,
     backup_checkpoint/3,
-    change_config/2,
-    change_table_access_mode/2,
-    change_table_copy_type/3,
     change_table_frag/2,
-    change_table_load_order/2,
-    change_table_majority/2,
-    clear_table/1,
-    clear_table/4,
     create_schema/1,
     create_schema/2,
     deactivate_checkpoint/1,
-    del_table_copy/2,
     delete_schema/1,
-    delete_table_property/2,
     dump_log/0,
     dump_tables/1,
     dump_to_textfile/1,
-    force_load_table/1,
     info/0,
     install_fallback/1,
     install_fallback/2,
     kill/0,
     lkill/0,
     load_textfile/1,
-    move_table_copy/3,
     ms/0,
-    read_table_property/2,
     report_event/1,
     restore/2,
-    set_debug_level/1,
-    set_master_nodes/1,
-    set_master_nodes/2,
     snmp_close_table/1,
     snmp_get_mnesia_key/2,
     snmp_get_next_index/2,
@@ -182,14 +186,11 @@
     system_info/0,
     table/1,
     table/2,
-    transform_table/3,
-    transform_table/4,
     traverse_backup/4,
     traverse_backup/6,
     uninstall_fallback/0,
     uninstall_fallback/1,
-    unsubscribe/1,
-    write_table_property/2
+    unsubscribe/1
 ]).
 
 -include("clause_mnesia.hrl").
@@ -257,6 +258,63 @@ add_table_index(Tab, Attribute) ->
 del_table_index(Tab, Attribute) ->
     schema_operation({del_index, Tab, Attribute}).
 
+% clear_table/1: a transaction of its own, also inside a dirty activity, never inside a transaction (MIM1C).
+clear_table(Tab) ->
+    case get(mnesia_activity_state) of
+        {Mod, Tid, _} = State when element(1, Tid) =/= tid ->
+            transaction(State, fun() -> access(clear_table, [Tab, '_']) end, [], infinity, Mod, sync);
+        undefined ->
+            transaction(undefined, fun() -> access(clear_table, [Tab, '_']) end, [], infinity, mnesia, sync);
+        _ ->
+            abort({aborted, nested_transaction})
+    end.
+
+clear_table(Tid, Ts, Tab, Pattern) ->
+    clause_mnesia_access:clear_table(Tid, Ts, Tab, Pattern).
+
+% transform_table/3 keeps the table's record name.
+transform_table(Tab, Fun, Attributes) ->
+    transform_table(Tab, Fun, Attributes, val({Tab, record_name})).
+
+transform_table(Tab, Fun, Attributes, RecordName) when
+    is_function(Fun) orelse Fun =:= ignore, is_list(Attributes), is_atom(RecordName)
+->
+    schema_operation({transform, Tab, Fun, Attributes, RecordName});
+transform_table(Tab, Fun, Attributes, RecordName) ->
+    {aborted, {bad_type, Tab, Fun, Attributes, RecordName}}.
+
+add_table_copy(Tab, Node, Storage) ->
+    schema_operation({add_copy, Tab, Node, Storage}).
+
+del_table_copy(Tab, Node) ->
+    schema_operation({del_copy, Tab, Node}).
+
+move_table_copy(Tab, From, To) ->
+    schema_operation({move_copy, Tab, From, To}).
+
+change_table_copy_type(Tab, Node, Storage) ->
+    schema_operation({copy_type, Tab, Node, Storage}).
+
+read_table_property(Tab, Key) ->
+    val({Tab, user_property, Key}).
+
+write_table_property(Tab, Property) when tuple_size(Property) >= 1 ->
+    schema_operation({write_property, Tab, Property});
+write_table_property(Tab, Property) ->
+    {aborted, {bad_type, Tab, Property}}.
+
+delete_table_property(Tab, Key) ->
+    schema_operation({delete_property, Tab, Key}).
+
+change_table_access_mode(Tab, Mode) ->
+    schema_operation({access_mode, Tab, Mode}).
+
+change_table_load_order(Tab, Order) ->
+    schema_operation({load_order, Tab, Order}).
+
+change_table_majority(Tab, Majority) when is_boolean(Majority) ->
+    schema_operation({majority, Tab, Majority}).
+
 schema_operation(Operation) ->
     case get(mnesia_activity_state) of
         undefined -> schema_result(clause_mnesia_monitor:schema_transaction(Operation));
@@ -265,6 +323,125 @@ schema_operation(Operation) ->
 
 schema_result({atomic, {not_implemented, Feature}}) -> erlang:error({not_implemented, Feature});
 schema_result(Result) -> Result.
+
+%% Master nodes, loading and configuration (MIM1C).
+
+% Every table's master nodes: those of the given nodes that hold a replica of it.
+set_master_nodes(Nodes) when is_list(Nodes) ->
+    case clause_mnesia_monitor:is_running() of
+        yes ->
+            Tables = [Cs || {_, Cs} <- ets:match_object(?GVAR, {{'_', cstruct}, '_'})],
+            lists:foreach(fun(Cs) -> masters(Cs#cstruct.name, holders_among(Nodes, Cs)) end, Tables);
+        _ ->
+            ok
+    end;
+set_master_nodes(Nodes) ->
+    {error, {bad_type, Nodes}}.
+
+% A table's master nodes, each of which must hold a replica of it.
+set_master_nodes(Tab, Nodes) when is_list(Nodes) ->
+    case clause_mnesia_monitor:is_running() of
+        yes ->
+            case ets:lookup(?GVAR, {Tab, cstruct}) of
+                [] ->
+                    {error, {no_exists, Tab}};
+                [{_, Cs}] ->
+                    case Nodes -- holders(Cs) of
+                        [] -> masters(Tab, Nodes);
+                        Missing -> {error, {no_exists, Tab, Missing}}
+                    end
+            end;
+        _ ->
+            ok
+    end;
+set_master_nodes(Tab, Nodes) ->
+    {error, {bad_type, Tab, Nodes}}.
+
+masters(Tab, []) ->
+    ets:delete(mnesia_decision, {tab, Tab}),
+    ok;
+masters(Tab, Nodes) ->
+    ets:insert(mnesia_decision, {master_nodes, {tab, Tab}, Nodes}),
+    ok.
+
+master_nodes(Tab) ->
+    try
+        ets:lookup_element(mnesia_decision, {tab, Tab}, 3)
+    catch
+        error:_ -> []
+    end.
+
+holders(#cstruct{ram_copies = Ram, disc_copies = Disc, disc_only_copies = DiscOnly}) ->
+    Ram ++ Disc ++ DiscOnly.
+
+holders_among(Nodes, Cs) ->
+    [N || N <- holders(Cs), lists:member(N, Nodes)].
+
+% A table loaded here is loaded; one without a replica here waits for its load, as OTP's does.
+force_load_table(Tab) when is_atom(Tab), Tab =/= schema ->
+    try ets:lookup_element(?GVAR, {Tab, storage_type}, 2) of
+        unknown ->
+            ets:insert(?GVAR, {{Tab, load_by_force}, true}),
+            loaded_by_force(wait_for_tables([Tab], infinity));
+        _ ->
+            yes
+    catch
+        error:_ -> {error, {no_exists, Tab}}
+    end;
+force_load_table(Tab) ->
+    {error, {bad_type, Tab}}.
+
+loaded_by_force(ok) -> yes;
+loaded_by_force(Other) -> Other.
+
+% extra_db_nodes connects the nodes that run mnesia, after a schema merge; dc_dump_limit takes effect at once.
+change_config(extra_db_nodes, Nodes) when is_list(Nodes) ->
+    case clause_mnesia_monitor:is_running() of
+        yes ->
+            case clause_mnesia_monitor:schema_transaction(merge_schema) of
+                {atomic, _} -> connected(Nodes);
+                Aborted -> {error, Aborted}
+            end;
+        _ ->
+            {error, {node_not_running, node()}}
+    end;
+change_config(dc_dump_limit, Limit) when is_number(Limit), Limit > 0 ->
+    case clause_mnesia_monitor:is_running() of
+        yes ->
+            ets:insert(?GVAR, {dc_dump_limit, Limit}),
+            {ok, Limit};
+        _ ->
+            {error, {not_started, mnesia}}
+    end;
+change_config(Key, _) ->
+    {error, {badarg, Key}}.
+
+% The given nodes that run mnesia with this one join extra_db_nodes.
+connected(Nodes) ->
+    Connected = [N || N <- val({current, db_nodes}), lists:member(N, Nodes)],
+    Extra = clause_mnesia_monitor:get_env(extra_db_nodes),
+    ets:insert(?GVAR, {extra_db_nodes, [N || N <- Extra, not lists:member(N, Connected)] ++ Connected}),
+    {ok, Connected}.
+
+% The debug level: the application environment's at once, the running level when mnesia runs; the previous level back.
+set_debug_level(Level) ->
+    Old = application:get_env(mnesia, debug),
+    try clause_mnesia_monitor:check_env(debug, Level) of
+        New ->
+            ok = application:set_env(mnesia, debug, New),
+            case clause_mnesia_monitor:is_running() of
+                no when Old =:= undefined ->
+                    none;
+                no ->
+                    element(2, Old);
+                _ ->
+                    Running = val(debug),
+                    ets:insert(?GVAR, {debug, New}),
+                    Running
+            end
+    catch
+        error:_ -> {error, {bad_type, debug, Level}}
+    end.
 
 %% Information.
 
@@ -282,7 +459,7 @@ table_info(_Tid, _Ts, Tab, Item) ->
 
 any_table_info(Tab, Item) when is_atom(Tab) ->
     case Item of
-        master_nodes -> [];
+        master_nodes -> master_nodes(Tab);
         size -> raw_table_info(Tab, Item);
         memory -> raw_table_info(Tab, Item);
         type -> gvar({Tab, setorbag}, {no_exists, Tab, type});
@@ -394,7 +571,11 @@ running_info(transaction_restarts) ->
 running_info(schema_version) ->
     schema_version();
 running_info(master_node_tables) ->
-    [];
+    try
+        [Tab || {master_nodes, {tab, Tab}, _} <- ets:tab2list(mnesia_decision)]
+    catch
+        error:badarg -> []
+    end;
 running_info(backend_types) ->
     [ram_copies, disc_copies, disc_only_copies];
 running_info(log_version) ->
@@ -1109,43 +1290,27 @@ val(Name) -> clause_mnesia_monitor:val(Name).
 
 activate_checkpoint(_) -> erlang:error({not_implemented, activate_checkpoint, 1}).
 add_backend_type(_, _) -> erlang:error({not_implemented, add_backend_type, 2}).
-add_table_copy(_, _, _) -> erlang:error({not_implemented, add_table_copy, 3}).
 backup(_) -> erlang:error({not_implemented, backup, 1}).
 backup(_, _) -> erlang:error({not_implemented, backup, 2}).
 backup_checkpoint(_, _) -> erlang:error({not_implemented, backup_checkpoint, 2}).
 backup_checkpoint(_, _, _) -> erlang:error({not_implemented, backup_checkpoint, 3}).
-change_config(_, _) -> erlang:error({not_implemented, change_config, 2}).
-change_table_access_mode(_, _) -> erlang:error({not_implemented, change_table_access_mode, 2}).
-change_table_copy_type(_, _, _) -> erlang:error({not_implemented, change_table_copy_type, 3}).
 change_table_frag(_, _) -> erlang:error({not_implemented, change_table_frag, 2}).
-change_table_load_order(_, _) -> erlang:error({not_implemented, change_table_load_order, 2}).
-change_table_majority(_, _) -> erlang:error({not_implemented, change_table_majority, 2}).
-clear_table(_) -> erlang:error({not_implemented, clear_table, 1}).
-clear_table(_, _, _, _) -> erlang:error({not_implemented, clear_table, 4}).
 create_schema(_) -> erlang:error({not_implemented, create_schema, 1}).
 create_schema(_, _) -> erlang:error({not_implemented, create_schema, 2}).
 deactivate_checkpoint(_) -> erlang:error({not_implemented, deactivate_checkpoint, 1}).
-del_table_copy(_, _) -> erlang:error({not_implemented, del_table_copy, 2}).
 delete_schema(_) -> erlang:error({not_implemented, delete_schema, 1}).
-delete_table_property(_, _) -> erlang:error({not_implemented, delete_table_property, 2}).
 dump_log() -> erlang:error({not_implemented, dump_log, 0}).
 dump_tables(_) -> erlang:error({not_implemented, dump_tables, 1}).
 dump_to_textfile(_) -> erlang:error({not_implemented, dump_to_textfile, 1}).
-force_load_table(_) -> erlang:error({not_implemented, force_load_table, 1}).
 info() -> erlang:error({not_implemented, info, 0}).
 install_fallback(_) -> erlang:error({not_implemented, install_fallback, 1}).
 install_fallback(_, _) -> erlang:error({not_implemented, install_fallback, 2}).
 kill() -> erlang:error({not_implemented, kill, 0}).
 lkill() -> erlang:error({not_implemented, lkill, 0}).
 load_textfile(_) -> erlang:error({not_implemented, load_textfile, 1}).
-move_table_copy(_, _, _) -> erlang:error({not_implemented, move_table_copy, 3}).
 ms() -> erlang:error({not_implemented, ms, 0}).
-read_table_property(_, _) -> erlang:error({not_implemented, read_table_property, 2}).
 report_event(_) -> erlang:error({not_implemented, report_event, 1}).
 restore(_, _) -> erlang:error({not_implemented, restore, 2}).
-set_debug_level(_) -> erlang:error({not_implemented, set_debug_level, 1}).
-set_master_nodes(_) -> erlang:error({not_implemented, set_master_nodes, 1}).
-set_master_nodes(_, _) -> erlang:error({not_implemented, set_master_nodes, 2}).
 snmp_close_table(_) -> erlang:error({not_implemented, snmp_close_table, 1}).
 snmp_get_mnesia_key(_, _) -> erlang:error({not_implemented, snmp_get_mnesia_key, 2}).
 snmp_get_next_index(_, _) -> erlang:error({not_implemented, snmp_get_next_index, 2}).
@@ -1156,11 +1321,8 @@ sync_log() -> erlang:error({not_implemented, sync_log, 0}).
 system_info() -> erlang:error({not_implemented, system_info, 0}).
 table(_) -> erlang:error({not_implemented, table, 1}).
 table(_, _) -> erlang:error({not_implemented, table, 2}).
-transform_table(_, _, _) -> erlang:error({not_implemented, transform_table, 3}).
-transform_table(_, _, _, _) -> erlang:error({not_implemented, transform_table, 4}).
 traverse_backup(_, _, _, _) -> erlang:error({not_implemented, traverse_backup, 4}).
 traverse_backup(_, _, _, _, _, _) -> erlang:error({not_implemented, traverse_backup, 6}).
 uninstall_fallback() -> erlang:error({not_implemented, uninstall_fallback, 0}).
 uninstall_fallback(_) -> erlang:error({not_implemented, uninstall_fallback, 1}).
 unsubscribe(_) -> erlang:error({not_implemented, unsubscribe, 1}).
-write_table_property(_, _) -> erlang:error({not_implemented, write_table_property, 2}).

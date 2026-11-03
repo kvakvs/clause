@@ -163,15 +163,18 @@ commit() ->
             inner
     end.
 
-% Each written record's operations, in the order the transaction made them.
+% Each written record's operations, in the order the transaction made them, after the tables it clears.
 apply_writes(Store) ->
+    Clears = ets:match_object(Store, {'_', '_', clear_table}),
     Oids = lists:usort(ets:select(Store, [{{'$1', '_', '_'}, [{is_tuple, '$1'}, {'=:=', {size, '$1'}, 2}], ['$1']}])),
-    [apply_write(Op) || Oid <- Oids, Op <- ets:lookup(Store, Oid)],
+    [apply_write(Op) || Op <- Clears],
+    [apply_write(Op) || Oid <- Oids, Op <- ets:lookup(Store, Oid), element(3, Op) =/= clear_table],
     ok.
 
 apply_write({{Tab, Key}, Val, write}) -> update(Tab, Key, {write, Val});
 apply_write({{Tab, Key}, _, delete}) -> update(Tab, Key, delete);
 apply_write({{Tab, Key}, Val, delete_object}) -> update(Tab, Key, {delete_object, Val});
+apply_write({{Tab, Key}, Pattern, clear_table}) -> update(Tab, Key, {clear_table, Pattern});
 apply_write(_) -> ok.
 
 update(Tab, Key, Update) ->

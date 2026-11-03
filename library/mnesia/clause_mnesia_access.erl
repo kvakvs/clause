@@ -6,7 +6,7 @@
 -export([write/5, delete/5, delete_object/5, read/5, match_object/5, all_keys/4]).
 -export([first/3, last/3, next/4, prev/4, foldl/6, foldr/6]).
 -export([select/5, select/6, select_reverse/5, select_reverse/6, select_cont/3, fun_select/7, fun_select/10]).
--export([dirty_sel_init/5, index_read/6, index_match_object/6, lock/4]).
+-export([dirty_sel_init/5, index_read/6, index_match_object/6, lock/4, clear_table/4]).
 -export([update/3, validate_record/2, uniq/1]).
 
 -include("clause_mnesia.hrl").
@@ -55,6 +55,13 @@ delete(Tid, Ts, Tab, Key, Kind) when is_atom(Tab), Tab =/= schema ->
     end;
 delete(_, _, Tab, _, _) ->
     abort({bad_type, Tab}).
+
+% clear_table/1 in a transaction: the table's write lock and a clear of the records matching Pattern at the commit
+% (MIM1C).
+clear_table(Tid, #tidstore{store = Store}, Tab, Pattern) when element(1, Tid) =:= tid ->
+    clause_mnesia_locker:wlock_table(Tid, Store, Tab),
+    ets:insert(Store, {{Tab, '_'}, Pattern, clear_table}),
+    ok.
 
 delete_object(Tid, Ts, Tab, Val, Kind) when is_atom(Tab), Tab =/= schema, is_tuple(Val), tuple_size(Val) > 2 ->
     mnesia:has_var(Val) andalso abort({bad_type, Tab, Val}),
@@ -529,6 +536,10 @@ update(Tab, Key, {delete_object, Val}) ->
     clause_mnesia_index:object_deleted(Tab, Key, Val),
     true = ets:match_delete(Tab, Val),
     ok;
+update(Tab, _, {clear_table, Pattern}) ->
+    Records = ets:match_object(Tab, Pattern),
+    true = ets:match_delete(Tab, Pattern),
+    clause_mnesia_index:cleared(Tab, Records);
 update(Tab, Key, {update_counter, RecordName, Incr}) ->
     {New, Old} = counted(Tab, Key, RecordName, Incr),
     clause_mnesia_index:written(Tab, Key, New, Old),

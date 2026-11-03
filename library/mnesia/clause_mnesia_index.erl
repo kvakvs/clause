@@ -2,7 +2,7 @@
 %% {{Value, Key}} per index position, owned by mnesia_monitor, kept on every write and delete of the table. A table's
 %% index_info lists its indexes newest first, as OTP's does.
 -module(clause_mnesia_index).
--export([add/2, drop/2, written/4, deleted/2, object_deleted/3, read/3, match_object/3, records/3]).
+-export([add/2, drop/2, written/4, deleted/2, object_deleted/3, cleared/2, read/3, match_object/3, records/3]).
 
 -include("clause_mnesia.hrl").
 
@@ -80,6 +80,21 @@ object_deleted(Tab, Key, Record) ->
                 ets:delete(Ixt, {element(Pos, Record), Key})
              || {{Pos, _}, {ram, Ixt}} <- Positions,
                 [R || R <- Records, element(Pos, R) =:= element(Pos, Record)] =:= [Record]
+            ],
+            ok
+    end.
+
+% Records a clear_table removed: a value's entry goes unless a record left under its key holds the value (MIM1C).
+cleared(Tab, Records) ->
+    case work(Tab) of
+        none ->
+            ok;
+        #index{pos_list = Positions} ->
+            [
+                ets:delete(Ixt, {element(Pos, R), element(2, R)})
+             || {{Pos, _}, {ram, Ixt}} <- Positions,
+                R <- Records,
+                not lists:keymember(element(Pos, R), Pos, ets:lookup(Tab, element(2, R)))
             ],
             ok
     end.

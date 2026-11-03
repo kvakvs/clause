@@ -14,8 +14,10 @@ Clause's `mnesia` application (plan 21, MIM1) exports the OTP 29 interface of `m
   - [locks](#locks) and their queue;
   - [activities](#activities) and access modules;
   - schema changes as schema transactions.
+- **MIM1C, done:** the other [schema changes](#schema-changes): `clear_table/1`, `transform_table/3,4`, table copies
+  and their storage types, user properties, access mode, load order and majority; master nodes, `force_load_table/1`,
+  `change_config/2` and `set_debug_level/1`.
 - **Still to come**, raising `{not_implemented, Name, Arity}` until then:
-  - the other schema changes (MIM1C);
   - disc storage (MIM1D);
   - events, text files, `qlc` tables and `info/0` (MIM1E);
   - checkpoints and backups (MIM1F);
@@ -43,7 +45,9 @@ The design keeps OTP's formats, so that a later step (MIM1H) can add more nodes.
 `application:start(mnesia)`, or `mnesia:start/0,1`, starts this tree ([clause_mnesia_app](../../library/mnesia/clause_mnesia_app.erl)):
 
 - `mnesia_sup`:
-  - `mnesia_event`, the `gen_event` manager for system events;
+  - `mnesia_event`, the `gen_event` manager for system events, with the `event_module` parameter's handler. The
+    default handler ([clause_mnesia_event](../../library/mnesia/clause_mnesia_event.erl)) prints OTP's info reports,
+    such as a failed transform function's;
   - `mnesia_ext_sup`, for backend processes;
   - `mnesia_kernel_sup`:
     - `mnesia_monitor` ([clause_mnesia_monitor](../../library/mnesia/clause_mnesia_monitor.erl));
@@ -57,9 +61,10 @@ Later steps add the other servers.
 - **Owns the tables:** `mnesia_gvar`, the `schema` table, every table and every index table belong to it. They go
   when mnesia stops.
 - **Reads the configuration:** see [configuration](#configuration).
-- **Applies schema changes:** `create_table`, `delete_table`, `add_table_index` and `del_table_index` apply one at a
-  time. Each runs in a schema transaction of its own process, as OTP's schema coordinator does:
-  - it takes the schema's write lock, and the table's write lock (`delete_table`) or read lock (the index changes);
+- **Applies schema changes:** each change runs in a schema transaction of its own process, as OTP's schema
+  coordinator does:
+  - the transaction takes OTP's locks and makes OTP's checks in OTP's order
+    ([clause_mnesia_change](../../library/mnesia/clause_mnesia_change.erl)), then the monitor applies the change;
   - it counts as one committed or failed transaction; starting counts two commits;
   - inside any activity it returns `{aborted, nested_transaction}`.
 
@@ -75,8 +80,12 @@ Later steps add the other servers.
     `{index, Pos}` for each index table.
 - **Answers built from these rows:** `table_info(Tab, Item)` reads them, `table_info(Tab, all)` lists them, and
   `schema/1` prints them with `size`, `memory` and `master_nodes`. Both list the same items as OTP, in the same order.
+- **User properties:** each also has a `{{Tab, user_property, Key}, Property}` row, which
+  `read_table_property/2` reads.
 - **Other rows:** `mnesia_status`, the configuration values, `{schema, tables}`, `{schema, local_tables}`,
   `{current, db_nodes}` and the transaction counters.
+
+Master nodes are `{master_nodes, {tab, Tab}, Nodes}` rows of the `mnesia_decision` table, as in OTP.
 
 A missing row gives OTP's answer:
 
@@ -128,6 +137,44 @@ Behavior that follows OTP's:
 
 `delete_table/1` removes the table, its index tables and its rows. `wait_for_tables/2` waits until each table has a
 replica to read here, and returns `{timeout, Tables}` for the rest.
+
+## Schema changes
+
+Each change takes OTP's locks: the schema's write lock first, then the table's write lock where OTP takes it, which
+also aborts with `{no_exists, Tab}` for a table that is `read_only` or has no replica here. Then come OTP's checks:
+`{no_exists, {Tab, cstruct}}` for an unknown table, `{no_exists, Tab}` without an active replica, and the definition's
+checks of `create_table/2` for the changed definition. Each change gives the definition its next major version.
+
+- **`clear_table/1`:** a transaction of its own, not a schema transaction. It takes the table's write lock and
+  clears the table and its indexes at the commit. Inside a dirty activity it is a transaction; inside a transaction it
+  aborts with `nested_transaction`.
+- **`transform_table/3,4`:** new attributes and record name; the indexes keep their positions and are rebuilt.
+  - The function sees each record in key order. A record it returns unchanged stays, and one with the new record name
+    and the same key replaces it.
+  - A wrong arity, key or record name, or a failing function, aborts with
+    `{"Bad transform function", Tab, Fun, Node, Reason}`. `mnesia_event` then prints OTP's
+    `Transform function failed` report.
+  - `ignore` changes the definition only. For a `bag` key, only the records the function changes stay, as in OTP.
+- **Table copies:**
+  - `add_table_copy/3` adds a node first in its storage's list. A `ram_copies` replica on a node outside the running
+    nodes only changes the definition. A replica on this node of a table held elsewhere starts empty.
+  - `del_table_copy/2` deletes the table with its last replica. Deleting the schema's copy on another node also removes
+    that node's replicas of every table, and deletes the tables it alone held.
+  - `move_table_copy/3` needs both nodes running, so on one node it always aborts with `not_active`.
+  - `change_table_copy_type/3` to `unknown` deletes the replica. RAM to disc aborts with `{has_no_disc, Node}`
+    until the disc schema of MIM1D.
+- **Table properties:**
+  - `write_table_property/2` and `delete_table_property/2` change `user_properties`.
+  - `change_table_access_mode/2`, `change_table_load_order/2` and `change_table_majority/2` change their fields.
+    `read_only` writes the table nowhere, so writes abort with `{no_exists, Tab}`.
+- **Not schema transactions:**
+  - `set_master_nodes/1,2` keep the master nodes that hold a replica. They return `ok` without a running mnesia.
+  - `force_load_table/1` answers `yes` for a table loaded here. For a table without a replica here, it waits for one,
+    as OTP's does.
+  - `change_config/2`:
+    - `dc_dump_limit` takes effect at once;
+    - `extra_db_nodes` runs OTP's schema merge transaction and returns the given nodes that run mnesia with this one.
+  - `set_debug_level/1` sets the `debug` parameter and returns the previous level. Its subscriptions come with MIM1E.
 
 ## Dirty access
 
@@ -216,6 +263,11 @@ Each index is an `ordered_set` table of `{{Value, Key}}` ([clause_mnesia_index](
   results and abort terms, reads of own writes in each table type, walks, folds and index reads, nesting, the activity
   kinds, an access module, lock results and errors, conflicts between processes (waiting, restarts, retries running
   out, shared reads, a killed holder), schema transactions and select continuations.
-- **What it covers:** answers before starting, system information, every `create_table` option and error, table
+- **`mnesia_schema_changes` golden:** generated from OTP
+  ([fixture](../../tests/fixtures/executables/mnesia_schema_changes/mnesia_schema_changes.erl)). It covers each change of
+  MIM1C before starting and while running: results and abort terms, table copies on this node and on a node outside the
+  schema, transform failures with their reports, properties, master nodes, configuration changes and their
+  transaction counts.
+- **What `mnesia_dirty` covers:** answers before starting, system information, every `create_table` option and error, table
   properties, dirty access of each table type, indexes, counters, argument errors, schema changes, `schema/1`'s
   printout, error descriptions, and stopping and restarting.

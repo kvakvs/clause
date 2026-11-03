@@ -26,7 +26,7 @@ internal functions stay out unless a public function needs them (user direction 
   documented functions.
 - **Done:** every documented module of `erts`, `kernel` and `stdlib`, `crypto` (LIB79),
   `public_key` (LIB80) and `ssl` (LIB81A–D5) (`21-finished.md`).
-- **Left:** MongooseIM's missing applications (MIM1C–MIM9, `test-mim.toml`; `mnesia` PARTIAL since MIM1A), optional `ssl` steps
+- **Left:** MongooseIM's missing applications (MIM1D–MIM9, `test-mim.toml`; `mnesia` PARTIAL since MIM1A), optional `ssl` steps
   on request (LIB81D3c, LIB81D4b, LIB81E) and test support (LIB82 `eunit`, LIB83 `common_test`,
   the appendix).
 - **Declined** (`00-reject.md`): the 20 `erlang` functions of the LIB9 remainder, LIB78
@@ -168,16 +168,11 @@ dependencies, non-test sources.
       `mnesia_locker`, `mnesia_tm`, `mnesia_controller`, `mnesia_subscr`, `mnesia_event`).
     - `mnesia` is in `library/` as PARTIAL (`library_modules.py`) since MIM1A and leaves it in
       MIM1G. Docs in `docs/libraries/mnesia.md`; one golden per step, generated from OTP.
-    - Since MIM1A/MIM1B (`21-finished.md`): `mnesia_monitor` owns every table and applies schema changes one at
-      a time inside schema transactions; `mnesia_gvar` holds OTP's `{Tab, Item}` rows; dirty access and
-      transactions run in the caller, `mnesia_tm` commits, `mnesia_locker` keeps locks.
-  - **MIM1C Schema changes:**
-    - `clear_table/1`, `transform_table/3,4`, `change_table_copy_type/3`, `add_table_copy/3`,
-      `del_table_copy/2`, `move_table_copy/3` on the local node.
-    - `read/write/delete_table_property`, `change_table_access_mode/2`,
-      `change_table_load_order/2`, `change_table_majority/2`, `set_master_nodes/1,2`,
-      `force_load_table/1`, `change_config/2`, `set_debug_level/1`.
-    - OTP's abort terms for other nodes. Golden `mnesia_schema`.
+    - Since MIM1A-MIM1C (`21-finished.md`): `mnesia_monitor` owns every table and applies the changes of schema
+      transactions, whose coordinator takes OTP's locks and checks (`clause_mnesia_change`); `mnesia_gvar` holds
+      OTP's `{Tab, Item}` rows; dirty access and transactions run in the caller, `mnesia_tm` commits,
+      `mnesia_locker` keeps locks. `change_table_copy_type` to disc aborts `has_no_disc` until MIM1D;
+      `set_debug_level` subscriptions and the other `mnesia_event` reports belong to MIM1E.
   - **MIM1D Disc storage:**
     - `create_schema/1`, `delete_schema/1` for `[node()]`; the `dir` environment (default
       `Mnesia.nonode@nohost`); the schema on disc.
@@ -258,7 +253,7 @@ dependencies, non-test sources.
 
 ### Order
 
-1. MIM1C–MIM1G (MIM1A and MIM1B done 2026-11-02/03; the design was revised for named nodes in DIST13), then
+1. MIM1D–MIM1G (MIM1A-MIM1C done 2026-11-02/03; the design was revised for named nodes in DIST13), then
    MIM9's record wildcard fix, MIM6, MIM7
    (small), MIM3, MIM4, MIM2, MIM5; MIM8 after a user decision.
 2. LIB81D3c, LIB81D4b and LIB81E on request.

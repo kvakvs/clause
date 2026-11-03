@@ -1,0 +1,387 @@
+%% mnesia's schema changes as schema transactions prepare them (plan 21 step MIM1C, docs/libraries/mnesia.md#schema):
+%% each change takes OTP's locks and makes OTP's checks in OTP's order inside the transaction, then hands
+%% mnesia_monitor the changes to apply (clause_mnesia_schema:apply_change/1). Transform functions run here too.
+-module(clause_mnesia_change).
+-export([prepare/1]).
+
+-include("clause_mnesia.hrl").
+
+%% The explanation of OTP's not_active abort for replicas on disc nodes that are not loaded.
+-define(NOT_ACTIVE, "All replicas on diskfull nodes are not active yet").
+
+% A schema operation's changes, or {not_implemented, Feature}.
+prepare({create_table, Def}) ->
+    lock(write, schema),
+    create_table(Def);
+prepare({delete_table, schema}) ->
+    abort({bad_type, schema});
+prepare({delete_table, Tab}) ->
+    lock(write, schema),
+    exists(Tab) orelse abort({no_exists, Tab}),
+    [delete_table(Tab)];
+prepare({Op, schema, _}) when Op =:= add_index; Op =:= del_index ->
+    abort({bad_type, schema});
+prepare({Op, Tab, Attribute}) when Op =:= add_index; Op =:= del_index ->
+    lock(write, schema),
+    lock(read, Tab),
+    [index(Op, Tab, Attribute)];
+prepare({transform, schema, _, _, _}) ->
+    abort({bad_type, schema});
+prepare({transform, Tab, Fun, Attributes, RecordName}) ->
+    lock(write, schema),
+    lock(write, Tab),
+    transform(Tab, Fun, Attributes, RecordName);
+prepare({add_copy, Tab, Node, Storage}) when is_atom(Tab), is_atom(Node) ->
+    lock(write, schema),
+    [add_copy(Tab, Node, Storage)];
+prepare({add_copy, Tab, Node, _}) ->
+    abort({badarg, Tab, Node});
+prepare({del_copy, Tab, Node}) when is_atom(Node) ->
+    lock(write, schema),
+    del_copy(Tab, Node);
+prepare({del_copy, Tab, Node}) ->
+    abort({badarg, Tab, Node});
+prepare({move_copy, schema, _, _}) ->
+    abort({bad_type, schema});
+prepare({move_copy, Tab, From, To}) when is_atom(From), is_atom(To) ->
+    lock(write, schema),
+    lock(write, Tab),
+    move_copy(Tab, From, To);
+prepare({move_copy, Tab, From, To}) ->
+    abort({badarg, Tab, From, To});
+prepare({copy_type, Tab, Node, To}) when is_atom(Node) ->
+    lock(write, schema),
+    lock(write, Tab),
+    copy_type(Tab, Node, To);
+prepare({copy_type, Tab, Node, _}) ->
+    abort({badarg, Tab, Node});
+prepare({Property, Tab, Prop}) when Property =:= write_property; Property =:= delete_property ->
+    lock(write, schema),
+    Cs = changed(Tab),
+    Props = lists:keydelete(property_key(Property, Prop), 1, Cs#cstruct.user_properties),
+    [{redefine, verify(Cs#cstruct{user_properties = new_properties(Property, Prop, Props)})}];
+prepare({access_mode, Tab, Mode}) ->
+    lock(write, schema),
+    lock_absent(schema),
+    lock_absent(Tab),
+    Cs = changed(Tab),
+    Cs#cstruct.access_mode =:= Mode andalso abort({already_exists, Tab, Mode}),
+    [{redefine, verify(Cs#cstruct{access_mode = Mode})}];
+prepare({Field, schema, _}) when Field =:= load_order; Field =:= majority ->
+    abort({bad_type, schema});
+prepare({load_order, Tab, Order}) ->
+    lock(write, schema),
+    [{redefine, verify((changed(Tab))#cstruct{load_order = Order})}];
+prepare({majority, Tab, Majority}) ->
+    lock(write, schema),
+    [{redefine, verify((changed(Tab))#cstruct{majority = Majority})}];
+prepare(merge_schema) ->
+    lock(write, schema),
+    [].
+
+%% Creating and deleting tables and indexes (MIM1A's checks).
+
+% create_table/1: the definition checked, then the table on this node.
+create_table(Def) ->
+    Cs0 = clause_mnesia_schema:cstruct(Def),
+    Tab = Cs0#cstruct.name,
+    exists(Tab) andalso abort({already_exists, Tab}),
+    Cs = verify(Cs0),
+    Running = val({current, db_nodes}),
+    [
+        abort({not_active, Tab, N})
+     || N <- Cs#cstruct.disc_copies ++ Cs#cstruct.disc_only_copies, not lists:member(N, Running)
+    ],
+    check_local_storage(Cs),
+    case Cs#cstruct.frag_properties of
+        [] -> [{create, Cs}];
+        _ -> {not_implemented, frag_properties}
+    end.
+
+% A RAM schema holds no disc tables on this node.
+check_local_storage(#cstruct{name = Tab} = Cs) ->
+    case clause_mnesia_schema:storage(Cs) of
+        disc_copies -> abort({bad_type, Tab, disc_copies, node()});
+        disc_only_copies -> abort({bad_type, Tab, disc_only_copies, node()});
+        _ -> ok
+    end.
+
+% A table's deletion: its write lock, then a replica to delete written somewhere.
+delete_table(Tab) ->
+    lock(write, Tab),
+    ensure_active(val({Tab, cstruct})),
+    ensure_writable(Tab),
+    {delete, Tab}.
+
+% add_table_index/2 and del_table_index/2: a position after the checks of the table and the index.
+index(Op, Tab, Attribute) ->
+    readable(Tab),
+    Pos = clause_mnesia_schema:attribute_position(Attribute, val({Tab, attributes})),
+    Cs = next_version(val({Tab, cstruct})),
+    active(Tab),
+    case Op of
+        add_index ->
+            lists:keymember(index_position(Pos), 1, Cs#cstruct.index) andalso abort({already_exists, Tab, Pos}),
+            Cs2 = verify(Cs#cstruct{index = lists:sort([Pos | Cs#cstruct.index])}),
+            {add_index, Cs2, lists:keyfind(Pos, 1, Cs2#cstruct.index)};
+        del_index ->
+            lists:keymember(Pos, 1, Cs#cstruct.index) orelse abort({no_exists, Tab, Pos}),
+            {del_index, verify(Cs#cstruct{index = lists:keydelete(Pos, 1, Cs#cstruct.index)}), Pos}
+    end.
+
+% A table read lock's check: the table has a replica to read.
+readable(Tab) ->
+    val({Tab, where_to_read}) =:= nowhere andalso abort({no_exists, Tab}).
+
+active(Tab) ->
+    val({Tab, active_replicas}) =:= [] andalso abort({no_exists, Tab}).
+
+index_position({P, _}) -> P;
+index_position(P) -> P.
+
+%% Transforming a table (MIM1C).
+
+% transform_table/4: new attributes and record name, and each record through Fun unless it is ignore.
+transform(Tab, Fun, Attributes, RecordName) ->
+    ensure_writable(schema),
+    Cs = next_version(val({Tab, cstruct})),
+    ensure_active(Cs),
+    ensure_writable(Tab),
+    Cs2 = verify(Cs#cstruct{attributes = Attributes, record_name = RecordName}),
+    case Fun of
+        ignore -> [{transform, Cs2, []}];
+        _ -> [{transform, Cs2, transformed(Cs2, Fun)}]
+    end.
+
+% Each key's {Key, Written, Deleted} records when Fun changes them, keys in term order; a failure aborts the change
+% and mnesia_event reports it, as OTP's commit does.
+transformed(#cstruct{name = Tab} = Cs, Fun) ->
+    try
+        Keys = lists:usort(ets:select(Tab, [{'$1', [], [{element, 2, '$1'}]}])),
+        [Change || Key <- Keys, Change <- [record_changes(Fun, Cs, Key, ets:lookup(Tab, Key))], Change =/= none]
+    catch
+        _:Reason:Stack ->
+            clause_mnesia_monitor:important("Transform function failed: '~tp' in '~tp'", [Reason, Stack]),
+            abort({"Bad transform function", Tab, Fun, node(), Reason})
+    end.
+
+% A bag's records that Fun deletes are left out of the key's written records, as in OTP: only writes change a bag.
+record_changes(Fun, #cstruct{type = Type, record_name = RecordName, attributes = Attributes}, Key, Records) ->
+    Arity = length(Attributes) + 1,
+    case lists:foldl(fun(R, Acc) -> record_change(Fun(R), R, RecordName, Key, Arity, Acc) end, {[], []}, Records) of
+        {[], _} when Type =:= bag -> none;
+        {[], []} -> none;
+        {Written, Deleted} -> {Key, lists:reverse(Written), Deleted}
+    end.
+
+% A record's transformation: unchanged, written, deleted or refused with OTP's reasons.
+record_change(New, Old, RecordName, Key, Arity, {Written, Deleted}) ->
+    if
+        tuple_size(New) =/= Arity -> exit({"Bad arity", Old, New});
+        New =:= Old -> {Written, Deleted};
+        element(1, New) =:= RecordName, element(2, New) =:= Key -> {[New | Written], Deleted};
+        New =:= delete -> {Written, [Old | Deleted]};
+        true -> exit({"Bad key or Record Name", Old, New})
+    end.
+
+%% Table copies (MIM1C).
+
+% add_table_copy/3: a replica on another node of the schema, or on this node for a table held elsewhere.
+add_copy(Tab, Node, Storage) ->
+    ensure_writable(schema),
+    Cs = next_version(val({Tab, cstruct})),
+    lists:member(Node, copy_holders(Cs)) andalso abort({already_exists, Tab, Node}),
+    Cs2 = verify(with_copy(Cs, Node, Storage)),
+    Running = lists:member(Node, val({current, db_nodes})),
+    if
+        Tab =:= schema, Storage =/= ram_copies -> abort({badarg, Tab, Storage});
+        Tab =:= schema, Running -> abort({already_exists, Tab, Node});
+        Tab =:= schema; Storage =:= ram_copies; Running -> ok;
+        true -> abort({not_active, schema, Node})
+    end,
+    {redefine, Cs2}.
+
+% del_table_copy/2: a replica goes; the last one deletes the table, and the schema's takes the node's tables along.
+del_copy(Tab, Node) ->
+    ensure_writable(schema),
+    Cs = next_version(val({Tab, cstruct})),
+    Cs2 = without_copy(Cs, Node, schema_storage(Node, Cs)),
+    case copy_holders(Cs2) of
+        [] when Tab =:= schema ->
+            abort({combine_error, Tab, "Last replica"});
+        [] ->
+            ensure_active(Cs),
+            [delete_table(Tab)];
+        _ when Tab =:= schema ->
+            not_active_schema(Node),
+            [{redefine, verify(Cs2)} | without_node(lists:delete(schema, val({schema, tables})), Node)];
+        _ ->
+            ensure_active(Cs),
+            Cs3 = verify(Cs2),
+            lock(write, Tab),
+            [{redefine, Cs3}]
+    end.
+
+% A node leaves the schema only when mnesia does not run there.
+not_active_schema(Node) ->
+    case val({schema, active_replicas}) of
+        [] -> abort({no_exists, schema});
+        Active -> lists:member(Node, Active) andalso abort({active, "Mnesia is running", Node})
+    end.
+
+% The node's replicas of the tables go; a table left without replicas goes too.
+without_node(Tabs, Node) ->
+    lists:append([table_without_node(Tab, Node) || Tab <- Tabs]).
+
+table_without_node(Tab, Node) ->
+    Cs = next_version(val({Tab, cstruct})),
+    case clause_mnesia_schema:storage(Node, Cs) of
+        unknown ->
+            [];
+        Storage ->
+            Cs2 = without_copy(Cs, Node, Storage),
+            case copy_holders(Cs2) of
+                [] ->
+                    [{delete, Tab}];
+                _ ->
+                    Cs3 = verify(Cs2),
+                    val({Tab, active_replicas}) =/= [] andalso lock(write, Tab),
+                    [{redefine, Cs3}]
+            end
+    end.
+
+% move_table_copy/3: the replica of a running node moves to another running node.
+move_copy(Tab, From, To) ->
+    ensure_writable(schema),
+    Cs = next_version(val({Tab, cstruct})),
+    lists:member(To, copy_holders(Cs)) andalso abort({already_exists, Tab, To}),
+    lists:member(From, val({Tab, where_to_write})) orelse abort({not_active, Tab, From}),
+    val({Tab, local_content}) andalso abort({"Cannot move table with local content", Tab}),
+    ensure_active(Cs),
+    Storage = clause_mnesia_schema:storage(From, Cs),
+    lists:member(To, val({current, db_nodes})) orelse abort({not_active, schema, To}),
+    [{redefine, verify(without_copy(with_copy(Cs, To, Storage), From, Storage))}].
+
+% change_table_copy_type/3: a node's replica gets another storage; unknown deletes it.
+copy_type(Tab, Node, unknown) ->
+    del_copy(Tab, Node);
+copy_type(Tab, Node, To) ->
+    ensure_writable(schema),
+    Cs = next_version(val({Tab, cstruct})),
+    From = storage_at(Node, Tab),
+    lists:member(To, [ram_copies, disc_copies, disc_only_copies]) orelse abort({bad_type, {storage_type, To}}),
+    case compared_storage(From, To) of
+        same -> abort({already_exists, Tab, Node, To});
+        diff -> ok;
+        incompatible -> ensure_active(Cs)
+    end,
+    Cs2 = verify(with_copy(without_copy(Cs, Node, From), Node, To)),
+    Node =:= node() andalso Tab =/= schema andalso disc_required(From, To),
+    [{redefine, Cs2}].
+
+compared_storage(Same, Same) -> same;
+compared_storage(unknown, _) -> diff;
+compared_storage(ram_copies, disc_copies) -> diff;
+compared_storage(disc_copies, disc_only_copies) -> diff;
+compared_storage(_, _) -> incompatible.
+
+% A replica moving from RAM to disc needs a disc schema here.
+disc_required(ram_copies, To) when To =:= disc_copies; To =:= disc_only_copies ->
+    abort({has_no_disc, node()});
+disc_required(_, _) ->
+    ok.
+
+% A node's storage as the table's properties name it.
+storage_at(Node, Tab) ->
+    Holders = [{S, val({Tab, S})} || S <- [disc_copies, ram_copies, disc_only_copies]],
+    case [S || {S, Nodes} <- Holders, lists:member(Node, Nodes)] of
+        [S | _] -> S;
+        [] -> unknown
+    end.
+
+% The schema's storage on a node outside it is ram_copies.
+schema_storage(Node, #cstruct{name = schema} = Cs) ->
+    case clause_mnesia_schema:storage(Node, Cs) of
+        unknown -> ram_copies;
+        Storage -> Storage
+    end;
+schema_storage(Node, Cs) ->
+    clause_mnesia_schema:storage(Node, Cs).
+
+% A replica added first in its storage's node list; other storages name backends, and there are none.
+with_copy(Cs, Node, ram_copies) ->
+    Cs#cstruct{ram_copies = [Node | lists:delete(Node, Cs#cstruct.ram_copies)]};
+with_copy(Cs, Node, disc_copies) ->
+    Cs#cstruct{disc_copies = [Node | lists:delete(Node, Cs#cstruct.disc_copies)]};
+with_copy(Cs, Node, disc_only_copies) ->
+    Cs#cstruct{disc_only_copies = [Node | lists:delete(Node, Cs#cstruct.disc_only_copies)]};
+with_copy(#cstruct{name = Tab}, _, Storage) ->
+    abort({badarg, Tab, Storage}).
+
+without_copy(Cs, Node, ram_copies) ->
+    Cs#cstruct{ram_copies = lists:delete(Node, Cs#cstruct.ram_copies)};
+without_copy(Cs, Node, disc_copies) ->
+    Cs#cstruct{disc_copies = lists:delete(Node, Cs#cstruct.disc_copies)};
+without_copy(Cs, Node, disc_only_copies) ->
+    Cs#cstruct{disc_only_copies = lists:delete(Node, Cs#cstruct.disc_only_copies)};
+without_copy(#cstruct{name = Tab}, _, Storage) ->
+    abort({badarg, Tab, Storage}).
+
+copy_holders(#cstruct{ram_copies = Ram, disc_copies = Disc, disc_only_copies = DiscOnly}) ->
+    Ram ++ Disc ++ DiscOnly.
+
+%% User properties (MIM1C).
+
+property_key(write_property, Prop) -> element(1, Prop);
+property_key(delete_property, Key) -> Key.
+
+new_properties(write_property, Prop, Props) -> lists:merge(Props, [Prop]);
+new_properties(delete_property, _, Props) -> Props.
+
+%% Helpers.
+
+% The definition of an active table, with the next version, for a change of its properties.
+changed(Tab) ->
+    ensure_writable(schema),
+    Cs = next_version(val({Tab, cstruct})),
+    ensure_active(Cs),
+    Cs.
+
+% A changed definition gets the next major version, stamped with this node and the time.
+next_version(#cstruct{version = {{Major, _}, _}} = Cs) ->
+    Cs#cstruct{version = {{Major + 1, 0}, {node(), erlang:timestamp()}}}.
+
+% A change needs the table active here and its replicas on disc nodes loaded.
+ensure_active(#cstruct{name = Tab} = Cs) ->
+    Active = val({Tab, active_replicas}),
+    Active =:= [] andalso abort({no_exists, Tab}),
+    case [N || N <- copy_holders(Cs), lists:member(N, val({schema, disc_copies})), not lists:member(N, Active)] of
+        [] -> ok;
+        Missing -> abort({not_active, ?NOT_ACTIVE, Tab, Missing})
+    end.
+
+ensure_writable(Tab) ->
+    val({Tab, where_to_write}) =:= [] andalso abort({read_only, Tab}).
+
+exists(Tab) ->
+    ets:member(?GVAR, {Tab, cstruct}).
+
+verify(Cs) ->
+    clause_mnesia_schema:verify(Cs).
+
+% A table lock of the schema transaction: write locks check that the table is written somewhere.
+lock(Kind, Tab) ->
+    {_, Tid, #tidstore{store = Store}} = get(mnesia_activity_state),
+    case Kind of
+        read -> clause_mnesia_locker:rlock_table(Tid, Store, Tab);
+        write -> clause_mnesia_locker:wlock_table(Tid, Store, Tab)
+    end.
+
+% A write lock on a table with active replicas, whether it is written anywhere or not.
+lock_absent(Tab) ->
+    {_, Tid, #tidstore{store = Store}} = get(mnesia_activity_state),
+    clause_mnesia_locker:wlock_no_exist(Tid, Store, Tab, val({Tab, active_replicas})).
+
+val(Name) -> clause_mnesia_monitor:val(Name).
+
+abort(Reason) -> mnesia:abort(Reason).
