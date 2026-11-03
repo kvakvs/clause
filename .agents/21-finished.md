@@ -268,4 +268,4 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **MIM1E** mnesia events, text files, query tables and the report: `mnesia_subscr` (subscriptions in OTP's gvar rows
   and `commit_work` order), system/activity/table/schema events where they happen, `report_event`, the default
   handler's reports and debug-level subscriptions, `load_textfile`/`dump_to_textfile`, `table/1,2` for qlc, `info/0`,
-  `system_info/0`, `lkill`/`kill`/`ms`; `mnesia_events` golden identical to OTP — `PENDING`
+  `system_info/0`, `lkill`/`kill`/`ms`; `mnesia_events` golden identical to OTP — `3d60509c`
