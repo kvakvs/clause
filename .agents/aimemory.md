@@ -913,3 +913,10 @@ gotchas and user directions not recorded elsewhere.
   access (locker read_result too) goes through clause_mnesia_db. Golden passed on Clause first run (Clause dets and
   disk_log OK). regenerate.py needs `--escript ".../bin/escript.exe"` (with .exe, for epmd lookup); a new case needs a
   skeleton golden.json (args + stderr pattern) first. beam_check.py now skips 5 lines per stop report.
+- MIM1E mnesia (2026-11-03): OTP's sort_commit reverses commit_work on every change (checkpoints stay first), so
+  index and subscriber entries flip order; create_table and add_table_copy report the schema record twice (prepare
+  + dumper), other schema changes once; schema transactions send activity complete events; trace level does not
+  subscribe the handler to tables created later. info/0 masks: `occupying N words` and `Directory DIR is`.
+  Fast BEAM loop: scratch/mnesia/rebuild.sh (erlc library/mnesia, run fixture via otp_events.py --clause, diff with
+  OTP). Python edits on Windows: open(..., newline='') or files get CRLF. ctest needs `-C Debug` (multi-config);
+  a `|` in a cmd.exe argument breaks the call. Golden passed on the first Clause run.
