@@ -285,4 +285,4 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   change, logged as OTP's commit under its decision then the committed decision; dumps only around `delete_table`,
   `transform` and `change_table_copy_type`; restores and fragment moves logged (`clear_table`, `restore_recreate`,
   `rec`) and replayed in order instead of dumped; majority transactions under their decision; OTP's start serials;
-  `mnesia_schema_ops` golden identical to OTP, `mnesia_dir_exchange` with schema transactions left in the log — `PENDING`
+  `mnesia_schema_ops` golden identical to OTP, `mnesia_dir_exchange` with schema transactions left in the log — `579b4ef1`
