@@ -906,3 +906,10 @@ gotchas and user directions not recorded elsewhere.
   for a set record; `maybe` is a keyword (OTP 27+), don't use it as an atom in fixtures. Regenerate goldens with
   tests/compiler/executables/regenerate.py after erlfmt (input hash). library_freshness fails on
   `ssl_crl_cache_api.terms` header wrapping (pre-existing, not mnesia).
+- MIM1D mnesia (2026-11-03): OTP's create_schema writes FALLBACK.BUP (backup log: header + {schema,schema,List}
+  without cookie), installed at start; schema transactions count 2 transaction_log_writes, disc commits 1, ets/RAM 0.
+  disc_only indexes are dets bags `{Tab,index,{Pos,bag}}` in Tab_Pos.DAT (gvar key `{index,{Pos,bag}}`). Any schema
+  change must dump the log first, else replay at start rewrites a transformed table with old writes. Every table
+  access (locker read_result too) goes through clause_mnesia_db. Golden passed on Clause first run (Clause dets and
+  disk_log OK). regenerate.py needs `--escript ".../bin/escript.exe"` (with .exe, for epmd lookup); a new case needs a
+  skeleton golden.json (args + stderr pattern) first. beam_check.py now skips 5 lines per stop report.
