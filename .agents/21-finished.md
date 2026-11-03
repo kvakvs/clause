@@ -280,4 +280,4 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   entries, master nodes logged and restored, OTP's schema commits skipped on replay, `dump_disc_copies_at_startup`
   `false` appending to DCL, sync logging, OTP's empty DCD and fallback DCL, the schema's cookie; observations in
   `docs/libraries/mnesia-protocol.md`; `mnesia_dir_exchange` golden (OTP and Clause nodes taking turns on one
-  directory) identical to OTP both ways — `PENDING`
+  directory) identical to OTP both ways — `09bf10cf`
