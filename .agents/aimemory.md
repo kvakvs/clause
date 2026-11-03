@@ -899,3 +899,10 @@ gotchas and user directions not recorded elsewhere.
   merged writes runs `orig` (records, not the spec's body). `mnesia:ets(F)` turning a returned `{aborted, R}` into an
   exit swallowed a whole fixture list once: wrap each item. Hash-table result order differs from OTP's ets: goldens
   sort set/bag results. Probe OTP quickly with erlc + `erl -noshell -pa . -eval` in F:/CLAUSE/scratch/mnesia/otp.
+- MIM1C mnesia (2026-11-03): a library module named only by an atom (gen_event handler, callback) is not discovered
+  into the batch: give it a literal call (`clause_mnesia_event:add_handler()`), else `undef` at run time. Fast loop:
+  `erlc` library/mnesia into F:/CLAUSE/scratch/mnesia/erlc (+ mnesia.app), then `python beam_check.py <cases>` runs
+  goldens on the BEAM with Clause's mnesia first in the path. OTP crashes mnesia when a transform returns `delete`
+  for a set record; `maybe` is a keyword (OTP 27+), don't use it as an atom in fixtures. Regenerate goldens with
+  tests/compiler/executables/regenerate.py after erlfmt (input hash). library_freshness fails on
+  `ssl_crl_cache_api.terms` header wrapping (pre-existing, not mnesia).
