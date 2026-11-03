@@ -281,3 +281,8 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   `false` appending to DCL, sync logging, OTP's empty DCD and fallback DCL, the schema's cookie; observations in
   `docs/libraries/mnesia-protocol.md`; `mnesia_dir_exchange` golden (OTP and Clause nodes taking turns on one
   directory) identical to OTP both ways — `09bf10cf`
+- **MIM1H2** mnesia schema transactions as OTP's: `clause_mnesia_ops` builds the `{op, ...}` tuples of each schema
+  change, logged as OTP's commit under its decision then the committed decision; dumps only around `delete_table`,
+  `transform` and `change_table_copy_type`; restores and fragment moves logged (`clear_table`, `restore_recreate`,
+  `rec`) and replayed in order instead of dumped; majority transactions under their decision; OTP's start serials;
+  `mnesia_schema_ops` golden identical to OTP, `mnesia_dir_exchange` with schema transactions left in the log — `PENDING`

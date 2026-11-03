@@ -1387,7 +1387,7 @@ commit(Tab, Key, Update) ->
         Replicas ->
             val({Tab, where_to_read}) =:= nowhere andalso abort({no_exists, Tab}),
             clause_mnesia_snmp:check(Tab, Key),
-            clause_mnesia_disc:log([{Tab, Key, Update}], log_kind(get(mnesia_activity_state))),
+            clause_mnesia_disc:log([{Tab, Key, Update}], log_kind(get(mnesia_activity_state)), presume_commit),
             lists:foldl(fun(Replica, Result) -> replica_update(Replica, Tab, Key, Update, Result) end, ok, Replicas)
     end.
 

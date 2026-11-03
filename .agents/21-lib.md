@@ -199,18 +199,9 @@ dependencies, non-test sources.
       node its own `dir`.
   - **MIM1H1 done** (`21-finished.md`): OTP's files and terms in the directory, observations in
     `docs/libraries/mnesia-protocol.md`.
-  - **MIM1H2 Schema operations as OTP's terms:** every schema change produces OTP's `{op, ...}` tuples
-    (`create_table`, `delete_table`, `add_index`, `del_index`, `transform`, `add_table_copy`, `del_table_copy`,
-    `change_table_copy_type`, `change_table_access_mode`, `change_table_load_order`, `change_table_majority`,
-    `write_property`, `delete_property`, `add_snmp`, `del_snmp`, `dump_table`, `change_table_frag`,
-    `restore_recreate`, `clear_table`, `merge_schema`, `announce_im_running`, `sync_trans`, `rec`) with OTP's
-    `vsn_cs2list` table definitions, carried in `#commit.schema_ops` and logged in `LATEST.LOG` as OTP logs them;
-    `mnesia_monitor` applies op tuples, whoever made them.
-    - Records aligned with OTP's (above), `#checkpoint_args{}` included.
-    - Still one node. Golden `mnesia_schema_ops`: the `LATEST.LOG` terms of each change before its dump, compared
-      with OTP's (cookies and times hidden), and `mnesia_dir_exchange` extended with schema changes left in the log
-      (and `clear_table/1`, which OTP runs as a schema operation). A start after logged schema commits continues the
-      transaction serial past their tids, as OTP's (`differences.md` row "Schema changes in mnesia's directory").
+  - **MIM1H2 done** (`21-finished.md`): schema transactions logged as OTP's operations. The op forms of
+    `add_table_copy`, `del_table_copy` of another copy and `move_table_copy` are not seen on one node: verify them in
+    H9. `#checkpoint_args{}` alignment moves to H11, `#cstruct{}` as a record on the wire to H5.
   - **MIM1H3 OTP's module names and remote queries:** the registered processes OTP peers expect and are missing
     (`mnesia_recover`, `mnesia_controller`, `mnesia_late_loader`, `mnesia_rpc`, `mnesia_checkpoint_sup`'s
     children as OTP names them), and the OTP-named library modules for the peers' `rpc` calls (rules above), each
@@ -332,7 +323,7 @@ dependencies, non-test sources.
 
 ### Order
 
-1. MIM9's record wildcard fix, MIM6, MIM7 (MIM1A-MIM1G, MIM1H1 done 2026-11-02/03; MIM1H2-H12 optional, in order)
+1. MIM9's record wildcard fix, MIM6, MIM7 (MIM1A-MIM1G, MIM1H1-H2 done 2026-11-02/03; MIM1H3-H12 optional, in order)
    (small), MIM3, MIM4, MIM2, MIM5; MIM8 after a user decision.
 2. LIB81D3c, LIB81D4b and LIB81E on request.
 3. LIB82, LIB83 last (test support).

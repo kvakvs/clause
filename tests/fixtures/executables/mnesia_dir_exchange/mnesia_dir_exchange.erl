@@ -75,12 +75,14 @@ take(Turn) ->
     show(storage, [{T, mnesia:table_info(T, storage_type)} || T <- lists:sort(mnesia:system_info(tables))]),
     show(records, [{T, lists:sort(mnesia:dirty_match_object(T, mnesia:table_info(T, wild_pattern)))} || T <- tabs()]),
     show(index_read, lists:sort(mnesia:dirty_index_read(d, 30, val))),
+    show(properties, [{T, mnesia:table_info(T, load_order), mnesia:table_info(T, user_properties)} || T <- tabs()]),
     show(master_nodes, [mnesia:table_info(d, master_nodes), lists:sort(mnesia:system_info(master_node_tables))]),
     names(Turn).
 
 tabs() -> lists:sort(mnesia:system_info(tables)) -- [schema].
 
-%% Node b's changes: records, then tables created, changed and deleted, a dump, then writes left in the log.
+%% Node b's changes: records, then tables created, changed and deleted, a dump, then writes, schema changes (MIM1H2) and
+%% a cleared table left in the log for the other node's start.
 change() ->
     {atomic, ok} = mnesia:transaction(fun() ->
         mnesia:write({d, 10, 100}),
@@ -96,7 +98,13 @@ change() ->
     {atomic, ok} = mnesia:sync_transaction(fun() -> mnesia:write({n, 2, 3, 4}) end),
     ok = mnesia:dirty_delete(s, 1),
     ok = mnesia:set_master_nodes(s, [node()]),
-    ok = mnesia:set_master_nodes(d, []).
+    ok = mnesia:set_master_nodes(d, []),
+    {atomic, ok} = mnesia:create_table(q, [{disc_copies, [node()]}, {type, bag}]),
+    {atomic, _} = mnesia:transaction(fun() -> [mnesia:write({q, K, V}) || {K, V} <- [{1, a}, {1, b}, {2, c}]] end),
+    {atomic, ok} = mnesia:write_table_property(q, {owner, b}),
+    {atomic, ok} = mnesia:clear_table(o),
+    ok = mnesia:dirty_write({o, 3, d}),
+    {atomic, ok} = mnesia:change_table_load_order(n, 2).
 
 %% The directory's files while mnesia runs.
 names(Turn) ->
@@ -116,6 +124,8 @@ contents("schema.DAT", Path) ->
     [{Tab, hide_cookie(List)} || {schema, Tab, List} <- dets_records(Path)];
 contents("FALLBACK.BUP", Path) ->
     lists:sort([hide_schema(T) || T <- log_terms(Path)]);
+contents("LATEST.LOG", Path) ->
+    [hide_entry(T) || T <- log_terms(Path)];
 contents("DECISION_TAB.LOG", Path) ->
     [{decision_list, lists:sort([hide_serial(D) || D <- List])} || {decision_list, List} <- log_terms(Path)];
 contents(Name, Path) ->
@@ -125,6 +135,21 @@ contents(Name, Path) ->
         ".DCL" -> lists:keysort(1, log_terms(Path));
         _ -> log_terms(Path)
     end.
+
+% A log entry with its items sorted by key and its transaction id, operations' cookies and version times hidden.
+hide_entry({commit, Node, Decision, Ram, Disc, DiscOnly, Ext, Ops}) ->
+    [Ram2, Disc2, DiscOnly2] = [lists:keysort(1, I) || I <- [Ram, Disc, DiscOnly]],
+    {commit, Node, hide_tid(Decision), Ram2, Disc2, DiscOnly2, Ext, [hide_op(Op) || Op <- Ops]};
+hide_entry(Entry) ->
+    hide_tid(Entry).
+
+hide_tid({decision, {tid, _, _}, Outcome, Disc, Ram}) -> {decision, {tid, n, pid}, Outcome, Disc, Ram};
+hide_tid(Term) -> Term.
+
+hide_op(Op) -> list_to_tuple([hide_list(E) || E <- tuple_to_list(Op)]).
+
+hide_list([{name, _} | _] = List) -> hide_cookie(List);
+hide_list(Term) -> Term.
 
 hide_schema({schema, Tab, List}) -> {schema, Tab, hide_cookie(List)};
 hide_schema(Term) -> Term.

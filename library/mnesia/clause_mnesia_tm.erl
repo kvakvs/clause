@@ -172,16 +172,25 @@ check_snmp_keys(Store) ->
     ok.
 
 % Each written record's operations, in the order the transaction made them, after the tables it clears; those of disc
-% tables logged first (MIM1D). A transaction that wrote, or changed the schema, completes an activity (MIM1E).
+% tables logged first (MIM1D), under the transaction's decision when it wrote a majority table (MIM1H2). A transaction
+% that wrote, or changed the schema, completes an activity (MIM1E).
 apply_writes(Tid, Store, Kind) ->
     Clears = ets:match_object(Store, {'_', '_', clear_table}),
     Oids = lists:usort(ets:select(Store, [{{'$1', '_', '_'}, [{is_tuple, '$1'}, {'=:=', {size, '$1'}, 2}], ['$1']}])),
     Ops = Clears ++ [Op || Oid <- Oids, Op <- ets:lookup(Store, Oid), element(3, Op) =/= clear_table],
     Updates = [U || Op <- Ops, U <- [table_update(Op)], U =/= none],
-    safe(fun() -> clause_mnesia_disc:log(Updates, Kind) end),
+    safe(fun() -> clause_mnesia_disc:log(Updates, Kind, decision(Tid, Updates)) end),
     [safe(fun() -> clause_mnesia_access:update(Tid, Tab, Key, Update) end) || {Tab, Key, Update} <- Updates],
     (Updates =/= [] orelse ets:member(Store, op)) andalso clause_mnesia_subscr:report_activity(Tid),
     ok.
+
+decision(Tid, Updates) ->
+    case lists:any(fun majority/1, lists:usort([Tab || {Tab, _, _} <- Updates])) of
+        true -> Tid;
+        false -> presume_commit
+    end.
+
+majority(Tab) -> (clause_mnesia_monitor:val({Tab, cstruct}))#cstruct.majority.
 
 table_update({{Tab, Key}, Val, write}) -> {Tab, Key, {write, Val}};
 table_update({{Tab, Key}, _, delete}) -> {Tab, Key, delete};

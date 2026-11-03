@@ -29,22 +29,23 @@ schema_transaction(Operation) ->
             {aborted, {node_not_running, node()}}
     end.
 
-% The change's locks and checks in the schema transaction, then the monitor applies it.
+% The change's locks and checks in the schema transaction, then the monitor applies it with OTP's operations, which
+% it logs (MIM1H2).
 schema_change(Operation) ->
     case clause_mnesia_change:prepare(Operation) of
         {not_implemented, _} = NotImplemented ->
             NotImplemented;
         {value, Value, Changes} ->
-            applied(Changes),
+            applied(Changes, clause_mnesia_ops:ops(Operation, Changes)),
             Value;
         Changes ->
-            applied(Changes)
+            applied(Changes, clause_mnesia_ops:ops(Operation, Changes))
     end.
 
 % A change's result is ok, or the value its preparation gave, as restore/2's tables (MIM1F).
-applied(Changes) ->
+applied(Changes, Ops) ->
     {_, Tid, #tidstore{store = Store}} = get(mnesia_activity_state),
-    case gen_server:call(mnesia_monitor, {schema, Changes, Tid}, infinity) of
+    case gen_server:call(mnesia_monitor, {schema, Changes, Ops, Tid}, infinity) of
         ok ->
             % A schema change counts as a write: its transaction completes an activity (MIM1E).
             true = ets:insert(Store, {op, schema_change}),
@@ -261,15 +262,19 @@ init([]) ->
 dump_timer() ->
     erlang:send_after(val(dump_log_time_threshold), self(), {dump_log, time_threshold}).
 
-% A schema transaction's changes, applied in order: ok or {aborted, Reason}. On a disc schema the log is dumped first,
-% so that no logged write replays over a table the change rewrites; the changed tables' records reach schema.DAT and
-% the transaction counts two log writes, as OTP's (MIM1D).
-handle_call({schema, Changes, Tid}, _From, State) ->
+% A schema transaction's changes, applied in order: ok or {aborted, Reason}. The changed tables' records reach
+% schema.DAT, the transaction's operations and the records it wrote reach the log as OTP's commit, and it counts two
+% log writes, as OTP's (MIM1D, MIM1H2). Around the operations OTP dumps the log after, a table rewritten or deleted,
+% the log is dumped before and after, so that no logged write replays over the table.
+handle_call({schema, Changes, Ops, Tid}, _From, State) ->
     Result =
         try
-            clause_mnesia_disc:dump_log(schema_prepare),
-            lists:foreach(fun(Change) -> clause_mnesia_schema:apply_change(Change, Tid) end, Changes),
+            Dumped = clause_mnesia_ops:dumped(Ops),
+            Dumped andalso clause_mnesia_disc:dump_log(schema_prepare),
+            Results = [clause_mnesia_schema:apply_change(Change, Tid) || Change <- Changes],
             [clause_mnesia_disc:save_schema(Tab) || Tab <- lists:usort([changed_table(C) || C <- Changes])],
+            clause_mnesia_disc:log_schema(Tid, Ops, [U || {logged, Updates} <- Results, U <- Updates]),
+            Dumped andalso clause_mnesia_disc:dump_log(schema_commit),
             clause_mnesia_disc:use_dir() andalso [increment(trans_log_writes) || _ <- [prepare, commit]],
             ok
         catch

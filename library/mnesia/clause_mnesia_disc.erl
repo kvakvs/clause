@@ -7,7 +7,8 @@
 -module(clause_mnesia_disc).
 -export([use_dir/0, fallback_activated/0, create_schema/2, delete_schema/1, schema_source/0, purge_local/0]).
 -export([start/0, stop/0, to_disc_schema/0, to_ram_schema/0, save_schema/1, open_dat/1, load/2, created/2]).
--export([deleted/1, ets2dcd/1, dump_exists/1, index_file/2, log/2, dump_log/1, sync_log/0, item_update/1]).
+-export([deleted/1, ets2dcd/1, dump_exists/1, index_file/2, log/3, log_schema/3, dump_log/1, sync_log/0]).
+-export([item_update/1]).
 -export([dumped_records/1, set_master_nodes/2]).
 
 -include("clause_mnesia.hrl").
@@ -283,7 +284,8 @@ write_dat(File, Records) ->
     ok = dets:close(Name).
 
 % The log since the last dump: its committed writes made again and its master nodes set, then the tables' files dumped,
-% the decisions written when the log held entries, as OTP's start dumps it (MIM1H1), and the logs started afresh.
+% the decisions written when there was a log, as OTP's start dumps it (MIM1H1), and the logs started afresh. A log of
+% schema transactions takes one serial more, as OTP's start does (MIM1H2).
 replay_logs() ->
     Entries = [E || F <- [?PREVIOUS, ?LATEST], E <- read_log(file(F)), not is_record(E, log_header)],
     Serials = [ets:lookup_element(mnesia_decision, serial, 3) | [N + 1 || {decision, {tid, N, _}, _, _, _} <- Entries]],
@@ -292,19 +294,21 @@ replay_logs() ->
     [item_update(I) || I <- Replayed],
     [masters(Tab, Nodes) || {master_nodes, Tab, Nodes} <- Entries],
     dump_replayed(Replayed, val(dump_disc_copies_at_startup)),
-    Entries =/= [] andalso write_decisions(),
+    lists:any(fun(F) -> exists(file(F)) end, [?PREVIOUS, ?LATEST]) andalso write_decisions(),
+    Decided = [D || {decision, _, _, _, _} = D <- Entries],
+    Decided =/= [] andalso ets:update_counter(mnesia_decision, serial, {3, 1}),
     [file:delete(file(F)) || F <- [?PREVIOUS, ?LATEST]],
     ok.
 
-% The disc writes of the log's commits that committed: presume_commit ones, and those of OTP's schema transactions,
-% whose committed decision follows them in the log.
+% The disc writes of the log's commits that committed: presume_commit ones, and those of schema transactions, whose
+% committed decision follows them in the log; the items of their operations come first (MIM1H2).
 committed_items(Entries) ->
     Committed = [Tid || {decision, Tid, committed, _, _} <- Entries],
     [
         I
-     || #commit{decision = Decision, disc_copies = Disc, disc_only_copies = DiscOnly} <- Entries,
+     || #commit{decision = Decision, disc_copies = Disc, disc_only_copies = DiscOnly, schema_ops = Ops} <- Entries,
         committed(Decision, Committed),
-        I <- Disc ++ DiscOnly
+        I <- clause_mnesia_ops:items(Ops) ++ Disc ++ DiscOnly
     ].
 
 committed(presume_commit, _) -> true;
@@ -444,25 +448,50 @@ log_chunks(Name, {Records, Cont}) ->
 %% The transaction log.
 
 % A commit's updates of disc tables in LATEST.LOG, before they are applied, synchronously for a sync transaction or
-% sync_dirty activity (MIM1H1); a dump follows each dump_log_write_threshold writes.
-log(Updates, Kind) ->
-    case use_dir() of
-        true -> log_items([{val({Tab, storage_type}), item(Tab, Key, U)} || {Tab, Key, U} <- Updates], Kind);
-        false -> ok
-    end.
-
-log_items(Items, Kind) ->
-    case {[I || {disc_copies, I} <- Items], [I || {disc_only_copies, I} <- Items]} of
-        {[], []} ->
-            ok;
-        {Disc, DiscOnly} ->
-            Commit = #commit{node = node(), decision = presume_commit, disc_copies = Disc, disc_only_copies = DiscOnly},
-            ok = log_term(Kind, Commit),
+% sync_dirty activity (MIM1H1); a dump follows each dump_log_write_threshold writes. A transaction on a majority table
+% logs under its decision, Tid, as OTP's, even without disc writes (MIM1H2).
+log(Updates, Kind, Decision) ->
+    case use_dir() andalso log_terms(Kind, terms(Decision, stored(Updates), [])) of
+        true ->
             Writes = clause_mnesia_monitor:increment(trans_log_writes),
             Writes rem clause_mnesia_monitor:get_env(dump_log_write_threshold) =:= 0 andalso
                 gen_server:cast(mnesia_monitor, {dump_log, write_threshold}),
+            ok;
+        false ->
             ok
     end.
+
+% A schema transaction's commit (MIM1H2): its operations and the records it wrote, under the decision that the
+% committed one follows, as OTP's; nothing when it changed nothing.
+log_schema(Tid, Ops, Updates) ->
+    _ = use_dir() andalso (Ops =/= [] orelse Updates =/= []) andalso log_terms(sync, terms(Tid, stored(Updates), Ops)),
+    ok.
+
+stored(Updates) -> [{val({Tab, storage_type}), item(Tab, Key, U)} || {Tab, Key, U} <- Updates].
+
+% The log's terms of a commit: a presume_commit commit of disc writes, or a commit under its decision when it wrote or
+% changed anything, then the committed decision.
+terms(Decision, Items, Ops) ->
+    Disc = [I || {disc_copies, I} <- Items],
+    DiscOnly = [I || {disc_only_copies, I} <- Items],
+    Commit = #commit{node = node(), disc_copies = Disc, disc_only_copies = DiscOnly, schema_ops = Ops},
+    case Decision of
+        presume_commit when Disc =:= [], DiscOnly =:= [] ->
+            [];
+        presume_commit ->
+            [Commit#commit{decision = presume_commit}];
+        Tid when Disc =:= [], DiscOnly =:= [], Ops =:= [] ->
+            [{decision, Tid, committed, [], []}];
+        Tid ->
+            [Commit#commit{decision = {decision, Tid, presume_abort, [node()], []}}, {decision, Tid, committed, [], []}]
+    end.
+
+% Whether terms were logged.
+log_terms(_, []) ->
+    false;
+log_terms(Kind, Terms) ->
+    [ok = log_term(Kind, Term) || Term <- Terms],
+    true.
 
 log_term(sync, Term) -> disk_log:log(latest_log, Term);
 log_term(_, Term) -> disk_log:alog(latest_log, Term).

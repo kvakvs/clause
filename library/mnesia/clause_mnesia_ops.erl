@@ -1,0 +1,126 @@
+%% OTP's schema operations, the {op, ...} tuples of a schema transaction (plan 21 step MIM1H2,
+%% docs/libraries/mnesia-protocol.md): built from the request and the changes clause_mnesia_change prepared, before
+%% mnesia_monitor applies them, so that the transaction log holds the terms OTP's holds. Table definitions are the
+%% schema's create lists.
+-module(clause_mnesia_ops).
+-export([ops/2, dumped/1, items/1]).
+
+-include("clause_mnesia.hrl").
+
+%% The operations after which OTP dumps the log at once.
+-define(DUMPED, [delete_table, transform, change_table_copy_type]).
+
+% A request's operations; the definitions before the change are read from mnesia_gvar, as the transaction runs first.
+ops({create_table, _}, Changes) ->
+    [{op, create_table, list(Cs)} || {create, Cs} <- Changes];
+ops({delete_table, _}, Changes) ->
+    [deleted(Tab) || {delete, Tab} <- Changes];
+ops({add_index, _, _}, [{add_index, Cs, Index}]) ->
+    [{op, add_index, Index, list(Cs)}];
+ops({del_index, _, _}, [{del_index, Cs, Pos}]) ->
+    [{op, del_index, Pos, list(Cs)}];
+ops({transform, _, Fun, _, _}, [{transform, Cs, _}]) ->
+    [{op, transform, Fun, list(Cs)}];
+ops({copy_type, _, Node, To}, [{redefine, #cstruct{name = Tab} = Cs}]) when To =/= unknown ->
+    [{op, change_table_copy_type, Node, clause_mnesia_schema:storage(Node, old(Tab)), To, list(Cs)}];
+ops({copy_type, _, Node, unknown}, Changes) ->
+    [copy_op(Change, Node, del_table_copy) || Change <- Changes];
+ops({del_copy, _, Node}, Changes) ->
+    [copy_op(Change, Node, del_table_copy) || Change <- Changes];
+ops({add_copy, _, Node, _}, Changes) ->
+    [copy_op(Change, Node, add_table_copy) || Change <- Changes];
+ops({move_copy, _, From, To}, [{redefine, Cs}]) ->
+    [{op, move_table_copy, From, To, list(Cs)}];
+ops({access_mode, _, _}, Changes) ->
+    [changed(change_table_access_mode, #cstruct.access_mode, Cs) || {redefine, Cs} <- Changes];
+ops({load_order, _, _}, Changes) ->
+    [changed(change_table_load_order, #cstruct.load_order, Cs) || {redefine, Cs} <- Changes];
+ops({majority, _, _}, Changes) ->
+    [changed(change_table_majority, #cstruct.majority, Cs) || {redefine, Cs} <- Changes];
+ops({write_property, _, Prop}, [{redefine, Cs}]) ->
+    [{op, write_property, list(Cs), Prop}];
+ops({delete_property, _, Key}, [{redefine, Cs}]) ->
+    [{op, delete_property, list(Cs), Key}];
+ops({add_snmp, _, Ustruct}, [{redefine, Cs}]) ->
+    [{op, add_snmp, Ustruct, list(Cs)}];
+ops({del_snmp, _}, [{redefine, Cs}]) ->
+    [{op, del_snmp, list(Cs)}];
+ops({dump_tables, _}, Changes) ->
+    [{op, dump_table, clause_mnesia_db:info(Tab, size), list(old(Tab))} || {dump, Tab} <- Changes];
+ops({change_frag, _, Change}, Changes) ->
+    frag_ops(frag_op(Change), Changes);
+ops({restore, _, _}, [{restore, Plan, _}]) ->
+    lists:append([restore_ops(Entry) || Entry <- lists:reverse(Plan)]);
+ops(_, _) ->
+    [].
+
+% Whether OTP dumps the log right after these operations.
+dumped(Ops) ->
+    lists:any(fun(Op) -> lists:member(element(2, Op), ?DUMPED) end, Ops).
+
+% The log items the operations write or clear (MIM1H2): a cleared or recreated table's clear, a moved record's write
+% or delete; the replay and the dump of the log treat them as the commit's own items, before them.
+items(Ops) ->
+    lists:append([op_items(Op) || Op <- Ops]).
+
+op_items({op, Clear, List}) when Clear =:= clear_table; Clear =:= restore_recreate ->
+    Tab = proplists:get_value(name, List),
+    [{{Tab, '_'}, '_', clear_table}];
+op_items({op, rec, _, {Oid, Records, write}}) ->
+    [{Oid, Record, write} || Record <- Records];
+op_items({op, rec, _, {Oid, _, delete}}) ->
+    [{Oid, Oid, delete}];
+op_items(_) ->
+    [].
+
+deleted(Tab) -> {op, delete_table, list(old(Tab))}.
+
+% A copy's change: the table goes with its last copy.
+copy_op({delete, Tab}, _, _) ->
+    deleted(Tab);
+copy_op({_, #cstruct{name = Tab} = Cs}, Node, Name) ->
+    Storage =
+        case Name of
+            add_table_copy -> clause_mnesia_schema:storage(Node, Cs);
+            del_table_copy -> clause_mnesia_schema:storage(Node, old(Tab))
+        end,
+    {op, Name, Storage, Node, list(Cs)}.
+
+% An operation that changes one field: the definition, the old value and the new.
+changed(Name, Field, #cstruct{name = Tab} = Cs) ->
+    {op, Name, list(Cs), element(Field, old(Tab)), element(Field, Cs)}.
+
+% change_table_frag/2's operation as OTP names it.
+frag_op({activate, _}) -> activate;
+frag_op(Change) -> Change.
+
+% Each base table's change, then the fragments created or deleted, then the records moved, as OTP orders them.
+frag_ops(FragOp, Changes) ->
+    Tables = [{op, change_table_frag, FragOp, list(Cs)} || {redefine, Cs} <- Changes],
+    Created = [{op, create_table, list(Cs)} || {create, Cs} <- Changes],
+    Deleted = [deleted(Tab) || {delete, Tab} <- Changes],
+    New = [Cs || {create, Cs} <- Changes],
+    Moved = [rec(Move, New) || {records, Moves} <- Changes, Move <- Moves],
+    Tables ++ Created ++ Deleted ++ Moved.
+
+% A moved record as OTP's rec operation, with the storage of its fragment here.
+rec({Frag, Key, Update}, New) ->
+    Storage =
+        case lists:keyfind(Frag, #cstruct.name, New) of
+            false -> clause_mnesia_monitor:val({Frag, storage_type});
+            Cs -> clause_mnesia_schema:storage(Cs)
+        end,
+    case Update of
+        {write, Record} -> {op, rec, Storage, {{Frag, Key}, [Record], write}};
+        delete -> {op, rec, Storage, {{Frag, Key}, [{Frag, Key}], delete}}
+    end.
+
+% A restored table's operation: its records cleared, or the table made again from the backup's definition.
+restore_ops({deleted, Tab}) -> [deleted(Tab)];
+restore_ops({Tab, {clear, _}}) -> [{op, clear_table, list(old(Tab))}];
+restore_ops({_, {recreate, Cs}}) -> [{op, restore_recreate, list(Cs)}];
+restore_ops({_, {keep, _}}) -> [].
+
+old(Tab) -> clause_mnesia_monitor:val({Tab, cstruct}).
+
+list(Cs) -> clause_mnesia_schema:cs2list(Cs).

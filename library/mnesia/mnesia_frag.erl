@@ -350,7 +350,7 @@ expand(#cstruct{name = Tab, frag_properties = Props} = Cs, Mode) ->
     Copies = [copies(Tab, K, Props) || K <- [n_ram_copies, n_disc_copies, n_disc_only_copies, n_external_copies]],
     Cs2 = fragments_of(Cs, N, Mode),
     Module = pick(Tab, hash_module, Props, ?DEFAULT_HASH),
-    State = Module:init_state(Tab, pick(Tab, hash_state, Props, undefined)),
+    State = init_state(Module, Tab, pick(Tab, hash_state, Props, undefined)),
     FH = #frag_state{foreign_key = ForeignKey, n_fragments = 1, hash_module = Module, hash_state = State},
     Counts =
         case lists:sum(Copies) of
@@ -599,6 +599,11 @@ del_node(Tab, Node) when is_atom(Node) ->
     [{redefine, with_pool(Cs, Pool -- [Node])}];
 del_node(Tab, Node) ->
     mnesia:abort({bad_type, Tab, Node}).
+
+% The hash module's first state. The default module is called by name, so that a program's build takes it along with
+% mnesia_frag (MIM1H2).
+init_state(mnesia_frag_hash, Tab, State) -> mnesia_frag_hash:init_state(Tab, State);
+init_state(Module, Tab, State) -> Module:init_state(Tab, State).
 
 % mnesia:del_table_copy(schema, Node): the node leaves a fragmented table's pool.
 remove_node(Node, #cstruct{name = Tab} = Cs) ->

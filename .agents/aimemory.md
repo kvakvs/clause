@@ -932,3 +932,10 @@ gotchas and user directions not recorded elsewhere.
   DECISION_TAB.LOG is "1.0" (not "3.0"), written only by dumps that found entries; OTP's fresh DCD has no header;
   fallback disc_copies records go to DCL. While mnesia runs, copies of its open logs read empty (buffered): read files
   after stop. Fast check: scratch/mim1h/pair.py A B (otp|clause) runs the fixture's two nodes on the BEAM.
+- MIM1H2 mnesia (2026-11-03): OTP dumps the log right after delete_table, transform and change_table_copy_type (so
+  their ops never stay in LATEST.LOG; observe them with dbg on disk_log:log/alog of latest_log); clear_table is a plain
+  presume_commit commit, the decision form comes from majority tables; a start writes DECISION_TAB.LOG whenever a
+  LATEST.LOG file exists and takes one serial more after a log of schema transactions. Clause's backup writes the
+  schema items in reverse of OTP's ets order. A module reached only through an atom (mnesia_frag's default hash
+  module) is undef in programs that never name it: call it by name. clau crashed on cold -O2 builds with --jobs 2
+  (1 in 3; jobs 1 never): plan 11 VAL6; a rerun with warm caches passes.

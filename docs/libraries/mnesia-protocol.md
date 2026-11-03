@@ -43,3 +43,34 @@ Each file is a `disk_log` (halt log) of Erlang terms unless named a `dets` table
 - **Transaction serial:** a fresh start's own transactions take serials 1 and 2. A start continues from
   `DECISION_TAB.LOG`'s serial, or past the transactions of the schema commits in `LATEST.LOG`; transactions that wrote
   only RAM tables are not remembered.
+
+## Schema transactions (MIM1H2)
+
+On one node, a schema transaction logs `{commit, Node, {decision, Tid, presume_abort, [Node], []}, [], Disc, DiscOnly,
+[], Ops}` and then `{decision, Tid, committed, [], []}`. `Cs` below is the table's create list as in `schema.DAT`, with
+the new version.
+
+| Operation | `{op, ...}` tuples |
+| --- | --- |
+| `create_table/2` | `{op, create_table, Cs}`; a fragmented table's fragments, the last first, then the base table |
+| `delete_table/1`, `del_table_copy/2` of the last copy | `{op, delete_table, Cs}` with the table's last definition |
+| `add_table_index/2`, `del_table_index/2` | `{op, add_index, {Pos, ordered}, Cs}`, `{op, del_index, Pos, Cs}` |
+| `transform_table/3,4` | `{op, transform, Fun or ignore, Cs}` |
+| `change_table_copy_type/3` | `{op, change_table_copy_type, Node, From, To, Cs}` |
+| access mode, load order, majority | `{op, change_table_access_mode, Cs, Old, New}`, `change_table_load_order`, `change_table_majority` alike |
+| `write_table_property/2`, `delete_table_property/2` | `{op, write_property, Cs, Prop}`, `{op, delete_property, Cs, Key}` |
+| `snmp_open_table/2`, `snmp_close_table/1` | `{op, add_snmp, Ustruct, Cs}`, `{op, del_snmp, Cs}` |
+| `dump_tables/1` | `{op, dump_table, Size, Cs}` per table |
+| `change_table_frag/2` | `{op, change_table_frag, activate or deactivate or {add_frag, Nodes} or del_frag, BaseCs}`, then `create_table` or `delete_table` of the fragment, then `{op, rec, Storage, {{Frag, Key}, [Record], write}}` and `{op, rec, Storage, {{Frag, Key}, [{Frag, Key}], delete}}` per moved record |
+| `restore/2` | `{op, clear_table, Cs}` or `{op, restore_recreate, BackupCs}` per table, the restored records as the commit's `Disc` and `DiscOnly` writes |
+
+- **Dumped at once:** after `delete_table`, `transform` and `change_table_copy_type`, the log is dumped, so none of them
+  stays in `LATEST.LOG`.
+- **Not schema transactions:** `clear_table/1` is a `presume_commit` commit of `{{Tab, '_'}, '_', clear_table}`. A
+  transaction that writes a table with `majority` `true` logs its commit under its decision, and only
+  `{decision, Tid, committed, [], []}` when it wrote no disc table. `set_master_nodes` logs `{master_nodes, Tab,
+  Nodes}`.
+- **Not seen on one node:** the operations of `add_table_copy/3`, `del_table_copy/2` of another copy and
+  `move_table_copy/3`. Clause writes `{op, add_table_copy, Storage, Node, Cs}`, `{op, del_table_copy, Storage, Node,
+  Cs}` and `{op, move_table_copy, From, To, Cs}` until MIM1H9 observes them.
+- **Serial at start:** a start whose log held schema transactions takes one serial more before its own two.

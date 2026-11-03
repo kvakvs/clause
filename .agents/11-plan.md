@@ -157,7 +157,7 @@ Completed steps link to [the plan 11 record](11-finished.md).
 | H3. Drop-in replacements for OTP runtime modules | [41I](11-finished.md)–[41S](11-finished.md) (41K1, 41K2 added) | done |
 | H5. Regular expressions (`re`) | [41ZA](11-finished.md), [41ZB](11-finished.md) | done |
 | H4. Library functions luerl reaches | [41T](11-finished.md)–[41Z](11-finished.md), [41M1](11-finished.md), [41M2](11-finished.md), [41ZC](11-finished.md) | done |
-| M. Validation closure | [63](11-finished.md)–[68](11-finished.md), [65A](11-finished.md), [65B](11-finished.md), [65C](11-finished.md), [69A](11-finished.md), [VAL1](#step-val1)–[VAL5](#step-val5) | open: [VAL1](#step-val1)–[VAL5](#step-val5) |
+| M. Validation closure | [63](11-finished.md)–[68](11-finished.md), [65A](11-finished.md), [65B](11-finished.md), [65C](11-finished.md), [69A](11-finished.md), [VAL1](#step-val1)–[VAL6](#step-val6) | open: [VAL1](#step-val1)–[VAL6](#step-val6) |
 | N. Optional scope decisions | [RT1](#step-rt1), [RT2](#step-rt2), [CLAU3](#step-clau3)–[CLAU5](#step-clau5), [RT3](#step-rt3), [RT9](#step-rt9), [CLAU6](#step-clau6) | open |
 | N2. Parse transforms | [73A](11-finished.md)–[73G](11-finished.md), [CLAU7](#step-clau7) | open: [CLAU7](#step-clau7) |
 | P. Remaining features | [CLAU9](#step-clau9)–[CLAU11](#step-clau11), [RT6](#step-rt6)–[RT8](#step-rt8) | open |
@@ -427,6 +427,19 @@ Linux sanitizer gate.
   - [ ] The timer stress run passes under TSan without suppressions on Linux.
 - Tests
   - [ ] Linux sanitizer gate with the stress run.
+
+<a id="step-val6"></a>
+
+### VAL6. clau crash on cold -O2 builds with several jobs
+
+Found 2026-11-03 (plan 21 MIM1H2; also seen 2026-10-28 compiling ssl). A cold `-O2` build of a program that
+uses the whole `mnesia` library sometimes crashes `clau`: 0xC0000005, or LLVM's "Alignment is not a power of 2"
+assertion. Repro: `clau -O2 --no-cache --jobs 2 --entry mnesia_schema_ops ...` in the test's work directory, 1 crash
+in 3 runs; `--jobs 1` passed 6 of 6. Warm caches hide it.
+
+- Success criteria
+  - [ ] The race found (`-DCLAUSE_OPTIMIZED_COMPILER=OFF`, several jobs) and fixed; 20 cold `-O2` builds with
+    `--jobs 4` pass.
 
 ## N. Optional scope decisions
 

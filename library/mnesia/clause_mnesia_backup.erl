@@ -534,22 +534,18 @@ restore_op(Tab, #{options := Options, default := Default}) ->
     end.
 
 % The restore applied in mnesia_monitor: tables deleted, cleared or created anew, then the backup's records of the
-% restored tables written, and disc_copies tables dumped.
+% restored tables written; {logged, Updates} gives the writes to the log, as OTP's commit holds them (MIM1H2).
 restore_tables(Plan, #{module := Module, opaque := Opaque}, Tid) ->
     InOrder = lists:reverse(Plan),
     RecordNames = maps:from_list([{Tab, prepare_table(Tab, Op, Tid)} || {Tab, Op} <- InOrder, Tab =/= deleted]),
     [delete_table(Tab, Tid) || {deleted, Tab} <- InOrder],
     Write = fun(Items, _, _, Acc) ->
-        [restore_item(Item, RecordNames, Tid) || Item <- Items],
-        Acc
+        lists:foldl(fun(Item, Updates) -> restore_item(Item, RecordNames, Tid) ++ Updates end, Acc, Items)
     end,
-    case iterate(Module, Write, Opaque, ok) of
-        {ok, _} -> ok;
+    case iterate(Module, Write, Opaque, []) of
+        {ok, Updates} -> {logged, lists:reverse(Updates)};
         {error, Reason} -> mnesia:abort(Reason)
-    end,
-    clause_mnesia_disc:use_dir() andalso
-        [clause_mnesia_disc:ets2dcd(T) || T <- maps:keys(RecordNames), storage(T) =:= disc_copies],
-    ok.
+    end.
 
 % A restored table before its records come: its record name.
 prepare_table(Tab, {clear, RecordName}, Tid) ->
@@ -565,17 +561,21 @@ prepare_table(Tab, {recreate, #cstruct{record_name = RecordName} = Cs}, Tid) ->
 delete_table(Tab, Tid) ->
     ets:member(?GVAR, {Tab, cstruct}) andalso clause_mnesia_schema:apply_change({delete, Tab}, Tid).
 
-% A backup item of a restored table: a record written under its table's record name, or a {Tab, Key} delete.
+% A backup item of a restored table: a record written under its table's record name, or a {Tab, Key} delete; the
+% update made, if any.
 restore_item(Item, RecordNames, Tid) ->
     Tab = element(1, Item),
-    case RecordNames of
-        #{Tab := _} when tuple_size(Item) =:= 2 ->
-            clause_mnesia_access:update(Tid, Tab, element(2, Item), delete);
-        #{Tab := RecordName} ->
-            clause_mnesia_access:update(Tid, Tab, element(2, Item), {write, setelement(1, Item, RecordName)});
+    Key = element(2, Item),
+    Update =
+        case RecordNames of
+            #{Tab := _} when tuple_size(Item) =:= 2 -> delete;
+            #{Tab := RecordName} -> {write, setelement(1, Item, RecordName)};
+            _ -> none
+        end,
+    case Update of
+        none ->
+            [];
         _ ->
-            ok
+            clause_mnesia_access:update(Tid, Tab, Key, Update),
+            [{Tab, Key, Update}]
     end.
-
-storage(Tab) ->
-    clause_mnesia_monitor:val({Tab, storage_type}).

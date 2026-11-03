@@ -194,7 +194,8 @@ behavior (`docs/differences.md` lists gaps).
   schema transaction applied in `mnesia_monitor`; fallbacks are copied backups installed by the disc start; MIM1G:
   fragments are tables Tab_fragN reached through the `mnesia_frag` access module, `{Tab, frag_hash}` gvar row; MIM1H1:
   the directory's files are OTP's (decision log with the tid serial in `mnesia_decision`), so OTP and Clause nodes take
-  turns on one directory; SNMP
+  turns on one directory; MIM1H2: schema transactions are logged with OTP's `{op, ...}` tuples (`clause_mnesia_ops`) and
+  replayed in log order; SNMP
   row index per table kept by updates).
   Distribution and tracing
   answer as a non-alive node.

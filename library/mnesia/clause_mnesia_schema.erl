@@ -326,14 +326,9 @@ apply_change(Change, Tid) ->
     schema_event(Tid, {schema, Cs#cstruct.name, cs2list(Cs)}, write),
     apply_change(Change).
 
-% Records moved between a fragmented table's fragments (MIM1G), whose disc_copies fragments are dumped.
+% Records moved between a fragmented table's fragments (MIM1G), which the log keeps as OTP's rec operations (MIM1H2).
 move_records(Moves, Tid) ->
     [clause_mnesia_access:update(Tid, Frag, Key, Update) || {Frag, Key, Update} <- Moves],
-    clause_mnesia_disc:use_dir() andalso
-        [
-            clause_mnesia_disc:ets2dcd(F)
-         || F <- lists:usort([F || {F, _, _} <- Moves]), val({F, storage_type}) =:= disc_copies
-        ],
     ok.
 
 % A schema record changed by transaction Tid: the schema's checkpoints retain the old one (MIM1F), its subscribers
