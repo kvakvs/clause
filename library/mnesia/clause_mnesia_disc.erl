@@ -2,18 +2,21 @@
 %% with OTP's names and terms. schema.DAT is a dets table of the schema's records; LATEST.LOG a disk_log of #commit{}
 %% records with each commit's disc writes, which a dump moves into the tables' files; Tab.DCD a disk_log of a table's
 %% records and Tab.DCL of its writes since; Tab.DAT the dets table of a disc_only_copies table; FALLBACK.BUP the
-%% backup create_schema/2 writes, installed at the next start. mnesia_monitor runs every change of these files.
+%% backup create_schema/2 writes, installed at the next start; DECISION_TAB.LOG the transaction serial and master nodes
+%% each dump finds (MIM1H1). mnesia_monitor runs every change of these files.
 -module(clause_mnesia_disc).
 -export([use_dir/0, fallback_activated/0, create_schema/2, delete_schema/1, schema_source/0, purge_local/0]).
 -export([start/0, stop/0, to_disc_schema/0, to_ram_schema/0, save_schema/1, open_dat/1, load/2, created/2]).
--export([deleted/1, ets2dcd/1, dump_exists/1, index_file/2, log/1, dump_log/1, sync_log/0, item_update/1]).
--export([dumped_records/1]).
+-export([deleted/1, ets2dcd/1, dump_exists/1, index_file/2, log/2, dump_log/1, sync_log/0, item_update/1]).
+-export([dumped_records/1, set_master_nodes/2]).
 
 -include("clause_mnesia.hrl").
 
 -define(LATEST, "LATEST.LOG").
 -define(PREVIOUS, "PREVIOUS.LOG").
 -define(FALLBACK, "FALLBACK.BUP").
+-define(DECISION_TAB, "DECISION_TAB.LOG").
+-define(DECISION_TMP, "DECISION_TAB.TMP").
 %% The suffixes of mnesia's files, which delete_schema/1 removes from the directory.
 -define(SUFFIXES, [".DAT", ".LOG", ".BUP", ".DCL", ".DCD", ".TMP", ".BUPTMP", ".RET", ".DMP", "."]).
 %% A chunk of records written to a log at once.
@@ -135,6 +138,7 @@ write_fallback(Nodes, Props) ->
         record_name = schema,
         attributes = [table, cstruct],
         disc_copies = Nodes,
+        cookie = clause_mnesia_schema:unique_cookie(),
         user_properties = schema_properties(Props)
     },
     List = [P || {Key, _} = P <- clause_mnesia_schema:cs2list(Cs), Key =/= majority, Key =/= storage_properties],
@@ -216,11 +220,13 @@ start() ->
     {value, {schema, schema, SchemaList}, Tables} = lists:keytake(schema, 2, Records),
     clause_mnesia_schema:init_schema(clause_mnesia_schema:list2cs(SchemaList)),
     [clause_mnesia_schema:load_table(clause_mnesia_schema:list2cs(List)) || {schema, _, List} <- Tables],
+    read_decisions(),
     replay_logs(),
     open_latest().
 
 % The fallback replaces the directory's database: its schema becomes schema.DAT, and the records of each table held
-% here its files (MIM1F): a disc_only_copies table's DAT, another table's DCD, none for a RAM table without records.
+% here its files (MIM1F): a disc_only_copies table's DAT, a disc_copies table's DCL after an empty DCD as OTP's, which
+% the start's dump merges (MIM1H1), a RAM table's DCD, none for a RAM table without records.
 install_fallback() ->
     File = file(?FALLBACK),
     case exists(File) andalso not clause_mnesia_monitor:get_env(ignore_fallback_at_startup) of
@@ -251,10 +257,15 @@ fallback_table(#cstruct{name = Tab, type = Type, record_name = RecordName} = Cs,
     ets:delete(Contents),
     case clause_mnesia_schema:storage(Cs) of
         disc_only_copies -> write_table_dat(Cs, Records);
-        disc_copies -> write_log(tab_file(Tab, ".DCD"), [header(dcd_log, "1.0") | Records]);
+        disc_copies -> fallback_dcl(Tab, Records);
         ram_copies when Own =/= [] -> write_log(tab_file(Tab, ".DCD"), [header(dcd_log, "1.0") | Records]);
         _ -> ok
     end.
+
+% A disc_copies table's records as OTP's fallback leaves them: write items of a DCL file after a DCD of a header only.
+fallback_dcl(Tab, Records) ->
+    write_log(tab_file(Tab, ".DCD"), [header(dcd_log, "1.0")]),
+    write_log(tab_file(Tab, ".DCL"), [header(dcl_log, "1.0") | [item(Tab, element(2, R), {write, R}) || R <- Records]]).
 
 fallback_item(Contents, {_, Key}, _) -> ets:delete(Contents, Key);
 fallback_item(Contents, Record, RecordName) -> ets:insert(Contents, setelement(1, Record, RecordName)).
@@ -271,18 +282,48 @@ write_dat(File, Records) ->
     ok = dets:insert(Name, Records),
     ok = dets:close(Name).
 
-% The commits since the last dump: written to the tables again, then each disc_copies table they touched or that has a
-% DCL file dumped, and the logs started afresh.
+% The log since the last dump: its committed writes made again and its master nodes set, then the tables' files dumped,
+% the decisions written when the log held entries, as OTP's start dumps it (MIM1H1), and the logs started afresh.
 replay_logs() ->
-    Commits = [C || F <- [?PREVIOUS, ?LATEST], C <- read_log(file(F)), is_record(C, commit)],
-    Items = [I || #commit{disc_copies = Disc, disc_only_copies = DiscOnly} <- Commits, I <- Disc ++ DiscOnly],
-    Replayed = [I || {{T, _}, _, _} = I <- Items, storage(T) =/= ram_copies],
+    Entries = [E || F <- [?PREVIOUS, ?LATEST], E <- read_log(file(F)), not is_record(E, log_header)],
+    Serials = [ets:lookup_element(mnesia_decision, serial, 3) | [N + 1 || {decision, {tid, N, _}, _, _, _} <- Entries]],
+    ets:insert(mnesia_decision, {trans_tid, serial, lists:max(Serials)}),
+    Replayed = [I || {{T, _}, _, _} = I <- committed_items(Entries), storage(T) =/= ram_copies],
     [item_update(I) || I <- Replayed],
-    Local = [T || T <- val({schema, local_tables}), storage(T) =:= disc_copies],
-    Touched = lists:usort([T || {{T, _}, _, _} <- Replayed] ++ [T || T <- Local, exists(tab_file(T, ".DCL"))]),
-    [touched(T) || T <- Touched],
+    [masters(Tab, Nodes) || {master_nodes, Tab, Nodes} <- Entries],
+    dump_replayed(Replayed, val(dump_disc_copies_at_startup)),
+    Entries =/= [] andalso write_decisions(),
     [file:delete(file(F)) || F <- [?PREVIOUS, ?LATEST]],
     ok.
+
+% The disc writes of the log's commits that committed: presume_commit ones, and those of OTP's schema transactions,
+% whose committed decision follows them in the log.
+committed_items(Entries) ->
+    Committed = [Tid || {decision, Tid, committed, _, _} <- Entries],
+    [
+        I
+     || #commit{decision = Decision, disc_copies = Disc, disc_only_copies = DiscOnly} <- Entries,
+        committed(Decision, Committed),
+        I <- Disc ++ DiscOnly
+    ].
+
+committed(presume_commit, _) -> true;
+committed({decision, Tid, _, _, _}, Committed) -> lists:member(Tid, Committed);
+committed(_, _) -> false.
+
+% With dump_disc_copies_at_startup, each disc_copies table the log touched or that has a DCL file gets a new DCD;
+% without, the log's writes go to the tables' DCL files (MIM1H1).
+dump_replayed(Items, true) ->
+    Local = [T || T <- val({schema, local_tables}), storage(T) =:= disc_copies],
+    Touched = lists:usort([T || {T, _} <- by_table(Items)] ++ [T || T <- Local, exists(tab_file(T, ".DCL"))]),
+    [touched(T) || T <- Touched];
+dump_replayed(Items, false) ->
+    [append_dcl(T, TabItems) || {T, TabItems} <- by_table(Items), storage(T) =:= disc_copies],
+    [dets:sync(T) || {T, _} <- by_table(Items), storage(T) =:= disc_only_copies].
+
+% Log items grouped by table, in the log's order.
+by_table(Items) ->
+    [{T, [I || {{Tab, _}, _, _} = I <- Items, Tab =:= T]} || T <- lists:usort([T || {{T, _}, _, _} <- Items])].
 
 % A table's storage on this node; ram_copies also for a table that is gone.
 storage(Tab) ->
@@ -360,8 +401,8 @@ load(Tab, Storage) when Storage =:= disc_copies; Storage =:= ram_copies ->
 load(_, _) ->
     ok.
 
-% A new replica's files: a disc_copies table starts with an empty DCD.
-created(Tab, disc_copies) -> ets2dcd(Tab);
+% A new replica's files: a disc_copies table starts with a DCD file without terms, as OTP's (MIM1H1).
+created(Tab, disc_copies) -> write_log(tab_file(Tab, ".DCD"), []);
 created(_, _) -> ok.
 
 % A replica's files go with it.
@@ -402,26 +443,59 @@ log_chunks(Name, {Records, Cont}) ->
 
 %% The transaction log.
 
-% A commit's updates of disc tables in LATEST.LOG, before they are applied; a dump follows each
-% dump_log_write_threshold writes.
-log(Updates) ->
+% A commit's updates of disc tables in LATEST.LOG, before they are applied, synchronously for a sync transaction or
+% sync_dirty activity (MIM1H1); a dump follows each dump_log_write_threshold writes.
+log(Updates, Kind) ->
     case use_dir() of
-        true -> log_items([{val({Tab, storage_type}), item(Tab, Key, U)} || {Tab, Key, U} <- Updates]);
+        true -> log_items([{val({Tab, storage_type}), item(Tab, Key, U)} || {Tab, Key, U} <- Updates], Kind);
         false -> ok
     end.
 
-log_items(Items) ->
+log_items(Items, Kind) ->
     case {[I || {disc_copies, I} <- Items], [I || {disc_only_copies, I} <- Items]} of
         {[], []} ->
             ok;
         {Disc, DiscOnly} ->
             Commit = #commit{node = node(), decision = presume_commit, disc_copies = Disc, disc_only_copies = DiscOnly},
-            ok = disk_log:alog(latest_log, Commit),
+            ok = log_term(Kind, Commit),
             Writes = clause_mnesia_monitor:increment(trans_log_writes),
             Writes rem clause_mnesia_monitor:get_env(dump_log_write_threshold) =:= 0 andalso
                 gen_server:cast(mnesia_monitor, {dump_log, write_threshold}),
             ok
     end.
+
+log_term(sync, Term) -> disk_log:log(latest_log, Term);
+log_term(_, Term) -> disk_log:alog(latest_log, Term).
+
+% A table's master nodes, none for [], logged on a disc schema as OTP's {master_nodes, Tab, Nodes} so that the next
+% start keeps them (MIM1H1).
+set_master_nodes(Tab, Nodes) ->
+    masters(Tab, Nodes),
+    use_dir() andalso disk_log:alog(latest_log, {master_nodes, Tab, Nodes}),
+    ok.
+
+masters(Tab, []) -> ets:delete(mnesia_decision, {tab, Tab});
+masters(Tab, Nodes) -> ets:insert(mnesia_decision, {master_nodes, {tab, Tab}, Nodes}).
+
+%% The decision log (MIM1H1).
+
+% DECISION_TAB.LOG's transaction serial, which new transactions continue (or the last in the log's decisions), after
+% the start's first one; and master nodes. The decisions of other nodes' transactions come with several nodes.
+read_decisions() ->
+    [decision(D) || {decision_list, List} <- read_log(file(?DECISION_TAB)), D <- List],
+    ok.
+
+decision({trans_tid, serial, N}) -> ets:update_counter(mnesia_decision, serial, {3, N});
+decision({master_nodes, Tab, Nodes}) -> masters(Tab, Nodes);
+decision(_) -> true.
+
+% DECISION_TAB.LOG anew, as OTP writes it after each dump that found entries in the log.
+write_decisions() ->
+    Masters = [{master_nodes, Tab, Nodes} || {master_nodes, {tab, Tab}, Nodes} <- ets:tab2list(mnesia_decision)],
+    Decisions = {decision_list, ets:lookup(mnesia_decision, serial) ++ Masters},
+    Tmp = file(?DECISION_TMP),
+    write_log(Tmp, [header(decision_tab, "1.0"), Decisions]),
+    ok = file:rename(Tmp, file(?DECISION_TAB)).
 
 % An update as OTP's log item, and back.
 item(Tab, Key, {write, Val}) -> {{Tab, Key}, Val, write};
@@ -443,24 +517,22 @@ update(Tab, Key, Update) ->
     ok.
 
 % dump_log/0 and the dump thresholds: the log so far goes into the DCL files, or a table's DCD when its DCL has
-% grown past the dc_dump_limit share of it.
+% grown past the dc_dump_limit share of it; then the decisions (MIM1H1).
 dump_log(_InitBy) ->
     case use_dir() of
         true ->
             Previous = file(?PREVIOUS),
             ok = disk_log:reopen(latest_log, Previous, header(trans_log, "4.3")),
-            Commits = [C || C <- read_log(Previous), is_record(C, commit)],
-            dump_items([I || #commit{disc_copies = Disc} <- Commits, I <- Disc]),
-            [dets:sync(T) || T <- lists:usort([T || #commit{disc_only_copies = I} <- Commits, {{T, _}, _, _} <- I])],
+            Entries = [E || E <- read_log(Previous), not is_record(E, log_header)],
+            Items = committed_items(Entries),
+            [dump_table(T, TabItems) || {T, TabItems} <- by_table(Items), storage(T) =:= disc_copies],
+            [dets:sync(T) || {T, _} <- by_table(Items), storage(T) =:= disc_only_copies],
+            Entries =/= [] andalso write_decisions(),
             _ = file:delete(Previous),
             dumped;
         false ->
             dumped
     end.
-
-dump_items(Items) ->
-    Tabs = lists:usort([T || {{T, _}, _, _} <- Items]),
-    [dump_table(T, [I || {{Tab, _}, _, _} = I <- Items, Tab =:= T]) || T <- Tabs, storage(T) =:= disc_copies].
 
 dump_table(Tab, Items) ->
     case needs_dcd(Tab) of

@@ -9,9 +9,9 @@
 
 -include("clause_mnesia.hrl").
 
-%% The server's state: the last transaction serial, each transaction's stores (innermost first) and the transaction
-%% of each process running one.
--record(state, {serial = 0, stores = #{}, tids = #{}}).
+%% The server's state: each transaction's stores (innermost first) and the transaction of each process running one.
+%% The last transaction serial is OTP's {trans_tid, serial, N} row of mnesia_decision, kept in DECISION_TAB.LOG.
+-record(state, {stores = #{}, tids = #{}}).
 
 start_link() ->
     gen_server:start_link({local, mnesia_tm}, ?MODULE, [], []).
@@ -61,7 +61,7 @@ inner(Mod, Tid, OldMod, #tidstore{store = Outer, up_stores = Up, level = Level} 
 execute(Fun, Args, Factor, Retries, Kind) ->
     try
         Result = apply(Fun, Args),
-        {commit(), Result}
+        {commit(Kind), Result}
     of
         {outer, Value} ->
             increment(trans_commits),
@@ -151,12 +151,13 @@ fix_error({abort, Reason}) -> Reason;
 fix_error(Reason) -> Reason.
 
 % The commit: mnesia_tm applies an outer transaction's writes and releases its locks, so that a commit completes even
-% if the transaction's process dies meanwhile; an inner transaction hands its store to the outer one.
-commit() ->
+% if the transaction's process dies meanwhile; an inner transaction hands its store to the outer one. A sync
+% transaction logs synchronously (MIM1H1).
+commit(Kind) ->
     case get(mnesia_activity_state) of
         {_, Tid, #tidstore{store = Store, up_stores = []}} ->
             check_snmp_keys(Store),
-            committed = request({commit, Tid}),
+            committed = request({commit, Tid, Kind}),
             outer;
         {_, Tid, #tidstore{store = Store, up_stores = [{OldMod, Outer} | Rest], level = Level} = Ts} ->
             request({del_store, Tid, Store, Outer}),
@@ -172,12 +173,12 @@ check_snmp_keys(Store) ->
 
 % Each written record's operations, in the order the transaction made them, after the tables it clears; those of disc
 % tables logged first (MIM1D). A transaction that wrote, or changed the schema, completes an activity (MIM1E).
-apply_writes(Tid, Store) ->
+apply_writes(Tid, Store, Kind) ->
     Clears = ets:match_object(Store, {'_', '_', clear_table}),
     Oids = lists:usort(ets:select(Store, [{{'$1', '_', '_'}, [{is_tuple, '$1'}, {'=:=', {size, '$1'}, 2}], ['$1']}])),
     Ops = Clears ++ [Op || Oid <- Oids, Op <- ets:lookup(Store, Oid), element(3, Op) =/= clear_table],
     Updates = [U || Op <- Ops, U <- [table_update(Op)], U =/= none],
-    safe(fun() -> clause_mnesia_disc:log(Updates) end),
+    safe(fun() -> clause_mnesia_disc:log(Updates, Kind) end),
     [safe(fun() -> clause_mnesia_access:update(Tid, Tab, Key, Update) end) || {Tab, Key, Update} <- Updates],
     (Updates =/= [] orelse ets:member(Store, op)) andalso clause_mnesia_subscr:report_activity(Tid),
     ok.
@@ -241,13 +242,11 @@ init([]) ->
     {ok, #state{}}.
 
 % A new outer transaction: a store and the next tid, and a link that releases its locks if its process exits.
-handle_call(start_outer, {Pid, _}, #state{serial = Serial, stores = Stores, tids = Tids} = State) ->
+handle_call(start_outer, {Pid, _}, #state{stores = Stores, tids = Tids} = State) ->
     link(Pid),
-    Tid = #tid{counter = Serial + 1, pid = Pid},
+    Tid = #tid{counter = ets:update_counter(mnesia_decision, serial, {3, 1}), pid = Pid},
     Store = new_store(),
-    {reply, {new_tid, Tid, Store}, State#state{
-        serial = Serial + 1, stores = Stores#{Tid => [Store]}, tids = Tids#{Pid => Tid}
-    }};
+    {reply, {new_tid, Tid, Store}, State#state{stores = Stores#{Tid => [Store]}, tids = Tids#{Pid => Tid}}};
 handle_call({add_store, Tid}, _From, #state{stores = Stores} = State) ->
     Store = new_store(),
     {reply, {new_store, Store}, State#state{stores = Stores#{Tid := [Store | maps:get(Tid, Stores)]}}};
@@ -258,9 +257,9 @@ handle_call({restart, Tid, Store}, _From, #state{stores = Stores} = State) ->
     [ets:delete(S) || S <- maps:get(Tid, Stores), S =/= Store],
     ets:delete_all_objects(Store),
     {reply, {restarted, Tid}, State#state{stores = Stores#{Tid := [Store]}}};
-handle_call({commit, #tid{pid = Pid} = Tid}, _From, #state{stores = Stores} = State) ->
+handle_call({commit, #tid{pid = Pid} = Tid, Kind}, _From, #state{stores = Stores} = State) ->
     [Store | _] = maps:get(Tid, Stores),
-    apply_writes(Tid, Store),
+    apply_writes(Tid, Store, Kind),
     clause_mnesia_locker:release_tid(Tid),
     unlink(Pid),
     {reply, committed, forget(Tid, State)};

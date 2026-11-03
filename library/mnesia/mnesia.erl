@@ -522,12 +522,8 @@ set_master_nodes(Tab, Nodes) when is_list(Nodes) ->
 set_master_nodes(Tab, Nodes) ->
     {error, {bad_type, Tab, Nodes}}.
 
-masters(Tab, []) ->
-    ets:delete(mnesia_decision, {tab, Tab}),
-    ok;
 masters(Tab, Nodes) ->
-    ets:insert(mnesia_decision, {master_nodes, {tab, Tab}, Nodes}),
-    ok.
+    clause_mnesia_disc:set_master_nodes(Tab, Nodes).
 
 master_nodes(Tab) ->
     try
@@ -1382,8 +1378,8 @@ dirty_update_counter(Tab, Key, Incr) when is_atom(Tab), Tab =/= schema, is_integ
 dirty_update_counter(Tab, _, Incr) ->
     abort({bad_type, Tab, Incr}).
 
-% An update applied where the table is committed on this node, logged first for a disc table (MIM1D); none without
-% writable replicas.
+% An update applied where the table is committed on this node, logged first for a disc table (MIM1D), synchronously
+% in a sync_dirty activity (MIM1H1); none without writable replicas.
 commit(Tab, Key, Update) ->
     case val({Tab, where_to_commit}) of
         [] ->
@@ -1391,9 +1387,12 @@ commit(Tab, Key, Update) ->
         Replicas ->
             val({Tab, where_to_read}) =:= nowhere andalso abort({no_exists, Tab}),
             clause_mnesia_snmp:check(Tab, Key),
-            clause_mnesia_disc:log([{Tab, Key, Update}]),
+            clause_mnesia_disc:log([{Tab, Key, Update}], log_kind(get(mnesia_activity_state))),
             lists:foldl(fun(Replica, Result) -> replica_update(Replica, Tab, Key, Update, Result) end, ok, Replicas)
     end.
+
+log_kind({_, {sync_dirty, _}, _}) -> sync;
+log_kind(_) -> async.
 
 % An update of this node's replica; a failed one leaves the result as it was, as OTP's commit does.
 replica_update({Node, _Storage}, Tab, Key, Update, Result) when Node =:= node() ->

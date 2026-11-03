@@ -926,3 +926,9 @@ gotchas and user directions not recorded elsewhere.
   follows ets order (fixtures sort); add_table_copy reports its schema record twice. OTP 29 SNMP needs no snmp app
   (ets ordered_set index). Never edit library/ while a ctest run compiles it: a mid-run edit failed one golden.
   run_case.py CASE [--clause] in scratch/mnesia runs any fixture on the BEAM; both goldens matched on the first run.
+- MIM1H1 mnesia (2026-11-03): mixed OTP/Clause nodes on one directory need no distribution (both nonode@nohost); turns
+  by marker files named with ERL_EPMD_PORT (fresh per run). A scratch runner that reads node a's pipe before b's
+  deadlocks b on a full stdout pipe (looks like a hang in the other node): send each node's output to files. OTP's
+  DECISION_TAB.LOG is "1.0" (not "3.0"), written only by dumps that found entries; OTP's fresh DCD has no header;
+  fallback disc_copies records go to DCL. While mnesia runs, copies of its open logs read empty (buffered): read files
+  after stop. Fast check: scratch/mim1h/pair.py A B (otp|clause) runs the fixture's two nodes on the BEAM.

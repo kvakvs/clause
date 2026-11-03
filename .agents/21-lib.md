@@ -177,7 +177,7 @@ dependencies, non-test sources.
   - **Rules for every step:**
     - Observe before writing. Run the step's scenario on two OTP nodes in scratch (`erl -sname`, `sys:trace`/`dbg`
       on `mnesia_monitor`, `mnesia_controller`, `mnesia_recover`, `mnesia_tm`, `mnesia_locker`, `mnesia_loader`) and
-      record the message shapes, the `rpc` calls and the file terms as observations in a new
+      record the message shapes, the `rpc` calls and the file terms as observations in
       `docs/libraries/mnesia-protocol.md` (message tables, not OTP code). Write Clause's side from that table and
       OTP's documentation, never from OTP's sources.
     - Records that cross nodes or files stay OTP's, field for field: `#cstruct{}`, `#commit{}`, `#log_header{}`,
@@ -197,16 +197,8 @@ dependencies, non-test sources.
       (`runs[].nodes[].kind = otp`), generated with every node on OTP. Each scenario runs both ways where it can
       (the Clause node as the one that starts the operation, and as the one that answers). Disc scenarios give each
       node its own `dir`.
-  - **MIM1H1 Directory parity on one node:** the files of OTP's directory, so that OTP mnesia starts on a
-    directory Clause wrote and the reverse.
-    - `DECISION_TAB.LOG` (decision log, version "3.0") with OTP's terms: `mnesia_down`/`mnesia_up` history,
-      master nodes, decisions; `PREVIOUS.LOG` in dumps as OTP rotates it; `dump_disc_copies_at_startup false`
-      keeping `DCL` files; synchronous logging of `sync_transaction/sync_dirty`.
-    - The disc-related rows of `docs/differences.md` (`Files of mnesia's directory`, fallback `DCD`/`DCL`, the
-      `disc_only_copies` retainer `.RET` file, backup header versions "0.1"/"1.1" converted) fixed or kept with a
-      reason.
-    - Golden `mnesia_dir_exchange`: an OTP node creates a schema and tables and stops, then a Clause node starts on
-      that directory, checks the data, writes, stops; then the OTP node starts again on it (and the reverse).
+  - **MIM1H1 done** (`21-finished.md`): OTP's files and terms in the directory, observations in
+    `docs/libraries/mnesia-protocol.md`.
   - **MIM1H2 Schema operations as OTP's terms:** every schema change produces OTP's `{op, ...}` tuples
     (`create_table`, `delete_table`, `add_index`, `del_index`, `transform`, `add_table_copy`, `del_table_copy`,
     `change_table_copy_type`, `change_table_access_mode`, `change_table_load_order`, `change_table_majority`,
@@ -216,7 +208,9 @@ dependencies, non-test sources.
     `mnesia_monitor` applies op tuples, whoever made them.
     - Records aligned with OTP's (above), `#checkpoint_args{}` included.
     - Still one node. Golden `mnesia_schema_ops`: the `LATEST.LOG` terms of each change before its dump, compared
-      with OTP's (cookies and times hidden), and `mnesia_dir_exchange` extended with schema changes left in the log.
+      with OTP's (cookies and times hidden), and `mnesia_dir_exchange` extended with schema changes left in the log
+      (and `clear_table/1`, which OTP runs as a schema operation). A start after logged schema commits continues the
+      transaction serial past their tids, as OTP's (`differences.md` row "Schema changes in mnesia's directory").
   - **MIM1H3 OTP's module names and remote queries:** the registered processes OTP peers expect and are missing
     (`mnesia_recover`, `mnesia_controller`, `mnesia_late_loader`, `mnesia_rpc`, `mnesia_checkpoint_sup`'s
     children as OTP names them), and the OTP-named library modules for the peers' `rpc` calls (rules above), each
@@ -338,7 +332,7 @@ dependencies, non-test sources.
 
 ### Order
 
-1. MIM9's record wildcard fix, MIM6, MIM7 (MIM1A-MIM1G done 2026-11-02/03; MIM1H1-H12 optional, in order)
+1. MIM9's record wildcard fix, MIM6, MIM7 (MIM1A-MIM1G, MIM1H1 done 2026-11-02/03; MIM1H2-H12 optional, in order)
    (small), MIM3, MIM4, MIM2, MIM5; MIM8 after a user decision.
 2. LIB81D3c, LIB81D4b and LIB81E on request.
 3. LIB82, LIB83 last (test support).

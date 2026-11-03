@@ -32,7 +32,9 @@ Clause's `mnesia` application (plan 21, MIM1) exports the OTP 29 interface of `m
   `mnesia_frag`, and [SNMP indexes](#snmp).
 - **Declined:** `add_backend_type/2`, which needs external storage backends (`mnesia_backend_type` modules); Clause
   keeps tables in `ets` and `dets` only. It raises `{not_implemented, add_backend_type, 2}`.
-- **Later (MIM1H, optional):** several nodes over distribution.
+- **MIM1H, optional, in steps:** several nodes over distribution, Clause and OTP nodes in one database. MIM1H1, done:
+  the [same files](#disc-storage) as OTP's in mnesia's directory, so that OTP and Clause nodes take turns on one
+  directory. What OTP writes and sends is recorded in [mnesia's files and protocol](mnesia-protocol.md).
 
 Every other documented function works. See the [function inventory](../../library/mnesia/mnesia.terms) and
 [differences](../differences.md#mnesia).
@@ -204,7 +206,9 @@ Disc storage keeps OTP's files in mnesia's directory, the `dir` parameter (defau
 | --- | --- |
 | `FALLBACK.BUP` | the backup that `create_schema/1,2` writes, installed at the next start |
 | `schema.DAT` | a `dets` table of the schema's `{schema, Tab, CreateList}` records |
-| `LATEST.LOG` | a `disk_log` of `#commit{}` records with each commit's disc writes, after a `#log_header{}` |
+| `LATEST.LOG` | a `disk_log` of `#commit{}` records with each commit's disc writes, and `{master_nodes, Tab, Nodes}` entries, after a `#log_header{}` |
+| `PREVIOUS.LOG` | the log a dump is moving into the tables' files |
+| `DECISION_TAB.LOG` | the `{decision_list, Decisions}` that each dump finding entries in the log writes: the transaction serial `{trans_tid, serial, N}` and the master nodes |
 | `Tab.DCD`, `Tab.DCL` | a `disc_copies` table's records, and its writes since the `DCD` file was written |
 | `Tab.DAT`, `Tab_Pos.DAT` | a `disc_only_copies` table's `dets` table, and the `dets` table of its index at `Pos` |
 
@@ -218,20 +222,29 @@ Disc storage keeps OTP's files in mnesia's directory, the `dir` parameter (defau
   holds a fallback or a schema, `ram` never. `system_info(fallback_activated)` is `true` while a fallback waits.
 - **Starting:** the fallback, if any, becomes `schema.DAT`. Each table then gets its records: a `disc_copies` table
   from its `DCD` and `DCL` files, a `disc_only_copies` table from its `dets` file, a RAM table from a dump by
-  `dump_tables/1`. Their `load_reason` is `local_only`, the schema's `initial`. The writes logged since the last dump
-  are applied again, the `disc_copies` tables they touched get new `DCD` files, and the log starts afresh.
+  `dump_tables/1`. Their `load_reason` is `local_only`, the schema's `initial`. The decision log's master nodes are
+  set, and transactions continue its serial. The log since the last dump is applied again: its committed writes, also
+  those of OTP's schema transactions, and its master nodes. Then, with `dump_disc_copies_at_startup` (the default), the
+  `disc_copies` tables the log touched or that have a `DCL` file get new `DCD` files; without it, the log's writes go
+  to their `DCL` files. The log starts afresh, and the decision log is written when the log held entries.
 - **Schema changes:** each change writes the changed tables' records to `schema.DAT` at once, after a dump of the log,
-  and counts two log writes, as OTP's schema transactions do. A new `disc_copies` table starts with an empty `DCD`
-  file; a deleted table's files go.
+  and counts two log writes, as OTP's schema transactions do. A new `disc_copies` table starts with a `DCD` file
+  without terms, as OTP's; a deleted table's files go.
+- **The same files as OTP's:** an OTP node starts on a directory a Clause node wrote and the reverse, with the records,
+  indexes, master nodes and fallbacks found again (plan 21 step MIM1H1). Clause does not log schema changes in
+  `LATEST.LOG` yet (MIM1H2), see [differences](../differences.md#mnesia).
 
 ### Transaction log
 
 - **Logging:** a commit that writes a `disc_copies` or `disc_only_copies` table appends one `#commit{}` record to
   `LATEST.LOG` before the tables change, so `system_info(transaction_log_writes)` counts it. Dirty writes and
-  transactions are logged, `ets` activities and RAM tables are not.
+  transactions are logged, `ets` activities and RAM tables are not. `sync_transaction/1,2,3` and `sync_dirty/1,2`
+  write their record before going on; the others hand it to the log. `set_master_nodes/1,2` logs each table's master
+  nodes, which the next start sets again.
 - **Dumps:** `dump_log/0` returns `dumped`, and a dump also follows every `dump_log_write_threshold` writes and every
   `dump_log_time_threshold` milliseconds. A dump moves the log's writes into each table's `DCL` file, or writes a new
-  `DCD` file when the `DCL` file has grown to `1/dc_dump_limit` of it. `disc_only_copies` tables are synced.
+  `DCD` file when the `DCL` file has grown to `1/dc_dump_limit` of it. `disc_only_copies` tables are synced. The log
+  goes to `PREVIOUS.LOG` while it is dumped, and a dump that found entries writes `DECISION_TAB.LOG`.
 - **Errors:** `sync_log/0` syncs the log, and returns `{error, no_such_log}` with a RAM schema. Without a running
   mnesia both return `{error, {node_not_running, Node}}`.
 - **`dump_tables/1`:** writes RAM tables to `DCD` files, which the next start loads. It aborts with
@@ -491,7 +504,8 @@ by default `mnesia_backup` ([mnesia_backup](../../library/mnesia/mnesia_backup.e
   fallback.
 - **Uninstalling:** `uninstall_fallback/0,1` removes the fallback.
 - **Starting:** the next start replaces the directory's database with the fallback: its schema, and each local
-  table's records in the table's files.
+  table's records in the table's files, a `disc_copies` table's as `DCL` writes after an empty `DCD` file, as OTP's.
+  The start's dump then merges them, unless `dump_disc_copies_at_startup` is `false`. The decision log goes.
 
 ## Fragmented tables
 
@@ -561,6 +575,12 @@ index of its rows by SNMP row index, as OTP's `mnesia_snmp_hook` does
   states and fragment numbers, fragmented tables created with their errors, access through `mnesia_frag`, the
   fragment information, fragments added and deleted, activation, node pools, foreign keys, and SNMP indexes with their
   lookups in and outside transactions.
+- **`mnesia_dir_exchange` golden:** generated from OTP
+  ([fixture](../../tests/fixtures/executables/mnesia_dir_exchange/mnesia_dir_exchange.erl)), with two nodes taking
+  turns on one directory: a disc schema created, its tables written and their log partly dumped, master nodes set; a
+  start without dumping `disc_copies` tables, records and tables changed; a backup installed as a fallback and started
+  from. Each turn shows the directory's files and their terms. Its runs pair Clause nodes with OTP nodes both ways, so
+  that each reads the other's files.
 - **What `mnesia_dirty` covers:** answers before starting, system information, every `create_table` option and error, table
   properties, dirty access of each table type, indexes, counters, argument errors, schema changes, `schema/1`'s
   printout, error descriptions, and stopping and restarting.

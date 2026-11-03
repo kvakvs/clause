@@ -7,6 +7,7 @@
     cstruct/1,
     verify/1,
     cs2list/1,
+    unique_cookie/0,
     list2cs/1,
     schema_cstruct/0,
     init_schema/0,

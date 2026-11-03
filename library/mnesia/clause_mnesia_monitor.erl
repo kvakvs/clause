@@ -233,11 +233,13 @@ positives() ->
     ].
 
 % The global variables, the configuration and the schema: an empty RAM schema, or the directory's (MIM1D); two schema
-% transactions counted, as OTP's start commits them.
+% transactions counted, as OTP's start commits them; they take two transaction serials of mnesia_decision, the first
+% before a disc schema's log is dumped (MIM1H1).
 init([]) ->
     process_flag(trap_exit, true),
     ets:new(?GVAR, [set, public, named_table]),
     ets:new(mnesia_decision, [set, public, named_table, {keypos, 2}]),
+    ets:insert(mnesia_decision, {trans_tid, serial, 0}),
     set(mnesia_status, starting),
     [set(Name, get_env(Name)) || Name <- parameters()],
     {ok, Version} = application:get_key(mnesia, vsn),
@@ -246,10 +248,12 @@ init([]) ->
     Counters = [{trans_commits, 2}, {trans_failures, 0}, {trans_restarts, 0}, {trans_log_writes, 0}],
     [set(Counter, N) || {Counter, N} <- Counters],
     [set(List, []) || List <- [subscribers, activity_subscribers, checkpoints]],
+    ets:update_counter(mnesia_decision, serial, {3, 1}),
     case UseDir of
         true -> clause_mnesia_disc:start();
         false -> clause_mnesia_schema:init_schema()
     end,
+    ets:update_counter(mnesia_decision, serial, {3, 1}),
     set(mnesia_status, running),
     {ok, dump_timer()}.
 

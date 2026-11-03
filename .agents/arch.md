@@ -192,7 +192,9 @@ behavior (`docs/differences.md` lists gaps).
   commit; text files, `table/1,2` qlc handles and the `info/0` report in their own modules; MIM1F: a process per
   checkpoint owns ets retainers, updates retain old records first, backups are table now + retainer; restore is a
   schema transaction applied in `mnesia_monitor`; fallbacks are copied backups installed by the disc start; MIM1G:
-  fragments are tables Tab_fragN reached through the `mnesia_frag` access module, `{Tab, frag_hash}` gvar row; SNMP
+  fragments are tables Tab_fragN reached through the `mnesia_frag` access module, `{Tab, frag_hash}` gvar row; MIM1H1:
+  the directory's files are OTP's (decision log with the tid serial in `mnesia_decision`), so OTP and Clause nodes take
+  turns on one directory; SNMP
   row index per table kept by updates).
   Distribution and tracing
   answer as a non-alive node.

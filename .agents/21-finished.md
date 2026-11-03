@@ -276,3 +276,8 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **MIM1G** mnesia fragments and SNMP, `mnesia` complete: `mnesia_frag_hash` (linear hashing), the `mnesia_frag`
   access module, fragmented `create_table`/`delete_table`, `change_table_frag`, foreign keys; SNMP row indexes;
   `add_backend_type` declined; `mnesia_fragments` golden identical to OTP — `451e0cf3`
+- **MIM1H1** mnesia directory parity: `DECISION_TAB.LOG` (trans_tid serial, master nodes) after dumps that found
+  entries, master nodes logged and restored, OTP's schema commits skipped on replay, `dump_disc_copies_at_startup`
+  `false` appending to DCL, sync logging, OTP's empty DCD and fallback DCL, the schema's cookie; observations in
+  `docs/libraries/mnesia-protocol.md`; `mnesia_dir_exchange` golden (OTP and Clause nodes taking turns on one
+  directory) identical to OTP both ways — `PENDING`
