@@ -1,14 +1,20 @@
 %% Clause's mnesia (plan 21 step MIM1, docs/libraries/mnesia.md): a database of ets tables owned by mnesia_monitor,
 %% with OTP's results, errors and table properties. Step MIM1A provides starting and stopping, the RAM schema and its
-%% information, dirty access and indexes; MIM1B transactions, activities and access modules. Disc storage, events,
-%% backups and fragments follow in MIM1D-MIM1G, and their functions raise not_implemented until then. Step MIM1C
-%% adds the other schema changes, user properties, master nodes and configuration changes.
+%% information, dirty access and indexes; MIM1B transactions, activities and access modules. Step MIM1C adds the other
+%% schema changes, user properties, master nodes and configuration changes; MIM1D the disc schema and disc tables.
+%% Events, backups and fragments follow in MIM1E-MIM1G, and their functions raise not_implemented until then.
 -module(mnesia).
 -export([
     start/0,
     start/1,
     stop/0,
     abort/1,
+    create_schema/1,
+    create_schema/2,
+    delete_schema/1,
+    dump_log/0,
+    sync_log/0,
+    dump_tables/1,
     create_table/1,
     create_table/2,
     delete_table/1,
@@ -160,12 +166,7 @@
     backup_checkpoint/2,
     backup_checkpoint/3,
     change_table_frag/2,
-    create_schema/1,
-    create_schema/2,
     deactivate_checkpoint/1,
-    delete_schema/1,
-    dump_log/0,
-    dump_tables/1,
     dump_to_textfile/1,
     info/0,
     install_fallback/1,
@@ -182,7 +183,6 @@
     snmp_get_row/2,
     snmp_open_table/2,
     subscribe/1,
-    sync_log/0,
     system_info/0,
     table/1,
     table/2,
@@ -236,6 +236,36 @@ stop() ->
 
 abort(Reason = {aborted, _}) -> exit(Reason);
 abort(Reason) -> exit({aborted, Reason}).
+
+%% The disc schema and its log (MIM1D).
+
+create_schema(Nodes) ->
+    create_schema(Nodes, []).
+
+create_schema(Nodes, Properties) ->
+    clause_mnesia_disc:create_schema(Nodes, Properties).
+
+delete_schema(Nodes) ->
+    clause_mnesia_disc:delete_schema(Nodes).
+
+% The transaction log goes into the tables' files now.
+dump_log() ->
+    case clause_mnesia_monitor:is_running() of
+        yes -> gen_server:call(mnesia_monitor, {dump_log, user}, infinity);
+        _ -> {error, {node_not_running, node()}}
+    end.
+
+sync_log() ->
+    case clause_mnesia_monitor:is_running() of
+        yes -> clause_mnesia_disc:sync_log();
+        _ -> {error, {node_not_running, node()}}
+    end.
+
+% RAM tables dumped to disc, loaded again at the next start.
+dump_tables(Tabs) when is_list(Tabs) ->
+    schema_operation({dump_tables, Tabs});
+dump_tables(Tabs) ->
+    {aborted, {bad_type, Tabs}}.
 
 %% Schema changes, each a schema transaction: never inside an activity.
 
@@ -484,7 +514,7 @@ renamed(Property) -> Property.
 raw_table_info(Tab, Item) ->
     try ets:lookup_element(?GVAR, {Tab, storage_type}, 2) of
         unknown -> unmeasured(Tab, Item);
-        _ -> ets:info(Tab, Item)
+        _ -> clause_mnesia_db:info(Tab, Item)
     catch
         error:_ -> unmeasured(Tab, Item)
     end.
@@ -530,9 +560,12 @@ info(is_running) ->
 info(Item) when Item =:= directory; Item =:= extra_db_nodes; Item =:= schema_location ->
     loaded(),
     clause_mnesia_monitor:get_env(env_name(Item));
-info(Item) when Item =:= use_dir; Item =:= fallback_activated ->
+info(use_dir) ->
     loaded(),
-    false;
+    clause_mnesia_disc:use_dir();
+info(fallback_activated) ->
+    loaded(),
+    clause_mnesia_disc:fallback_activated();
 info(Item) ->
     running_info(Item).
 
@@ -557,8 +590,7 @@ running_info(lock_queue) ->
     counter(trans_commits),
     clause_mnesia_locker:lock_queue();
 running_info(transaction_log_writes) ->
-    counter(trans_commits),
-    0;
+    counter(trans_log_writes);
 running_info(transactions) ->
     {ok, _} = running(),
     clause_mnesia_tm:transactions();
@@ -1096,13 +1128,15 @@ dirty_update_counter(Tab, Key, Incr) when is_atom(Tab), Tab =/= schema, is_integ
 dirty_update_counter(Tab, _, Incr) ->
     abort({bad_type, Tab, Incr}).
 
-% An update applied where the table is committed on this node; none without writable replicas.
+% An update applied where the table is committed on this node, logged first for a disc table (MIM1D); none without
+% writable replicas.
 commit(Tab, Key, Update) ->
     case val({Tab, where_to_commit}) of
         [] ->
             abort({no_exists, Tab});
         Replicas ->
             val({Tab, where_to_read}) =:= nowhere andalso abort({no_exists, Tab}),
+            clause_mnesia_disc:log([{Tab, Key, Update}]),
             lists:foldl(fun(Replica, Result) -> replica_update(Replica, Tab, Key, Update, Result) end, ok, Replicas)
     end.
 
@@ -1122,7 +1156,7 @@ dirty_read({Tab, Key}) -> dirty_read(Tab, Key);
 dirty_read(Oid) -> abort({bad_type, Oid}).
 
 dirty_read(Tab, Key) when is_atom(Tab), Tab =/= schema ->
-    local(Tab, [Tab, Key], fun() -> ets:lookup(Tab, Key) end);
+    local(Tab, [Tab, Key], fun() -> clause_mnesia_db:lookup(Tab, Key) end);
 dirty_read(Tab, _) ->
     abort({bad_type, Tab}).
 
@@ -1137,7 +1171,7 @@ dirty_match_object(Tab, Pat) ->
 % A match through the first index whose position the pattern binds, when its key is unbound.
 remote_dirty_match_object(Tab, Pat) ->
     case has_var(element(2, Pat)) of
-        false -> ets:match_object(Tab, Pat);
+        false -> clause_mnesia_db:match_object(Tab, Pat);
         true -> indexed_match(Tab, Pat, regular_indexes(Tab))
     end.
 
@@ -1147,7 +1181,7 @@ indexed_match(Tab, Pat, [Pos | Rest]) when Pos =< tuple_size(Pat) ->
         true -> indexed_match(Tab, Pat, Rest)
     end;
 indexed_match(Tab, Pat, []) ->
-    ets:match_object(Tab, Pat);
+    clause_mnesia_db:match_object(Tab, Pat);
 indexed_match(Tab, Pat, _) ->
     abort({bad_type, Tab, Pat}).
 
@@ -1195,8 +1229,7 @@ ordered(Tab, Records, Direction) ->
         _ -> Records
     end.
 
-ets_select(Tab, Spec, forward) -> ets:select(Tab, Spec);
-ets_select(Tab, Spec, reverse) -> ets:select_reverse(Tab, Spec).
+ets_select(Tab, Spec, Direction) -> clause_mnesia_db:select(Tab, Spec, Direction).
 
 regular_indexes(Tab) ->
     [P || P <- val({Tab, index}), is_integer(P)].
@@ -1249,21 +1282,25 @@ table_position(_, Pos) when is_integer(Pos) -> Pos;
 table_position(Tab, Attribute) -> clause_mnesia_schema:attribute_position(Attribute, val({Tab, attributes})).
 
 dirty_slot(Tab, Slot) when is_atom(Tab), Tab =/= schema, is_integer(Slot) ->
-    local(Tab, [Tab, Slot], fun() -> ets:slot(Tab, Slot) end);
+    local(Tab, [Tab, Slot], fun() -> clause_mnesia_db:slot(Tab, Slot) end);
 dirty_slot(Tab, Slot) ->
     abort({bad_type, Tab, Slot}).
 
-dirty_first(Tab) when is_atom(Tab), Tab =/= schema -> local(Tab, [Tab], fun() -> ets:first(Tab) end);
+dirty_first(Tab) when is_atom(Tab), Tab =/= schema -> local(Tab, [Tab], fun() -> clause_mnesia_db:first(Tab) end);
 dirty_first(Tab) -> abort({bad_type, Tab}).
 
-dirty_last(Tab) when is_atom(Tab), Tab =/= schema -> local(Tab, [Tab], fun() -> ets:last(Tab) end);
+dirty_last(Tab) when is_atom(Tab), Tab =/= schema -> local(Tab, [Tab], fun() -> clause_mnesia_db:last(Tab) end);
 dirty_last(Tab) -> abort({bad_type, Tab}).
 
-dirty_next(Tab, Key) when is_atom(Tab), Tab =/= schema -> local(Tab, [Tab, Key], fun() -> ets:next(Tab, Key) end);
-dirty_next(Tab, _) -> abort({bad_type, Tab}).
+dirty_next(Tab, Key) when is_atom(Tab), Tab =/= schema ->
+    local(Tab, [Tab, Key], fun() -> clause_mnesia_db:next(Tab, Key) end);
+dirty_next(Tab, _) ->
+    abort({bad_type, Tab}).
 
-dirty_prev(Tab, Key) when is_atom(Tab), Tab =/= schema -> local(Tab, [Tab, Key], fun() -> ets:prev(Tab, Key) end);
-dirty_prev(Tab, _) -> abort({bad_type, Tab}).
+dirty_prev(Tab, Key) when is_atom(Tab), Tab =/= schema ->
+    local(Tab, [Tab, Key], fun() -> clause_mnesia_db:prev(Tab, Key) end);
+dirty_prev(Tab, _) ->
+    abort({bad_type, Tab}).
 
 % M:F(Args) where the table's replica is read.
 dirty_rpc(Tab, M, F, Args) ->
@@ -1295,12 +1332,7 @@ backup(_, _) -> erlang:error({not_implemented, backup, 2}).
 backup_checkpoint(_, _) -> erlang:error({not_implemented, backup_checkpoint, 2}).
 backup_checkpoint(_, _, _) -> erlang:error({not_implemented, backup_checkpoint, 3}).
 change_table_frag(_, _) -> erlang:error({not_implemented, change_table_frag, 2}).
-create_schema(_) -> erlang:error({not_implemented, create_schema, 1}).
-create_schema(_, _) -> erlang:error({not_implemented, create_schema, 2}).
 deactivate_checkpoint(_) -> erlang:error({not_implemented, deactivate_checkpoint, 1}).
-delete_schema(_) -> erlang:error({not_implemented, delete_schema, 1}).
-dump_log() -> erlang:error({not_implemented, dump_log, 0}).
-dump_tables(_) -> erlang:error({not_implemented, dump_tables, 1}).
 dump_to_textfile(_) -> erlang:error({not_implemented, dump_to_textfile, 1}).
 info() -> erlang:error({not_implemented, info, 0}).
 install_fallback(_) -> erlang:error({not_implemented, install_fallback, 1}).
@@ -1317,7 +1349,6 @@ snmp_get_next_index(_, _) -> erlang:error({not_implemented, snmp_get_next_index,
 snmp_get_row(_, _) -> erlang:error({not_implemented, snmp_get_row, 2}).
 snmp_open_table(_, _) -> erlang:error({not_implemented, snmp_open_table, 2}).
 subscribe(_) -> erlang:error({not_implemented, subscribe, 1}).
-sync_log() -> erlang:error({not_implemented, sync_log, 0}).
 system_info() -> erlang:error({not_implemented, system_info, 0}).
 table(_) -> erlang:error({not_implemented, table, 1}).
 table(_, _) -> erlang:error({not_implemented, table, 2}).

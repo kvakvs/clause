@@ -183,6 +183,9 @@ behavior (`docs/differences.md` lists gaps).
   serialized there; `mnesia_gvar` keeps OTP's `{Tab, Item}` rows, so `table_info`/`schema/1` list OTP's items;
   MIM1B: transactions run in the caller over a store ets owned by `mnesia_tm`, which commits; `mnesia_locker` queues
   older/refuses younger; schema changes are schema transactions in a spawned coordinator; MIM1C: the coordinator takes
-  OTP's locks and checks (`clause_mnesia_change`, transform functions too), `mnesia_monitor` applies the changes).
+  OTP's locks and checks (`clause_mnesia_change`, transform functions too), `mnesia_monitor` applies the changes;
+  MIM1D: disc schema in OTP's files and terms (`clause_mnesia_disc`: schema.DAT dets, LATEST.LOG of #commit{},
+  DCD/DCL disk_logs, disc_only tables and their indexes as dets), commits log before applying, dumps and schema
+  changes both run in `mnesia_monitor`; `clause_mnesia_db` sends table access to ets or dets).
   Distribution and tracing
   answer as a non-alive node.

@@ -1,13 +1,17 @@
 %% mnesia's schema (plan 21 step MIM1A, docs/libraries/mnesia.md#schema): table definitions checked as OTP checks
 %% them, the properties each table keeps in mnesia_gvar, and the changes of schema transactions, which
-%% clause_mnesia_change prepares and the mnesia_monitor process, owner of every table, applies here.
+%% clause_mnesia_change prepares and the mnesia_monitor process, owner of every table, applies here. On a disc schema
+%% (MIM1D) the changes also reach the directory's files (clause_mnesia_disc).
 -module(clause_mnesia_schema).
 -export([
     cstruct/1,
     verify/1,
     cs2list/1,
+    list2cs/1,
     schema_cstruct/0,
     init_schema/0,
+    init_schema/1,
+    load_table/1,
     apply_change/1,
     storage/1,
     storage/2,
@@ -258,6 +262,15 @@ field(Field, Value) -> [{Field, Value}].
 listed_index({_, _} = P) -> P;
 listed_index(P) -> {P, ordered}.
 
+% A schema record's {Field, Value} list as a cstruct (MIM1D); a list without a cookie gets a new one.
+list2cs(List) ->
+    Defaults = tl(tuple_to_list(#cstruct{})),
+    Cs = list_to_tuple([cstruct | [proplists:get_value(F, List, D) || {F, D} <- lists:zip(?FIELDS, Defaults)]]),
+    case Cs#cstruct.cookie of
+        undefined -> Cs#cstruct{external_copies = [], cookie = unique_cookie()};
+        _ -> Cs#cstruct{external_copies = []}
+    end.
+
 % A table cookie unique to this node and moment.
 unique_cookie() ->
     {{erlang:monotonic_time() + erlang:time_offset(), erlang:unique_integer(), 1}, node()}.
@@ -274,17 +287,25 @@ schema_cstruct() ->
 
 % The schema table and its properties, as mnesia starts with an empty RAM schema.
 init_schema() ->
-    Cs = schema_cstruct(),
+    init_schema(schema_cstruct()).
+
+% The schema table with the schema's definition, from schema.DAT on a disc schema (MIM1D).
+init_schema(Cs) ->
     ets:new(schema, [set, public, named_table, {keypos, 2}]),
     set({schema, tables}, []),
     set({schema, local_tables}, []),
     insert(Cs, initial).
+
+% A table of the disc schema at start, with its records from the directory (MIM1D).
+load_table(Cs) ->
+    insert(Cs, local_only).
 
 % A schema transaction's change, applied in mnesia_monitor, which owns the tables (MIM1C).
 apply_change({create, Cs}) ->
     insert(Cs, {dumper, create_table});
 apply_change({delete, Tab}) ->
     drop_replica(Tab),
+    clause_mnesia_disc:deleted(Tab),
     ets:match_delete(?GVAR, {{Tab, '_'}, '_'}),
     ets:match_delete(?GVAR, {{Tab, '_', '_'}, '_'}),
     ets:delete(schema, Tab),
@@ -300,18 +321,21 @@ apply_change({transform, #cstruct{name = Tab, type = Type} = Cs, Changes}) ->
     [clause_mnesia_index:drop(Tab, P) || P <- Positions],
     [transform_key(Tab, Type, Change) || Change <- Changes],
     redefine(Cs),
-    [clause_mnesia_index:add(Tab, {P, ordered}) || P <- Positions];
+    [clause_mnesia_index:add(Tab, {P, ordered}) || P <- Positions],
+    val({Tab, storage_type}) =:= disc_copies andalso clause_mnesia_disc:ets2dcd(Tab);
 apply_change({redefine, Cs}) ->
-    redefine(Cs).
+    redefine(Cs);
+apply_change({dump, Tab}) ->
+    clause_mnesia_disc:ets2dcd(Tab).
 
 % A key's transformed records replace its old ones; a bag's key keeps only its written records, as in OTP.
 transform_key(Tab, bag, {Key, Written, _}) ->
-    ets:delete(Tab, Key),
-    ets:insert(Tab, Written);
+    clause_mnesia_db:delete(Tab, Key),
+    clause_mnesia_db:insert(Tab, Written);
 transform_key(Tab, _, {Key, [], _}) ->
-    ets:delete(Tab, Key);
+    clause_mnesia_db:delete(Tab, Key);
 transform_key(Tab, _, {_, Written, _}) ->
-    ets:insert(Tab, Written).
+    clause_mnesia_db:insert(Tab, Written).
 
 % A changed definition replaces the schema record and the properties it sets; a replica on this node comes or goes
 % with its node lists, and its writers follow the access mode and majority.
@@ -324,14 +348,39 @@ redefine(#cstruct{name = Tab} = Cs) ->
         {unknown, unknown} ->
             ok;
         {unknown, Storage} ->
-            Tab =/= schema andalso make_storage(Cs),
+            make_storage(Cs, Storage, {dumper, add_table_copy}),
             loaded(Cs, Storage, {dumper, add_table_copy});
         {_, unknown} ->
             drop_replica(Tab),
+            clause_mnesia_disc:deleted(Tab),
             [set({Tab, Item}, Value) || {Item, Value} <- absent_properties()];
-        {_, Storage} ->
-            [set({Tab, Item}, Value) || {Item, Value} <- writer_properties(Cs, Storage)]
+        {Storage, Storage} ->
+            [set({Tab, Item}, Value) || {Item, Value} <- writer_properties(Cs, Storage)];
+        {Old, New} ->
+            converted(Cs, Old, New),
+            set({Tab, storage_type}, New),
+            [set({Tab, Item}, Value) || {Item, Value} <- writer_properties(Cs, New)]
     end.
+
+% A replica changes its storage type (MIM1D): the schema moves to or from the directory; a table's records move
+% between ets and dets, with indexes of the new kind, and its disc files follow.
+converted(#cstruct{name = schema}, _, disc_copies) ->
+    clause_mnesia_disc:to_disc_schema();
+converted(#cstruct{name = schema}, _, ram_copies) ->
+    clause_mnesia_disc:to_ram_schema();
+converted(#cstruct{name = Tab} = Cs, Old, New) when Old =:= disc_only_copies; New =:= disc_only_copies ->
+    Records = clause_mnesia_db:match_object(Tab, '_'),
+    Positions = clause_mnesia_index:drop_all(Tab),
+    close_storage(Tab, Old),
+    clause_mnesia_disc:deleted(Tab),
+    make_storage(Cs, New, {dumper, change_table_copy_type}),
+    clause_mnesia_db:insert(Tab, Records),
+    New =:= disc_copies andalso clause_mnesia_disc:ets2dcd(Tab),
+    [clause_mnesia_index:add(Tab, P) || P <- Positions];
+converted(#cstruct{name = Tab}, ram_copies, disc_copies) ->
+    clause_mnesia_disc:ets2dcd(Tab);
+converted(#cstruct{name = Tab}, disc_copies, ram_copies) ->
+    clause_mnesia_disc:deleted(Tab).
 
 % This node's replica of a table goes: its storage, its index tables and its properties as a local table.
 drop_replica(Tab) ->
@@ -339,14 +388,15 @@ drop_replica(Tab) ->
         unknown ->
             ok;
         Storage ->
-            #index{pos_list = Positions} = val({Tab, index_info}),
-            [ets:delete(Ixt) || {_, {ram, Ixt}} <- Positions],
-            Storage =:= ram_copies andalso ets:delete(Tab),
-            ets:match_delete(?GVAR, {{Tab, {index, '_'}}, '_'}),
+            clause_mnesia_index:drop_all(Tab),
+            Tab =/= schema andalso close_storage(Tab, Storage),
             ets:delete(?GVAR, {Tab, index_info}),
             set({Tab, commit_work}, []),
             set({schema, local_tables}, lists:delete(Tab, val({schema, local_tables})))
     end.
+
+close_storage(Tab, disc_only_copies) -> dets:close(Tab);
+close_storage(Tab, _) -> ets:delete(Tab).
 
 % A new table: its record in the schema, its properties and, on this node, its storage and indexes.
 insert(#cstruct{name = Tab} = Cs, Reason) ->
@@ -358,7 +408,7 @@ insert(#cstruct{name = Tab} = Cs, Reason) ->
         unknown ->
             [set({Tab, Item}, Value) || {Item, Value} <- absent_properties()];
         Storage ->
-            Tab =/= schema andalso make_storage(Cs),
+            make_storage(Cs, Storage, Reason),
             loaded(Cs, Storage, Reason)
     end.
 
@@ -372,8 +422,20 @@ loaded(#cstruct{name = Tab} = Cs, Storage, Reason) ->
 set_user_properties(#cstruct{name = Tab, user_properties = Properties}) ->
     [set({Tab, user_property, element(1, P)}, P) || P <- Properties].
 
-make_storage(#cstruct{name = Tab, type = Type, storage_properties = Properties}) ->
-    ets:new(Tab, [Type, public, named_table, {keypos, 2} | proplists:get_value(ets, Properties, [])]).
+% A replica's ets or dets table (the schema's ets table exists already), with its records from the directory at
+% start, or its new files (MIM1D).
+make_storage(#cstruct{name = schema}, _, _) ->
+    ok;
+make_storage(#cstruct{name = Tab} = Cs, disc_only_copies, _) ->
+    set({Tab, storage_type}, disc_only_copies),
+    clause_mnesia_disc:open_dat(Cs);
+make_storage(#cstruct{name = Tab, type = Type, storage_properties = Properties}, Storage, Reason) ->
+    set({Tab, storage_type}, Storage),
+    ets:new(Tab, [Type, public, named_table, {keypos, 2} | proplists:get_value(ets, Properties, [])]),
+    case Reason of
+        local_only -> clause_mnesia_disc:load(Tab, Storage);
+        _ -> clause_mnesia_disc:created(Tab, Storage)
+    end.
 
 % A node's storage of a table: ram_copies, disc_copies, disc_only_copies or unknown.
 storage(Cs) ->

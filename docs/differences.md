@@ -490,6 +490,9 @@ Compared with the same module compiled by `compile:forms/2` and loaded by `code:
 | `put_activity_id/1` with another process's transaction | Makes the process a friend of the transaction: the transaction's end asks it to end its activity and waits for it | Sets the activity only; the transaction ends without waiting | [mnesia](libraries/mnesia.md#transactions) |
 | Order of `system_info(lock_queue)` with several waiting requests | The queue table's order (a `bag` keyed by the record) | The order the requests came in | [mnesia](libraries/mnesia.md#locks) |
 | `memory` of `table_info/2` and `schema/1` | Words of OTP's ets tables | Words of Clause's ets tables ([ETS](#ets)) | [mnesia](libraries/mnesia.md#global-variables) |
+| `index_info` of a `disc_only_copies` table after `change_table_copy_type/3` to `ram_copies` or `disc_copies` | Keeps the old `{{Pos, bag}, {dets, _}}` entry, whose file is gone, beside the new RAM index | Lists the new RAM index only | [mnesia](libraries/mnesia.md#storage-types) |
+| Starting with `schema_location` `disc` and no schema in the directory | `mnesia_tm` crashes with a fatal error and writes a `MnesiaCore` file; the start returns `{error, {killed, _}}` after ten seconds | The start fails at once with `{"No schema file exists", File}`, without a core file | [mnesia](libraries/mnesia.md#the-disc-schema) |
+| Files of mnesia's directory | `DECISION_TAB.LOG` and `PREVIOUS.LOG` for transaction decisions and dumps; schema changes logged in `LATEST.LOG`; `dump_disc_copies_at_startup` `false` keeps `DCL` files at start; `sync_transaction/1` and `sync_dirty/1` log synchronously | No decision log; schema changes go to `schema.DAT` at once; every start writes new `DCD` files for the tables it replays; every commit is logged asynchronously | [mnesia](libraries/mnesia.md#transaction-log) |
 
 ## Parse transforms
 

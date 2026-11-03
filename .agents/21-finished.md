@@ -261,3 +261,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   `force_load_table`, `change_config`, `set_debug_level`; schema transactions take OTP's locks and checks in the
   coordinator (`clause_mnesia_change`) and `mnesia_monitor` applies; default `mnesia_event` handler for info reports;
   `mnesia_schema_changes` golden identical to OTP — `1f9ebb23`
+- **MIM1D** mnesia disc storage: `create_schema` (FALLBACK.BUP installed at start), `delete_schema`, the disc schema
+  in schema.DAT, `disc_copies` (LATEST.LOG of `#commit{}`, dumps to DCD/DCL by `dc_dump_limit`, thresholds),
+  `disc_only_copies` over dets with dets bag indexes, `dump_log`, `sync_log`, `dump_tables`, storage type changes of
+  tables and of the schema; OTP's file names and terms; `mnesia_disc` golden identical to OTP — `PENDING`

@@ -77,6 +77,24 @@ prepare({majority, Tab, Majority}) ->
     [{redefine, verify((changed(Tab))#cstruct{majority = Majority})}];
 prepare(merge_schema) ->
     lock(write, schema),
+    [];
+prepare({dump_tables, Tabs}) ->
+    lock(write, schema),
+    dump_tables(Tabs).
+
+% dump_tables/1: RAM tables only, each under its read lock (MIM1D).
+dump_tables([schema | _]) ->
+    abort({bad_type, schema});
+dump_tables([Tab | Tabs]) ->
+    lock(read, Tab),
+    Cs = val({Tab, cstruct}),
+    case Cs#cstruct.disc_copies ++ Cs#cstruct.disc_only_copies of
+        [] -> ok;
+        Disc -> abort({"Only allowed on ram_copies", Tab, Disc})
+    end,
+    clause_mnesia_disc:use_dir() orelse abort({has_no_disc, node()}),
+    [{dump, Tab} | dump_tables(Tabs)];
+dump_tables([]) ->
     [].
 
 %% Creating and deleting tables and indexes (MIM1A's checks).
@@ -101,9 +119,9 @@ create_table(Def) ->
 % A RAM schema holds no disc tables on this node.
 check_local_storage(#cstruct{name = Tab} = Cs) ->
     case clause_mnesia_schema:storage(Cs) of
-        disc_copies -> abort({bad_type, Tab, disc_copies, node()});
-        disc_only_copies -> abort({bad_type, Tab, disc_only_copies, node()});
-        _ -> ok
+        ram_copies -> ok;
+        unknown -> ok;
+        Disc -> clause_mnesia_disc:use_dir() orelse abort({bad_type, Tab, Disc, node()})
     end.
 
 % A table's deletion: its write lock, then a replica to delete written somewhere.
@@ -157,8 +175,11 @@ transform(Tab, Fun, Attributes, RecordName) ->
 % and mnesia_event reports it, as OTP's commit does.
 transformed(#cstruct{name = Tab} = Cs, Fun) ->
     try
-        Keys = lists:usort(ets:select(Tab, [{'$1', [], [{element, 2, '$1'}]}])),
-        [Change || Key <- Keys, Change <- [record_changes(Fun, Cs, Key, ets:lookup(Tab, Key))], Change =/= none]
+        Keys = lists:usort(clause_mnesia_db:select(Tab, [{'$1', [], [{element, 2, '$1'}]}], forward)),
+        [
+            Change
+         || Key <- Keys, Change <- [record_changes(Fun, Cs, Key, clause_mnesia_db:lookup(Tab, Key))], Change =/= none
+        ]
     catch
         _:Reason:Stack ->
             clause_mnesia_monitor:important("Transform function failed: '~tp' in '~tp'", [Reason, Stack]),
@@ -276,7 +297,7 @@ copy_type(Tab, Node, To) ->
         incompatible -> ensure_active(Cs)
     end,
     Cs2 = verify(with_copy(without_copy(Cs, Node, From), Node, To)),
-    Node =:= node() andalso Tab =/= schema andalso disc_required(From, To),
+    Node =:= node() andalso local_copy_type(Tab, From, To),
     [{redefine, Cs2}].
 
 compared_storage(Same, Same) -> same;
@@ -285,10 +306,22 @@ compared_storage(ram_copies, disc_copies) -> diff;
 compared_storage(disc_copies, disc_only_copies) -> diff;
 compared_storage(_, _) -> incompatible.
 
-% A replica moving from RAM to disc needs a disc schema here.
-disc_required(ram_copies, To) when To =:= disc_copies; To =:= disc_only_copies ->
-    abort({has_no_disc, node()});
-disc_required(_, _) ->
+% The schema goes to disc only with an opt_disc schema location, and back to RAM only without disc tables here; a
+% table's replica goes to disc only on a disc schema and without a dump of the RAM table (MIM1D).
+local_copy_type(schema, _, disc_copies) ->
+    clause_mnesia_monitor:get_env(schema_location) =:= opt_disc orelse
+        abort({combine_error, schema, node(), "schema_location must be opt_disc"});
+local_copy_type(schema, _, ram_copies) ->
+    Tabs = lists:delete(schema, val({schema, tables})),
+    Storages = [{T, clause_mnesia_schema:storage(val({T, cstruct}))} || T <- Tabs],
+    case [T || {T, S} <- Storages, S =:= disc_copies orelse S =:= disc_only_copies] of
+        [] -> ok;
+        Disc -> abort({"Disc resident tables", Disc, node()})
+    end;
+local_copy_type(Tab, ram_copies, To) when To =:= disc_copies; To =:= disc_only_copies ->
+    clause_mnesia_disc:use_dir() orelse abort({has_no_disc, node()}),
+    clause_mnesia_disc:dump_exists(Tab) andalso abort({combine_error, Tab, node(), "Table dump exists"});
+local_copy_type(_, _, _) ->
     ok.
 
 % A node's storage as the table's properties name it.

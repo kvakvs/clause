@@ -163,22 +163,22 @@ commit() ->
             inner
     end.
 
-% Each written record's operations, in the order the transaction made them, after the tables it clears.
+% Each written record's operations, in the order the transaction made them, after the tables it clears; those of disc
+% tables logged first (MIM1D).
 apply_writes(Store) ->
     Clears = ets:match_object(Store, {'_', '_', clear_table}),
     Oids = lists:usort(ets:select(Store, [{{'$1', '_', '_'}, [{is_tuple, '$1'}, {'=:=', {size, '$1'}, 2}], ['$1']}])),
-    [apply_write(Op) || Op <- Clears],
-    [apply_write(Op) || Oid <- Oids, Op <- ets:lookup(Store, Oid), element(3, Op) =/= clear_table],
+    Ops = Clears ++ [Op || Oid <- Oids, Op <- ets:lookup(Store, Oid), element(3, Op) =/= clear_table],
+    Updates = [U || Op <- Ops, U <- [table_update(Op)], U =/= none],
+    safe(fun() -> clause_mnesia_disc:log(Updates) end),
+    [safe(fun() -> clause_mnesia_access:update(Tab, Key, Update) end) || {Tab, Key, Update} <- Updates],
     ok.
 
-apply_write({{Tab, Key}, Val, write}) -> update(Tab, Key, {write, Val});
-apply_write({{Tab, Key}, _, delete}) -> update(Tab, Key, delete);
-apply_write({{Tab, Key}, Val, delete_object}) -> update(Tab, Key, {delete_object, Val});
-apply_write({{Tab, Key}, Pattern, clear_table}) -> update(Tab, Key, {clear_table, Pattern});
-apply_write(_) -> ok.
-
-update(Tab, Key, Update) ->
-    safe(fun() -> clause_mnesia_access:update(Tab, Key, Update) end).
+table_update({{Tab, Key}, Val, write}) -> {Tab, Key, {write, Val}};
+table_update({{Tab, Key}, _, delete}) -> {Tab, Key, delete};
+table_update({{Tab, Key}, Val, delete_object}) -> {Tab, Key, {delete_object, Val}};
+table_update({{Tab, Key}, Pattern, clear_table}) -> {Tab, Key, {clear_table, Pattern}};
+table_update(_) -> none.
 
 % Runs F, ignoring its failure: a table or mnesia itself may have gone meanwhile.
 safe(F) ->

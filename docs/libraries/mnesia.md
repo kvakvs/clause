@@ -17,8 +17,10 @@ Clause's `mnesia` application (plan 21, MIM1) exports the OTP 29 interface of `m
 - **MIM1C, done:** the other [schema changes](#schema-changes): `clear_table/1`, `transform_table/3,4`, table copies
   and their storage types, user properties, access mode, load order and majority; master nodes, `force_load_table/1`,
   `change_config/2` and `set_debug_level/1`.
+- **MIM1D, done:** [disc storage](#disc-storage): `create_schema/1,2` and `delete_schema/1`, the disc schema,
+  `disc_copies` and `disc_only_copies` tables, the transaction log with `dump_log/0`, `sync_log/0` and its thresholds,
+  `dump_tables/1`, and storage type changes of tables and of the schema.
 - **Still to come**, raising `{not_implemented, Name, Arity}` until then:
-  - disc storage (MIM1D);
   - events, text files, `qlc` tables and `info/0` (MIM1E);
   - checkpoints and backups (MIM1F);
   - fragments, `mnesia_frag_hash` and SNMP (MIM1G).
@@ -28,10 +30,12 @@ Clause's `mnesia` application (plan 21, MIM1) exports the OTP 29 interface of `m
 
 ## Design
 
-mnesia is written in Erlang over `ets`, in its own structure. Where programs can observe something, it keeps OTP's
-shape:
+mnesia is written in Erlang over `ets`, `dets` and `disk_log`, in its own structure. Where programs can observe
+something, it keeps OTP's shape:
 
-- **Tables:** each table is a public named `ets` table with `keypos` 2, which code may read directly.
+- **Tables:** each `ram_copies` and `disc_copies` table is a public named `ets` table with `keypos` 2, which code may
+  read directly; each `disc_only_copies` table is a `dets` table of the same name.
+- **Files:** the files of mnesia's directory have OTP's names and terms.
 - **Results and errors:** results and `{aborted, Reason}` terms are OTP's, and so are the exits of `abort/1` and of
   dirty functions (`{aborted, Reason}`).
 - **Table definitions:** the `cstruct` record of `table_info(Tab, cstruct)` and of the schema table's records has
@@ -56,11 +60,13 @@ The design keeps OTP's formats, so that a later step (MIM1H) can add more nodes.
 
 Later steps add the other servers.
 
-`mnesia_monitor` does three things:
+`mnesia_monitor` does four things:
 
 - **Owns the tables:** `mnesia_gvar`, the `schema` table, every table and every index table belong to it. They go
-  when mnesia stops.
+  when mnesia stops; `dets` tables and the log close.
 - **Reads the configuration:** see [configuration](#configuration).
+- **Keeps the directory:** it loads a disc schema at start and runs every [dump](#transaction-log) of the
+  transaction log, so that dumps and schema changes never overlap.
 - **Applies schema changes:** each change runs in a schema transaction of its own process, as OTP's schema
   coordinator does:
   - the transaction takes OTP's locks and makes OTP's checks in OTP's order
@@ -110,7 +116,7 @@ do:
 
 ## Schema
 
-The schema lives in RAM: `use_dir` is `false`. Disc schemas come with MIM1D.
+The schema lives in RAM, or on disc when mnesia's directory holds one (see [disc storage](#disc-storage)).
 
 `create_table/2` checks a definition in OTP's order, with OTP's reasons
 ([clause_mnesia_schema](../../library/mnesia/clause_mnesia_schema.erl)):
@@ -124,8 +130,8 @@ The schema lives in RAM: `use_dir` is `false`. Disc schemas come with MIM1D.
    - attributes: at least two atoms, never `snmp`, none twice;
    - index positions: after the key, `bag` or `ordered`;
    - `local_content`, `access_mode`, `majority`, the SNMP structure, `user_properties`, `cookie` and `version`.
-5. **Disc nodes:** a disc node that is not running gives `not_active`. Disc copies on this RAM node give
-   `{bad_type, Tab, disc_copies, Node}`.
+5. **Disc nodes:** a disc node that is not running gives `not_active`. Disc copies on this node with a RAM schema
+   give `{bad_type, Tab, disc_copies, Node}`.
 
 Behavior that follows OTP's:
 
@@ -161,8 +167,8 @@ checks of `create_table/2` for the changed definition. Each change gives the def
   - `del_table_copy/2` deletes the table with its last replica. Deleting the schema's copy on another node also removes
     that node's replicas of every table, and deletes the tables it alone held.
   - `move_table_copy/3` needs both nodes running, so on one node it always aborts with `not_active`.
-  - `change_table_copy_type/3` to `unknown` deletes the replica. RAM to disc aborts with `{has_no_disc, Node}`
-    until the disc schema of MIM1D.
+  - `change_table_copy_type/3` to `unknown` deletes the replica. The other changes are described under
+    [storage types](#storage-types).
 - **Table properties:**
   - `write_table_property/2` and `delete_table_property/2` change `user_properties`.
   - `change_table_access_mode/2`, `change_table_load_order/2` and `change_table_majority/2` change their fields.
@@ -175,6 +181,70 @@ checks of `create_table/2` for the changed definition. Each change gives the def
     - `dc_dump_limit` takes effect at once;
     - `extra_db_nodes` runs OTP's schema merge transaction and returns the given nodes that run mnesia with this one.
   - `set_debug_level/1` sets the `debug` parameter and returns the previous level. Its subscriptions come with MIM1E.
+
+## Disc storage
+
+Disc storage keeps OTP's files in mnesia's directory, the `dir` parameter (default `Mnesia.<node()>`)
+([clause_mnesia_disc](../../library/mnesia/clause_mnesia_disc.erl)):
+
+| File | Contents |
+| --- | --- |
+| `FALLBACK.BUP` | the backup that `create_schema/1,2` writes, installed at the next start |
+| `schema.DAT` | a `dets` table of the schema's `{schema, Tab, CreateList}` records |
+| `LATEST.LOG` | a `disk_log` of `#commit{}` records with each commit's disc writes, after a `#log_header{}` |
+| `Tab.DCD`, `Tab.DCL` | a `disc_copies` table's records, and its writes since the `DCD` file was written |
+| `Tab.DAT`, `Tab_Pos.DAT` | a `disc_only_copies` table's `dets` table, and the `dets` table of its index at `Pos` |
+
+### The disc schema
+
+- **Creating:** `create_schema/1,2` makes the directory and writes the fallback, with OTP's checks and errors: a
+  repeated node, a node that has a schema or does not answer, a bad schema property, and `schema_location` `ram`
+  (`{has_no_disc, Node}`).
+- **Deleting:** `delete_schema/1` removes mnesia's files from the directory, which stays. It fails while mnesia runs.
+- **Using it:** `system_info(use_dir)` follows `schema_location`: `disc` always uses the directory, `opt_disc` when it
+  holds a fallback or a schema, `ram` never. `system_info(fallback_activated)` is `true` while a fallback waits.
+- **Starting:** the fallback, if any, becomes `schema.DAT`. Each table then gets its records: a `disc_copies` table
+  from its `DCD` and `DCL` files, a `disc_only_copies` table from its `dets` file, a RAM table from a dump by
+  `dump_tables/1`. Their `load_reason` is `local_only`, the schema's `initial`. The writes logged since the last dump
+  are applied again, the `disc_copies` tables they touched get new `DCD` files, and the log starts afresh.
+- **Schema changes:** each change writes the changed tables' records to `schema.DAT` at once, after a dump of the log,
+  and counts two log writes, as OTP's schema transactions do. A new `disc_copies` table starts with an empty `DCD`
+  file; a deleted table's files go.
+
+### Transaction log
+
+- **Logging:** a commit that writes a `disc_copies` or `disc_only_copies` table appends one `#commit{}` record to
+  `LATEST.LOG` before the tables change, so `system_info(transaction_log_writes)` counts it. Dirty writes and
+  transactions are logged, `ets` activities and RAM tables are not.
+- **Dumps:** `dump_log/0` returns `dumped`, and a dump also follows every `dump_log_write_threshold` writes and every
+  `dump_log_time_threshold` milliseconds. A dump moves the log's writes into each table's `DCL` file, or writes a new
+  `DCD` file when the `DCL` file has grown to `1/dc_dump_limit` of it. `disc_only_copies` tables are synced.
+- **Errors:** `sync_log/0` syncs the log, and returns `{error, no_such_log}` with a RAM schema. Without a running
+  mnesia both return `{error, {node_not_running, Node}}`.
+- **`dump_tables/1`:** writes RAM tables to `DCD` files, which the next start loads. It aborts with
+  `{"Only allowed on ram_copies", Tab, Nodes}` for disc tables, `{bad_type, schema}`, `{no_exists, Tab}`, and
+  `{has_no_disc, Node}` with a RAM schema.
+
+### Storage types
+
+`change_table_copy_type/3` moves a replica between storage types:
+
+- **Tables:** the records move between `ets` and `dets`, the indexes are built again for the new storage, and the
+  disc files follow. A RAM table goes to disc only on a disc schema (`{has_no_disc, Node}`) and without a dump by
+  `dump_tables/1` (`{combine_error, Tab, Node, "Table dump exists"}`). `ordered_set` tables cannot be
+  `disc_only_copies`.
+- **The schema:** to `disc_copies` it writes a new directory, and needs `schema_location` `opt_disc`
+  (`{combine_error, schema, Node, "schema_location must be opt_disc"}`). Back to `ram_copies` it removes the
+  directory's files, and aborts with `{"Disc resident tables", Tabs, Node}` while this node has disc tables.
+
+### Disc-only tables
+
+A `disc_only_copies` table works on its `dets` table, as OTP's:
+
+- **Walks:** `dets` has no order, so `last/1` is `first/1`, `prev/2` is `next/2`, and reverse selects run forward.
+- **Indexes:** each index is a `dets` `bag` of `{Value, Key}`, listed in `index_info` as
+  `{{Pos, bag}, {dets, {Tab, index, {Pos, bag}}}}`. It is built again at each start.
+- **Information:** `table_info(Tab, memory)` is the file's size in bytes, as `dets` gives it.
 
 ## Dirty access
 
@@ -245,7 +315,8 @@ items ([clause_mnesia_locker](../../library/mnesia/clause_mnesia_locker.erl)):
 
 Each index is an `ordered_set` table of `{{Value, Key}}` ([clause_mnesia_index](../../library/mnesia/clause_mnesia_index.erl)):
 
-- **Bookkeeping:** `index_info` and `commit_work` list the indexes newest first, as `{{Pos, ordered}, {ram, Table}}`.
+- **Bookkeeping:** `index_info` and `commit_work` list the indexes newest first, as `{{Pos, ordered}, {ram, Table}}`
+  (a `disc_only_copies` table's as [`dets` tables](#disc-only-tables)).
   `table_info(Tab, index)` lists their positions in that order.
 - **Upkeep:** every write and delete keeps the index tables current:
   - a set table's entry changes only when its value does;
@@ -268,6 +339,10 @@ Each index is an `ordered_set` table of `{{Value, Key}}` ([clause_mnesia_index](
   MIM1C before starting and while running: results and abort terms, table copies on this node and on a node outside the
   schema, transform failures with their reports, properties, master nodes, configuration changes and their
   transaction counts.
+- **`mnesia_disc` golden:** generated from OTP ([fixture](../../tests/fixtures/executables/mnesia_disc/mnesia_disc.erl)).
+  It covers creating and deleting the disc schema with their errors, the directory's files, disc tables of each type
+  and their indexes, transaction log writes and dumps, `dump_tables/1`, storage type changes of tables and of the
+  schema, `schema_location` and stopping and starting mnesia with the data found again.
 - **What `mnesia_dirty` covers:** answers before starting, system information, every `create_table` option and error, table
   properties, dirty access of each table type, indexes, counters, argument errors, schema changes, `schema/1`'s
   printout, error descriptions, and stopping and restarting.

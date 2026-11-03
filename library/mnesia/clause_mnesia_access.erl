@@ -20,7 +20,7 @@
 write(Tid, Ts, Tab, Val, Kind) when is_atom(Tab), Tab =/= schema, is_tuple(Val), tuple_size(Val) > 2 ->
     case element(1, Tid) of
         ets ->
-            true = ets:insert(Tab, Val),
+            ok = clause_mnesia_db:insert(Tab, Val),
             ok;
         tid ->
             #tidstore{store = Store} = Ts,
@@ -41,7 +41,7 @@ write(_, _, Tab, Val, Kind) ->
 delete(Tid, Ts, Tab, Key, Kind) when is_atom(Tab), Tab =/= schema ->
     case element(1, Tid) of
         ets ->
-            true = ets:delete(Tab, Key),
+            ok = clause_mnesia_db:delete(Tab, Key),
             ok;
         tid ->
             #tidstore{store = Store} = Ts,
@@ -67,7 +67,7 @@ delete_object(Tid, Ts, Tab, Val, Kind) when is_atom(Tab), Tab =/= schema, is_tup
     mnesia:has_var(Val) andalso abort({bad_type, Tab, Val}),
     case element(1, Tid) of
         ets ->
-            true = ets:match_delete(Tab, Val),
+            ok = clause_mnesia_db:match_delete(Tab, Val),
             ok;
         tid ->
             #tidstore{store = Store} = Ts,
@@ -112,7 +112,7 @@ write_lock(_, _, {Tab, _}, Kind) -> abort({bad_type, Tab, Kind}).
 read(Tid, Ts, Tab, Key, Kind) when is_atom(Tab), Tab =/= schema ->
     case element(1, Tid) of
         ets ->
-            ets:lookup(Tab, Key);
+            clause_mnesia_db:lookup(Tab, Key);
         tid ->
             #tidstore{store = Store} = Ts,
             Oid = {Tab, Key},
@@ -132,7 +132,7 @@ read_lock(_, _, {Tab, _}, Kind) -> abort({bad_type, Tab, Kind}).
 match_object(Tid, Ts, Tab, Pat, Kind) when is_atom(Tab), Tab =/= schema, is_tuple(Pat), tuple_size(Pat) > 2 ->
     case element(1, Tid) of
         ets ->
-            ets:match_object(Tab, Pat);
+            clause_mnesia_db:match_object(Tab, Pat);
         tid ->
             key_lock(Tid, Ts, Tab, element(2, Pat), Kind),
             clause_mnesia_written:match(Ts#tidstore.store, Pat, Tab, mnesia:dirty_match_object(Tab, Pat));
@@ -166,22 +166,22 @@ uniq(Keys) ->
 %% Walks over keys.
 
 first(Tid, Ts, Tab) when is_atom(Tab), Tab =/= schema ->
-    walk_start(Tid, Ts, Tab, next, fun ets:first/1, fun mnesia:dirty_first/1);
+    walk_start(Tid, Ts, Tab, next, fun clause_mnesia_db:first/1, fun mnesia:dirty_first/1);
 first(_, _, Tab) ->
     abort({bad_type, Tab}).
 
 last(Tid, Ts, Tab) when is_atom(Tab), Tab =/= schema ->
-    walk_start(Tid, Ts, Tab, prev, fun ets:last/1, fun mnesia:dirty_last/1);
+    walk_start(Tid, Ts, Tab, prev, fun clause_mnesia_db:last/1, fun mnesia:dirty_last/1);
 last(_, _, Tab) ->
     abort({bad_type, Tab}).
 
 next(Tid, Ts, Tab, Key) when is_atom(Tab), Tab =/= schema ->
-    walk_step(Tid, Ts, Tab, Key, next, fun ets:next/2, fun mnesia:dirty_next/2);
+    walk_step(Tid, Ts, Tab, Key, next, fun clause_mnesia_db:next/2, fun mnesia:dirty_next/2);
 next(_, _, Tab, _) ->
     abort({bad_type, Tab}).
 
 prev(Tid, Ts, Tab, Key) when is_atom(Tab), Tab =/= schema ->
-    walk_step(Tid, Ts, Tab, Key, prev, fun ets:prev/2, fun mnesia:dirty_prev/2);
+    walk_step(Tid, Ts, Tab, Key, prev, fun clause_mnesia_db:prev/2, fun mnesia:dirty_prev/2);
 prev(_, _, Tab, _) ->
     abort({bad_type, Tab}).
 
@@ -296,8 +296,7 @@ whole_select(Tid, Ts, Tab, Spec, Kind, TabPat, Select, Dir) ->
             Select(Spec)
     end.
 
-ets_select(Tab, Spec, forward) -> ets:select(Tab, Spec);
-ets_select(Tab, Spec, reverse) -> ets:select_reverse(Tab, Spec).
+ets_select(Tab, Spec, Dir) -> clause_mnesia_db:select(Tab, Spec, Dir).
 
 % A one-clause spec with a bound key locks its record, any other spec the table.
 select_lock(Tid, Ts, Kind, [{Head, _, _}], Tab) when is_tuple(Head), tuple_size(Head) > 2 ->
@@ -357,8 +356,7 @@ dirty_sel_init(Node, Tab, Spec, N, Storage) ->
 sel_init(Node, Tab, Spec, N, _Storage, Dir) ->
     dirty_rpc(Tab, Node, [Tab, Spec, N], fun() -> table_chunk(Tab, Spec, N, Dir) end).
 
-table_chunk(Tab, Spec, N, forward) -> ets:select(Tab, Spec, N);
-table_chunk(Tab, Spec, N, reverse) -> ets:select_reverse(Tab, Spec, N).
+table_chunk(Tab, Spec, N, Dir) -> clause_mnesia_db:select(Tab, Spec, N, Dir).
 
 dirty_rpc(_, nowhere, Args, _) ->
     abort({no_exists, Args});
@@ -384,7 +382,7 @@ select_cont(_, _, '$end_of_table') ->
 select_cont(Tid, _, #mnesia_select{tid = Tid, cont = Cont} = State) when element(1, Tid) =:= ets ->
     case Cont of
         '$end_of_table' -> '$end_of_table';
-        _ -> select_state(ets:select(Cont), State)
+        _ -> select_state(clause_mnesia_db:select(Cont), State)
     end;
 select_cont(Tid, _, #mnesia_select{tid = Tid, written = []} = State) ->
     select_state(next_chunk(State), State);
@@ -400,7 +398,7 @@ select_cont(_, _, Cont) ->
 next_chunk(#mnesia_select{cont = '$end_of_table'}) ->
     '$end_of_table';
 next_chunk(#mnesia_select{node = Node, tab = Tab, storage = Storage, cont = Cont, orig = Spec}) ->
-    dirty_rpc(Tab, Node, [Storage, Cont, Spec], fun() -> ets:select(Cont) end).
+    dirty_rpc(Tab, Node, [Storage, Cont, Spec], fun() -> clause_mnesia_db:select(Cont) end).
 
 % A chunk with the store's operations merged; the last chunk takes the operations left.
 trans_select('$end_of_table', #mnesia_select{written = Written, spec = Compiled, type = ordered_set, dir = Dir}) ->
@@ -526,19 +524,19 @@ validate_record(Tab, Val) ->
 % An update of this node's replica and its indexes.
 update(Tab, Key, {write, Val}) ->
     clause_mnesia_index:written(Tab, Key, Val, undefined),
-    true = ets:insert(Tab, Val),
+    ok = clause_mnesia_db:insert(Tab, Val),
     ok;
 update(Tab, Key, delete) ->
     clause_mnesia_index:deleted(Tab, Key),
-    true = ets:delete(Tab, Key),
+    ok = clause_mnesia_db:delete(Tab, Key),
     ok;
 update(Tab, Key, {delete_object, Val}) ->
     clause_mnesia_index:object_deleted(Tab, Key, Val),
-    true = ets:match_delete(Tab, Val),
+    ok = clause_mnesia_db:match_delete(Tab, Val),
     ok;
 update(Tab, _, {clear_table, Pattern}) ->
-    Records = ets:match_object(Tab, Pattern),
-    true = ets:match_delete(Tab, Pattern),
+    Records = clause_mnesia_db:match_object(Tab, Pattern),
+    ok = clause_mnesia_db:match_delete(Tab, Pattern),
     clause_mnesia_index:cleared(Tab, Records);
 update(Tab, Key, {update_counter, RecordName, Incr}) ->
     {New, Old} = counted(Tab, Key, RecordName, Incr),
@@ -548,7 +546,7 @@ update(Tab, Key, {update_counter, RecordName, Incr}) ->
 % The counter's new record and the one it replaced; a counter that is missing, not an integer or would go below zero
 % becomes the increment, or zero.
 counted(Tab, Key, RecordName, Incr) ->
-    try ets:update_counter(Tab, Key, Incr) of
+    try clause_mnesia_db:update_counter(Tab, Key, Incr) of
         Value when is_integer(Value), Value >= 0 -> {{RecordName, Key, Value}, [{RecordName, Key, Value - Incr}]};
         _ -> reset(Tab, {RecordName, Key, max(Incr, 0)})
     catch
@@ -556,7 +554,7 @@ counted(Tab, Key, RecordName, Incr) ->
     end.
 
 reset(Tab, Record) ->
-    true = ets:insert(Tab, Record),
+    ok = clause_mnesia_db:insert(Tab, Record),
     {Record, []}.
 
 %% Helpers.

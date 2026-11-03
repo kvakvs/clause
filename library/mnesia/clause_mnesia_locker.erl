@@ -188,7 +188,7 @@ need_lock(Store, Tab, Key, Lock) ->
 
 read_result({_, ?ALL}, Node) -> [Node];
 read_result({?GLOBAL, _}, Node) -> [Node];
-read_result({Tab, Key}, _) -> ets:lookup(Tab, Key).
+read_result({Tab, Key}, _) -> clause_mnesia_db:lookup(Tab, Key).
 
 request(Request) ->
     case whereis(mnesia_locker) of

@@ -1,11 +1,12 @@
 %% mnesia's monitor, registered as mnesia_monitor as in OTP (plan 21 step MIM1A, docs/libraries/mnesia.md#processes):
 %% it owns mnesia_gvar, the schema and every table, so they live as long as mnesia runs, reads the configuration
 %% parameters, and applies schema changes one at a time. Each change runs in a schema transaction (MIM1B), which takes
-%% OTP's locks and makes OTP's checks before the monitor applies it (MIM1C).
+%% OTP's locks and makes OTP's checks before the monitor applies it (MIM1C). On a disc schema it also loads the
+%% directory at start and dumps the transaction log (MIM1D).
 -module(clause_mnesia_monitor).
 -behaviour(gen_server).
 -export([start_link/0, schema_transaction/1, important/2, val/1, is_running/0, get_env/1, check_env/2, increment/1]).
--export([init/1, handle_call/3, handle_cast/2, terminate/2]).
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2]).
 
 -include("clause_mnesia.hrl").
 
@@ -218,8 +219,8 @@ positives() ->
         max_transfer_size
     ].
 
-% The global variables, the configuration and an empty RAM schema; two schema transactions counted, as OTP's
-% start commits them.
+% The global variables, the configuration and the schema: an empty RAM schema, or the directory's (MIM1D); two schema
+% transactions counted, as OTP's start commits them.
 init([]) ->
     process_flag(trap_exit, true),
     ets:new(?GVAR, [set, public, named_table]),
@@ -227,27 +228,56 @@ init([]) ->
     set(mnesia_status, starting),
     [set(Name, get_env(Name)) || Name <- parameters()],
     {ok, Version} = application:get_key(mnesia, vsn),
-    [set(Name, Value) || {Name, Value} <- [{version, Version}, {use_dir, false}, {{current, db_nodes}, [node()]}]],
-    [set(Counter, N) || {Counter, N} <- [{trans_commits, 2}, {trans_failures, 0}, {trans_restarts, 0}]],
-    clause_mnesia_schema:init_schema(),
+    UseDir = clause_mnesia_disc:use_dir(),
+    [set(Name, Value) || {Name, Value} <- [{version, Version}, {use_dir, UseDir}, {{current, db_nodes}, [node()]}]],
+    Counters = [{trans_commits, 2}, {trans_failures, 0}, {trans_restarts, 0}, {trans_log_writes, 0}],
+    [set(Counter, N) || {Counter, N} <- Counters],
+    case UseDir of
+        true -> clause_mnesia_disc:start();
+        false -> clause_mnesia_schema:init_schema()
+    end,
     set(mnesia_status, running),
-    {ok, []}.
+    {ok, dump_timer()}.
 
-% A schema transaction's changes, applied in order: ok or {aborted, Reason}.
+% The next dump of the log after dump_log_time_threshold (MIM1D).
+dump_timer() ->
+    erlang:send_after(val(dump_log_time_threshold), self(), {dump_log, time_threshold}).
+
+% A schema transaction's changes, applied in order: ok or {aborted, Reason}. On a disc schema the log is dumped first,
+% so that no logged write replays over a table the change rewrites; the changed tables' records reach schema.DAT and
+% the transaction counts two log writes, as OTP's (MIM1D).
 handle_call({schema, Changes}, _From, State) ->
     Result =
         try
-            lists:foreach(fun clause_mnesia_schema:apply_change/1, Changes)
+            clause_mnesia_disc:dump_log(schema_prepare),
+            lists:foreach(fun clause_mnesia_schema:apply_change/1, Changes),
+            [clause_mnesia_disc:save_schema(Tab) || Tab <- lists:usort([changed_table(C) || C <- Changes])],
+            clause_mnesia_disc:use_dir() andalso [increment(trans_log_writes) || _ <- [prepare, commit]],
+            ok
         catch
             exit:{aborted, Reason} -> {aborted, Reason};
             _:Reason:Stack -> {aborted, {Reason, Stack}}
         end,
-    {reply, Result, State}.
+    {reply, Result, State};
+handle_call({dump_log, InitBy}, _From, State) ->
+    {reply, clause_mnesia_disc:dump_log(InitBy), State}.
 
-handle_cast(_, State) ->
+changed_table({_, #cstruct{name = Tab}}) -> Tab;
+changed_table({_, #cstruct{name = Tab}, _}) -> Tab;
+changed_table({_, Tab}) -> Tab.
+
+handle_cast({dump_log, InitBy}, State) ->
+    clause_mnesia_disc:dump_log(InitBy),
+    {noreply, State}.
+
+handle_info({dump_log, time_threshold}, _Timer) ->
+    clause_mnesia_disc:dump_log(time_threshold),
+    {noreply, dump_timer()};
+handle_info(_, State) ->
     {noreply, State}.
 
 terminate(_, _) ->
-    set(mnesia_status, stopping).
+    set(mnesia_status, stopping),
+    clause_mnesia_disc:stop().
 
 set(Name, Value) -> ets:insert(?GVAR, {Name, Value}).

@@ -41,3 +41,11 @@
 
 %% The reason of a refused lock, which restarts the transaction (MIM1B): the lock wanted and the holder that refused it.
 -record(cyclic, {node = node(), oid, op, lock, lucky}).
+
+%% The first term of each log file in mnesia's directory, as OTP's (MIM1D): what the log holds and its format version.
+-record(log_header, {log_kind, log_version, mnesia_version, node, now}).
+
+%% A commit's disc writes in LATEST.LOG, as OTP's (MIM1D): {{Tab, Key}, Value, Operation} items of each storage.
+-record(commit, {
+    node, decision, ram_copies = [], disc_copies = [], disc_only_copies = [], ext = [], schema_ops = []
+}).
