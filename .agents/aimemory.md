@@ -920,3 +920,9 @@ gotchas and user directions not recorded elsewhere.
   Fast BEAM loop: scratch/mnesia/rebuild.sh (erlc library/mnesia, run fixture via otp_events.py --clause, diff with
   OTP). Python edits on Windows: open(..., newline='') or files get CRLF. ctest needs `-C Debug` (multi-config);
   a `|` in a cmd.exe argument breaks the call. Golden passed on the first Clause run.
+- MIM1F/G mnesia (2026-11-03): fixture modules must not be named like OTP modules (mnesia_backup, mnesia_frag are
+  OTP's): name them mnesia_backups/mnesia_fragments. OTP quirks kept: mnesia:backup/1 checkpoints every table, so a
+  remote-only table fails it; RAM tables back up only their DCD dump (ram_overrides_dump false); restore's table list
+  follows ets order (fixtures sort); add_table_copy reports its schema record twice. OTP 29 SNMP needs no snmp app
+  (ets ordered_set index). Never edit library/ while a ctest run compiles it: a mid-run edit failed one golden.
+  run_case.py CASE [--clause] in scratch/mnesia runs any fixture on the BEAM; both goldens matched on the first run.
