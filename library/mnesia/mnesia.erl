@@ -1,8 +1,9 @@
 %% Clause's mnesia (plan 21 step MIM1, docs/libraries/mnesia.md): a database of ets tables owned by mnesia_monitor,
 %% with OTP's results, errors and table properties. Step MIM1A provides starting and stopping, the RAM schema and its
 %% information, dirty access and indexes; MIM1B transactions, activities and access modules. Step MIM1C adds the other
-%% schema changes, user properties, master nodes and configuration changes; MIM1D the disc schema and disc tables.
-%% Events, backups and fragments follow in MIM1E-MIM1G, and their functions raise not_implemented until then.
+%% schema changes, user properties, master nodes and configuration changes; MIM1D the disc schema and disc tables; MIM1E
+%% events, text files, query tables and the report on the terminal. Backups and fragments follow in MIM1F-MIM1G, and
+%% their functions raise not_implemented until then.
 -module(mnesia).
 -export([
     start/0,
@@ -154,7 +155,19 @@
     write/1,
     write/3,
     write/5,
-    write_lock_table/1
+    write_lock_table/1,
+    subscribe/1,
+    unsubscribe/1,
+    report_event/1,
+    load_textfile/1,
+    dump_to_textfile/1,
+    table/1,
+    table/2,
+    info/0,
+    system_info/0,
+    ms/0,
+    kill/0,
+    lkill/0
 ]).
 %% OTP 29 exports implemented natively or not yet: catalog builtins, whose clause_builtin_placeholder body the runtime's
 %% builtin replaces, and stubs raising error({not_implemented, F, A}) (docs/libraries/library.md#runtime-module-replacements).
@@ -167,30 +180,18 @@
     backup_checkpoint/3,
     change_table_frag/2,
     deactivate_checkpoint/1,
-    dump_to_textfile/1,
-    info/0,
     install_fallback/1,
     install_fallback/2,
-    kill/0,
-    lkill/0,
-    load_textfile/1,
-    ms/0,
-    report_event/1,
     restore/2,
     snmp_close_table/1,
     snmp_get_mnesia_key/2,
     snmp_get_next_index/2,
     snmp_get_row/2,
     snmp_open_table/2,
-    subscribe/1,
-    system_info/0,
-    table/1,
-    table/2,
     traverse_backup/4,
     traverse_backup/6,
     uninstall_fallback/0,
-    uninstall_fallback/1,
-    unsubscribe/1
+    uninstall_fallback/1
 ]).
 
 -include("clause_mnesia.hrl").
@@ -453,21 +454,17 @@ connected(Nodes) ->
     ets:insert(?GVAR, {extra_db_nodes, [N || N <- Extra, not lists:member(N, Connected)] ++ Connected}),
     {ok, Connected}.
 
-% The debug level: the application environment's at once, the running level when mnesia runs; the previous level back.
+% The debug level: the application environment's at once, the running level and its event subscriptions when mnesia
+% runs (MIM1E); the previous level back.
 set_debug_level(Level) ->
     Old = application:get_env(mnesia, debug),
     try clause_mnesia_monitor:check_env(debug, Level) of
         New ->
             ok = application:set_env(mnesia, debug, New),
             case clause_mnesia_monitor:is_running() of
-                no when Old =:= undefined ->
-                    none;
-                no ->
-                    element(2, Old);
-                _ ->
-                    Running = val(debug),
-                    ets:insert(?GVAR, {debug, New}),
-                    Running
+                no when Old =:= undefined -> none;
+                no -> element(2, Old);
+                _ -> clause_mnesia_subscr:set_debug_level(New)
             end
     catch
         error:_ -> {error, {bad_type, debug, Level}}
@@ -581,8 +578,7 @@ running_info(checkpoints) ->
     val({schema, tables}),
     [];
 running_info(subscribers) ->
-    val({schema, tables}),
-    [whereis(mnesia_event)];
+    clause_mnesia_subscr:subscribers();
 running_info(held_locks) ->
     counter(trans_commits),
     clause_mnesia_locker:held_locks();
@@ -820,6 +816,82 @@ description(illegal) ->
     "Operation not supported on object";
 description(Reason) ->
     Reason.
+
+%% The report on the terminal, text files and query tables (MIM1E).
+
+% The locks, transactions, tables and the system's state on the terminal.
+info() ->
+    _ = clause_mnesia_info:print(full),
+    ok.
+
+% The system's state and its tables on the terminal; whether mnesia runs.
+system_info() ->
+    clause_mnesia_info:print(system).
+
+load_textfile(File) ->
+    clause_mnesia_text:load_textfile(File).
+
+dump_to_textfile(File) ->
+    clause_mnesia_text:dump_to_textfile(File).
+
+table(Tab) ->
+    table(Tab, []).
+
+% A qlc query handle of a table, read in the caller's activity.
+table(Tab, Options) ->
+    clause_mnesia_qlc:table(Tab, Options).
+
+% The names of OTP's mnesia processes and modules, which kill/0 and lkill/0 end; the servers last.
+ms() ->
+    [
+        mnesia_sup,
+        mnesia_kernel_sup,
+        mnesia_checkpoint_sup,
+        mnesia_snmp_sup,
+        mnesia_ext_sup,
+        mnesia,
+        mnesia_app,
+        mnesia_backup,
+        mnesia_bup,
+        mnesia_checkpoint,
+        mnesia_controller,
+        mnesia_dumper,
+        mnesia_loader,
+        mnesia_frag,
+        mnesia_frag_hash,
+        mnesia_index,
+        mnesia_late_loader,
+        mnesia_lib,
+        mnesia_log,
+        mnesia_schema,
+        mnesia_snmp_hook,
+        mnesia_subscr,
+        mnesia_text,
+        mnesia_tm,
+        mnesia_recover,
+        mnesia_locker,
+        mnesia_monitor,
+        mnesia_event
+    ].
+
+% mnesia's processes on this node killed at once, without the application stopping in order.
+lkill() ->
+    clause_mnesia_app:kill().
+
+kill() ->
+    rpc:multicall(clause_mnesia_app, kill, []).
+
+%% Events (MIM1E): system events, completed transactions and table updates, sent to the subscribing processes.
+
+subscribe(What) ->
+    clause_mnesia_subscr:subscribe(self(), What).
+
+unsubscribe(What) ->
+    clause_mnesia_subscr:unsubscribe(self(), What).
+
+% A user event, {mnesia_user, Event} to the system subscribers and the event handler, which prints it.
+report_event(Event) ->
+    clause_mnesia_subscr:report_system_event({mnesia_user, Event}).
 
 % Whether a term holds a match variable: '_' or '$' followed by digits.
 has_var('_') -> true;
@@ -1143,7 +1215,7 @@ commit(Tab, Key, Update) ->
 % An update of this node's replica; a failed one leaves the result as it was, as OTP's commit does.
 replica_update({Node, _Storage}, Tab, Key, Update, Result) when Node =:= node() ->
     try
-        clause_mnesia_access:update(Tab, Key, Update)
+        clause_mnesia_access:update({dirty, self()}, Tab, Key, Update)
     catch
         _:_ -> Result
     end;
@@ -1333,27 +1405,15 @@ backup_checkpoint(_, _) -> erlang:error({not_implemented, backup_checkpoint, 2})
 backup_checkpoint(_, _, _) -> erlang:error({not_implemented, backup_checkpoint, 3}).
 change_table_frag(_, _) -> erlang:error({not_implemented, change_table_frag, 2}).
 deactivate_checkpoint(_) -> erlang:error({not_implemented, deactivate_checkpoint, 1}).
-dump_to_textfile(_) -> erlang:error({not_implemented, dump_to_textfile, 1}).
-info() -> erlang:error({not_implemented, info, 0}).
 install_fallback(_) -> erlang:error({not_implemented, install_fallback, 1}).
 install_fallback(_, _) -> erlang:error({not_implemented, install_fallback, 2}).
-kill() -> erlang:error({not_implemented, kill, 0}).
-lkill() -> erlang:error({not_implemented, lkill, 0}).
-load_textfile(_) -> erlang:error({not_implemented, load_textfile, 1}).
-ms() -> erlang:error({not_implemented, ms, 0}).
-report_event(_) -> erlang:error({not_implemented, report_event, 1}).
 restore(_, _) -> erlang:error({not_implemented, restore, 2}).
 snmp_close_table(_) -> erlang:error({not_implemented, snmp_close_table, 1}).
 snmp_get_mnesia_key(_, _) -> erlang:error({not_implemented, snmp_get_mnesia_key, 2}).
 snmp_get_next_index(_, _) -> erlang:error({not_implemented, snmp_get_next_index, 2}).
 snmp_get_row(_, _) -> erlang:error({not_implemented, snmp_get_row, 2}).
 snmp_open_table(_, _) -> erlang:error({not_implemented, snmp_open_table, 2}).
-subscribe(_) -> erlang:error({not_implemented, subscribe, 1}).
-system_info() -> erlang:error({not_implemented, system_info, 0}).
-table(_) -> erlang:error({not_implemented, table, 1}).
-table(_, _) -> erlang:error({not_implemented, table, 2}).
 traverse_backup(_, _, _, _) -> erlang:error({not_implemented, traverse_backup, 4}).
 traverse_backup(_, _, _, _, _, _) -> erlang:error({not_implemented, traverse_backup, 6}).
 uninstall_fallback() -> erlang:error({not_implemented, uninstall_fallback, 0}).
 uninstall_fallback(_) -> erlang:error({not_implemented, uninstall_fallback, 1}).
-unsubscribe(_) -> erlang:error({not_implemented, unsubscribe, 1}).

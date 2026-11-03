@@ -35,15 +35,21 @@ schema_change(Operation) ->
         {not_implemented, _} = NotImplemented ->
             NotImplemented;
         Changes ->
-            case gen_server:call(mnesia_monitor, {schema, Changes}, infinity) of
-                ok -> ok;
-                {aborted, Reason} -> mnesia:abort(Reason)
+            {_, Tid, #tidstore{store = Store}} = get(mnesia_activity_state),
+            case gen_server:call(mnesia_monitor, {schema, Changes, Tid}, infinity) of
+                ok ->
+                    % A schema change counts as a write: its transaction completes an activity (MIM1E).
+                    true = ets:insert(Store, {op, schema_change}),
+                    ok;
+                {aborted, Reason} ->
+                    mnesia:abort(Reason)
             end
     end.
 
-% A report to mnesia_event's handler, which prints it, as OTP's mnesia_lib:important/2 does (MIM1C).
+% A report to mnesia_event's handler, which prints it, and to the system subscribers, as OTP's mnesia_lib:important/2
+% does (MIM1C).
 important(Format, Args) ->
-    gen_event:notify(mnesia_event, {mnesia_system_event, {mnesia_info, Format, Args}}).
+    clause_mnesia_subscr:report_system_event({mnesia_info, Format, Args}).
 
 % A global variable; a missing table's where_to_read is nowhere, its writers and replicas none, and any other
 % missing variable aborts with node_not_running or no_exists.
@@ -232,6 +238,7 @@ init([]) ->
     [set(Name, Value) || {Name, Value} <- [{version, Version}, {use_dir, UseDir}, {{current, db_nodes}, [node()]}]],
     Counters = [{trans_commits, 2}, {trans_failures, 0}, {trans_restarts, 0}, {trans_log_writes, 0}],
     [set(Counter, N) || {Counter, N} <- Counters],
+    [set(Subscribers, []) || Subscribers <- [subscribers, activity_subscribers]],
     case UseDir of
         true -> clause_mnesia_disc:start();
         false -> clause_mnesia_schema:init_schema()
@@ -246,11 +253,11 @@ dump_timer() ->
 % A schema transaction's changes, applied in order: ok or {aborted, Reason}. On a disc schema the log is dumped first,
 % so that no logged write replays over a table the change rewrites; the changed tables' records reach schema.DAT and
 % the transaction counts two log writes, as OTP's (MIM1D).
-handle_call({schema, Changes}, _From, State) ->
+handle_call({schema, Changes, Tid}, _From, State) ->
     Result =
         try
             clause_mnesia_disc:dump_log(schema_prepare),
-            lists:foreach(fun clause_mnesia_schema:apply_change/1, Changes),
+            lists:foreach(fun(Change) -> clause_mnesia_schema:apply_change(Change, Tid) end, Changes),
             [clause_mnesia_disc:save_schema(Tab) || Tab <- lists:usort([changed_table(C) || C <- Changes])],
             clause_mnesia_disc:use_dir() andalso [increment(trans_log_writes) || _ <- [prepare, commit]],
             ok

@@ -51,15 +51,18 @@ close(Tab, Entry, {dets, Name}) ->
     _ = file:delete(clause_mnesia_disc:index_file(Tab, element(1, Entry))),
     ets:delete(?GVAR, {Tab, {index, Entry}}).
 
-% index_info and what follows from it: the index positions and the commit work.
+% index_info and what follows from it: the index positions and the commit work, in OTP's order (MIM1E).
 store(Tab, #index{pos_list = Positions} = Info) ->
     set({Tab, index_info}, Info),
     set({Tab, index}, [P || {{P, _}, _} <- Positions]),
-    Work = lists:keydelete(index, 1, val({Tab, commit_work})),
-    case Positions of
-        [] -> set({Tab, commit_work}, Work);
-        _ -> set({Tab, commit_work}, [Info | Work])
-    end.
+    Work = val({Tab, commit_work}),
+    New =
+        case {Positions, lists:keymember(index, 1, Work)} of
+            {[], _} -> lists:keydelete(index, 1, Work);
+            {_, true} -> lists:keyreplace(index, 1, Work, Info);
+            {_, false} -> [Info | Work]
+        end,
+    set({Tab, commit_work}, clause_mnesia_subscr:sort_commit(New)).
 
 % A record written under Key; Old is the replaced records, or undefined to read them from the table first.
 written(Tab, Key, Record, Old) ->

@@ -20,8 +20,13 @@ Clause's `mnesia` application (plan 21, MIM1) exports the OTP 29 interface of `m
 - **MIM1D, done:** [disc storage](#disc-storage): `create_schema/1,2` and `delete_schema/1`, the disc schema,
   `disc_copies` and `disc_only_copies` tables, the transaction log with `dump_log/0`, `sync_log/0` and its thresholds,
   `dump_tables/1`, and storage type changes of tables and of the schema.
+- **MIM1E, done:**
+  - [events](#events): `subscribe/1`, `unsubscribe/1` and `report_event/1`, the event handler's reports and the debug
+    levels;
+  - [text files](#text-files): `load_textfile/1` and `dump_to_textfile/1`;
+  - [query tables](#query-tables): `table/1,2`;
+  - [the report](#the-report) of `info/0` and `system_info/0`, and `lkill/0`, `kill/0` and `ms/0`.
 - **Still to come**, raising `{not_implemented, Name, Arity}` until then:
-  - events, text files, `qlc` tables and `info/0` (MIM1E);
   - checkpoints and backups (MIM1F);
   - fragments, `mnesia_frag_hash` and SNMP (MIM1G).
 
@@ -50,11 +55,13 @@ The design keeps OTP's formats, so that a later step (MIM1H) can add more nodes.
 
 - `mnesia_sup`:
   - `mnesia_event`, the `gen_event` manager for system events, with the `event_module` parameter's handler. The
-    default handler ([clause_mnesia_event](../../library/mnesia/clause_mnesia_event.erl)) prints OTP's info reports,
-    such as a failed transform function's;
+    default handler ([clause_mnesia_event](../../library/mnesia/clause_mnesia_event.erl)) reports them as OTP's does
+    (see [events](#events));
   - `mnesia_ext_sup`, for backend processes;
   - `mnesia_kernel_sup`:
     - `mnesia_monitor` ([clause_mnesia_monitor](../../library/mnesia/clause_mnesia_monitor.erl));
+    - `mnesia_subscr`, which keeps the [event subscriptions](#events)
+      ([clause_mnesia_subscr](../../library/mnesia/clause_mnesia_subscr.erl));
     - `mnesia_locker`, the lock manager ([clause_mnesia_locker](../../library/mnesia/clause_mnesia_locker.erl));
     - `mnesia_tm`, the transaction manager ([clause_mnesia_tm](../../library/mnesia/clause_mnesia_tm.erl)).
 
@@ -180,7 +187,8 @@ checks of `create_table/2` for the changed definition. Each change gives the def
   - `change_config/2`:
     - `dc_dump_limit` takes effect at once;
     - `extra_db_nodes` runs OTP's schema merge transaction and returns the given nodes that run mnesia with this one.
-  - `set_debug_level/1` sets the `debug` parameter and returns the previous level. Its subscriptions come with MIM1E.
+  - `set_debug_level/1` sets the `debug` parameter and returns the previous level. While mnesia runs it also
+    changes the event handler's subscriptions (see [events](#events)).
 
 ## Disc storage
 
@@ -326,6 +334,94 @@ Each index is an `ordered_set` table of `{{Value, Key}}` ([clause_mnesia_index](
 - **Errors:** both answer with OTP's reasons (`already_exists`, `no_exists`, `bad_type`), and each change gives the
   table definition its next major version.
 
+## Events
+
+`mnesia_subscr` keeps the subscriptions ([clause_mnesia_subscr](../../library/mnesia/clause_mnesia_subscr.erl)). It links
+each subscriber and drops its subscriptions when it exits.
+
+- **Subscribing:** `subscribe/1` and `unsubscribe/1` return `{ok, Node}`, or OTP's errors:
+  - `{badarg, What}` for an unknown category;
+  - `{already_exists, What}` for a second subscription of the kind; a table's simple and detailed subscriptions count
+    as one;
+  - `{no_exists, Tab}` for an unknown table, `{not_active_local, Tab}` for a table without a replica here;
+  - `{node_not_running, Node}` without a running mnesia;
+  - unsubscribing from a table that does not exist gives `badarg`.
+- **Where the subscribers are kept**, as in OTP:
+  - the `subscribers` and `activity_subscribers` variables;
+  - a `{subscribers, Simple, Detailed}` entry in the table's `commit_work`, and its `subscribers` property;
+  - each change of `commit_work`, an index's too, puts its entries in OTP's order;
+  - `system_info(subscribers)` lists the event manager first.
+- **System events:** `{mnesia_system_event, Event}` goes to each system subscriber and to the event manager:
+  - `{mnesia_user, Event}` from `report_event/1`;
+  - `{mnesia_info, Format, Args}` and the other reports;
+  - `{mnesia_down, Node}` when mnesia stops.
+
+  Without a running mnesia, `report_event/1` starts an event manager for that event alone, which prints it.
+- **Activity events:** `{mnesia_activity_event, {complete, Tid}}` when a transaction that wrote commits, schema
+  transactions included. Reads, aborts, inner transactions and dirty activities send none.
+- **Table events:** sent while a commit or a dirty update applies, before the table changes.
+  - Simple: `{write, Record, Activity}`, `{delete, {Tab, Key}, Activity}` and `{delete_object, Record, Activity}`, the
+    record named after the table.
+  - Detailed: `{write, Tab, Record, OldRecords, Activity}` and `{delete, Tab, What, OldRecords, Activity}`.
+  - The activity is `{dirty, Pid}` for a dirty update and the tid for a transaction. `ets` activities send none.
+  - A counter update is a write, with the record it replaced.
+  - `clear_table/1` reports the table's schema record deleted and written again.
+- **Schema events:** each schema change reports the changed table's `{schema, Tab, Definition}` record:
+  - written twice for a new table or a new table copy, before and after it is stored;
+  - deleted for a deleted table, with `undefined` as the old records of a detailed event;
+  - written once for any other change.
+- **The handler:** the default handler reports as OTP's:
+  - it prints info reports, once when one comes again, and user events, as `Mnesia(Node): ...`;
+  - it logs warnings and errors through `error_logger`;
+  - it prints the table events it subscribes to at the debug levels: the schema's at `debug`, every local table's at
+    `trace`, from `set_debug_level/1` or from the start;
+  - a process registered globally as `mnesia_global_logger` gets a copy.
+
+## Text files
+
+[clause_mnesia_text](../../library/mnesia/clause_mnesia_text.erl) reads and writes OTP's text files: a
+`{tables, [{Tab, Options}]}` term, then records named after their tables.
+
+- **`load_textfile/1`:**
+  - mnesia starts first, on a new disc schema when its directory has none;
+  - each listed table is created, or takes the records when it exists; a table that cannot be created is reported, and
+    its records left out;
+  - the records are written in one transaction, whose result it returns.
+- **Errors**, with OTP's messages: `{error, open}`, `{error, bad_header}`, `{error, undefined_object}` for a record of
+  an unlisted table, and `{error, read}` for a term that does not parse. A table entry that is not a pair throws
+  `{error, badtab}`, or fails with `function_clause` for a triple, as in OTP.
+- **`dump_to_textfile/1`:** writes this node's tables other than the schema, with their record names and attributes,
+  then their records. Without a running mnesia it returns `error`.
+
+## Query tables
+
+`table/1,2` give `qlc` a table ([clause_mnesia_qlc](../../library/mnesia/clause_mnesia_qlc.erl)):
+
+- **Options:** `{lock, Lock}`, `{n_objects, N}` and `{traverse, select | {select, MatchSpec}}`; `qlc` takes the others.
+- **Reading:** in the caller's activity, in chunks of `select/4`. A filter on the key reads through `read/3`, and one
+  on an indexed position through `index_read/3`.
+- **Information:** `qlc:info/1` prints OTP's form of the query.
+- **Errors:** outside an activity the query aborts with `no_transaction`. A cursor's process takes the activity of the
+  process that made it.
+- **Fixing:** a dirty traversal of a `set` or `bag` table fixes it with `safe_fixtable`.
+
+## The report
+
+[clause_mnesia_info](../../library/mnesia/clause_mnesia_info.erl) prints OTP's report.
+
+- **`info/0`:**
+  - the locks held and wanted, and the coordinators of running transactions;
+  - each active table with its size and memory, or file size for a `disc_only_copies` table;
+  - then the report of `system_info/0`.
+- **`system_info/0`:** prints and returns whether mnesia runs:
+  - the version, the debug level, the directory, the fallback, and the running and stopped nodes;
+  - the master node tables, the tables of each storage, and the tables written at the same replicas;
+  - the transaction and lock counts.
+
+  Without a running mnesia, both print only the first lines.
+- **`lkill/0`:** kills mnesia's processes at once, as OTP's debug function does, and the application ends as
+  `exited: normal`. `kill/0` does so on each node, and `ms/0` lists OTP's names that they end.
+
 ## Tests
 
 - **`mnesia_dirty` golden:** generated from OTP ([fixture](../../tests/fixtures/executables/mnesia_dirty/mnesia_dirty.erl)).
@@ -343,6 +439,12 @@ Each index is an `ordered_set` table of `{{Value, Key}}` ([clause_mnesia_index](
   It covers creating and deleting the disc schema with their errors, the directory's files, disc tables of each type
   and their indexes, transaction log writes and dumps, `dump_tables/1`, storage type changes of tables and of the
   schema, `schema_location` and stopping and starting mnesia with the data found again.
+- **`mnesia_events` golden:** generated from OTP
+  ([fixture](../../tests/fixtures/executables/mnesia_events/mnesia_events.erl)). It covers system, activity and table
+  subscriptions with their events and errors, simple and detailed table events of dirty updates and transactions,
+  schema events, the commit work's order, subscribers that exit, the debug levels' printouts, `mnesia_down` at stop,
+  `qlc` queries over `table/1,2` with `qlc:info/1`, text files with their errors, the report of `info/0` and
+  `system_info/0`, and `lkill/0` and `kill/0`.
 - **What `mnesia_dirty` covers:** answers before starting, system information, every `create_table` option and error, table
   properties, dirty access of each table type, indexes, counters, argument errors, schema changes, `schema/1`'s
   printout, error descriptions, and stopping and restarting.

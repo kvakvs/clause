@@ -164,14 +164,15 @@ commit() ->
     end.
 
 % Each written record's operations, in the order the transaction made them, after the tables it clears; those of disc
-% tables logged first (MIM1D).
-apply_writes(Store) ->
+% tables logged first (MIM1D). A transaction that wrote, or changed the schema, completes an activity (MIM1E).
+apply_writes(Tid, Store) ->
     Clears = ets:match_object(Store, {'_', '_', clear_table}),
     Oids = lists:usort(ets:select(Store, [{{'$1', '_', '_'}, [{is_tuple, '$1'}, {'=:=', {size, '$1'}, 2}], ['$1']}])),
     Ops = Clears ++ [Op || Oid <- Oids, Op <- ets:lookup(Store, Oid), element(3, Op) =/= clear_table],
     Updates = [U || Op <- Ops, U <- [table_update(Op)], U =/= none],
     safe(fun() -> clause_mnesia_disc:log(Updates) end),
-    [safe(fun() -> clause_mnesia_access:update(Tab, Key, Update) end) || {Tab, Key, Update} <- Updates],
+    [safe(fun() -> clause_mnesia_access:update(Tid, Tab, Key, Update) end) || {Tab, Key, Update} <- Updates],
+    (Updates =/= [] orelse ets:member(Store, op)) andalso clause_mnesia_subscr:report_activity(Tid),
     ok.
 
 table_update({{Tab, Key}, Val, write}) -> {Tab, Key, {write, Val}};
@@ -252,7 +253,7 @@ handle_call({restart, Tid, Store}, _From, #state{stores = Stores} = State) ->
     {reply, {restarted, Tid}, State#state{stores = Stores#{Tid := [Store]}}};
 handle_call({commit, #tid{pid = Pid} = Tid}, _From, #state{stores = Stores} = State) ->
     [Store | _] = maps:get(Tid, Stores),
-    apply_writes(Store),
+    apply_writes(Tid, Store),
     clause_mnesia_locker:release_tid(Tid),
     unlink(Pid),
     {reply, committed, forget(Tid, State)};

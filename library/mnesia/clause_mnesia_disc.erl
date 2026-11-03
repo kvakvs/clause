@@ -400,8 +400,9 @@ item_update({{Tab, Key}, Pattern, clear_table}) -> update(Tab, Key, {clear_table
 item_update({{Tab, Key}, {RecordName, Incr}, update_counter}) -> update(Tab, Key, {update_counter, RecordName, Incr});
 item_update(_) -> ok.
 
+% The log replays at start, before anyone can subscribe to its tables' events.
 update(Tab, Key, Update) ->
-    _ = clause_mnesia_access:update(Tab, Key, Update),
+    _ = clause_mnesia_access:update({dirty, self()}, Tab, Key, Update),
     ok.
 
 % dump_log/0 and the dump thresholds: the log so far goes into the DCL files, or a table's DCD when its DCL has

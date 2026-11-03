@@ -12,7 +12,7 @@
     init_schema/0,
     init_schema/1,
     load_table/1,
-    apply_change/1,
+    apply_change/2,
     storage/1,
     storage/2,
     properties/1,
@@ -300,9 +300,27 @@ init_schema(Cs) ->
 load_table(Cs) ->
     insert(Cs, local_only).
 
-% A schema transaction's change, applied in mnesia_monitor, which owns the tables (MIM1C).
-apply_change({create, Cs}) ->
-    insert(Cs, {dumper, create_table});
+% A schema transaction's change, applied in mnesia_monitor, which owns the tables (MIM1C), with the schema table's
+% events of transaction Tid as OTP reports them (MIM1E): the record of a new table or a new copy written twice, before
+% and after it is stored, a deleted table's record deleted, and any other change's record written once.
+apply_change({Twice, #cstruct{name = Tab} = Cs}, Tid) when Twice =:= create; Twice =:= add_copy ->
+    Record = {schema, Tab, cs2list(Cs)},
+    clause_mnesia_subscr:report_schema_event(Tid, Record, write),
+    case Twice of
+        create -> insert(Cs, {dumper, create_table});
+        add_copy -> redefine(Cs)
+    end,
+    clause_mnesia_subscr:report_schema_event(Tid, Record, write);
+apply_change({delete, Tab} = Change, Tid) ->
+    [clause_mnesia_subscr:report_schema_event(Tid, Record, delete) || Record <- ets:lookup(schema, Tab)],
+    apply_change(Change);
+apply_change({dump, _} = Change, _) ->
+    apply_change(Change);
+apply_change(Change, Tid) ->
+    Cs = element(2, Change),
+    clause_mnesia_subscr:report_schema_event(Tid, {schema, Cs#cstruct.name, cs2list(Cs)}, write),
+    apply_change(Change).
+
 apply_change({delete, Tab}) ->
     drop_replica(Tab),
     clause_mnesia_disc:deleted(Tab),

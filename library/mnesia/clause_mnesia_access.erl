@@ -7,7 +7,7 @@
 -export([first/3, last/3, next/4, prev/4, foldl/6, foldr/6]).
 -export([select/5, select/6, select_reverse/5, select_reverse/6, select_cont/3, fun_select/7, fun_select/10]).
 -export([dirty_sel_init/5, index_read/6, index_match_object/6, lock/4, clear_table/4]).
--export([update/3, validate_record/2, uniq/1]).
+-export([update/4, validate_record/2, uniq/1]).
 
 -include("clause_mnesia.hrl").
 
@@ -522,24 +522,30 @@ validate_record(Tab, Val) ->
     end.
 
 % An update of this node's replica and its indexes.
-update(Tab, Key, {write, Val}) ->
+% An update of this node's replica by activity Tid, its table events reported first, as OTP's commit does (MIM1E).
+update(Tid, Tab, Key, {write, Val}) ->
+    clause_mnesia_subscr:report_table_event(Tab, Tid, Val, write, undefined),
     clause_mnesia_index:written(Tab, Key, Val, undefined),
     ok = clause_mnesia_db:insert(Tab, Val),
     ok;
-update(Tab, Key, delete) ->
+update(Tid, Tab, Key, delete) ->
+    clause_mnesia_subscr:report_table_event(Tab, Tid, {Tab, Key}, delete, undefined),
     clause_mnesia_index:deleted(Tab, Key),
     ok = clause_mnesia_db:delete(Tab, Key),
     ok;
-update(Tab, Key, {delete_object, Val}) ->
+update(Tid, Tab, Key, {delete_object, Val}) ->
+    clause_mnesia_subscr:report_table_event(Tab, Tid, Val, delete_object, undefined),
     clause_mnesia_index:object_deleted(Tab, Key, Val),
     ok = clause_mnesia_db:match_delete(Tab, Val),
     ok;
-update(Tab, _, {clear_table, Pattern}) ->
+update(Tid, Tab, _, {clear_table, Pattern}) ->
+    clause_mnesia_subscr:report_table_event(Tab, Tid, Pattern, clear_table, undefined),
     Records = clause_mnesia_db:match_object(Tab, Pattern),
     ok = clause_mnesia_db:match_delete(Tab, Pattern),
     clause_mnesia_index:cleared(Tab, Records);
-update(Tab, Key, {update_counter, RecordName, Incr}) ->
+update(Tid, Tab, Key, {update_counter, RecordName, Incr}) ->
     {New, Old} = counted(Tab, Key, RecordName, Incr),
+    clause_mnesia_subscr:report_table_event(Tab, Tid, New, write, Old),
     clause_mnesia_index:written(Tab, Key, New, Old),
     element(3, New).
 

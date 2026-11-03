@@ -186,6 +186,9 @@ behavior (`docs/differences.md` lists gaps).
   OTP's locks and checks (`clause_mnesia_change`, transform functions too), `mnesia_monitor` applies the changes;
   MIM1D: disc schema in OTP's files and terms (`clause_mnesia_disc`: schema.DAT dets, LATEST.LOG of #commit{},
   DCD/DCL disk_logs, disc_only tables and their indexes as dets), commits log before applying, dumps and schema
-  changes both run in `mnesia_monitor`; `clause_mnesia_db` sends table access to ets or dets).
+  changes both run in `mnesia_monitor`; `clause_mnesia_db` sends table access to ets or dets; MIM1E: `mnesia_subscr`
+  keeps subscriptions in OTP's gvar rows and `commit_work` entries, the events are sent where they happen: table events
+  in record updates of dirty writes and commits, schema events as `mnesia_monitor` applies changes, activity events at
+  commit; text files, `table/1,2` qlc handles and the `info/0` report in their own modules).
   Distribution and tracing
   answer as a non-alive node.

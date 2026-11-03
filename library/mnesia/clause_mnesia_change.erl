@@ -220,7 +220,10 @@ add_copy(Tab, Node, Storage) ->
         Tab =:= schema; Storage =:= ram_copies; Running -> ok;
         true -> abort({not_active, schema, Node})
     end,
-    {redefine, Cs2}.
+    case Tab of
+        schema -> {redefine, Cs2};
+        _ -> {add_copy, Cs2}
+    end.
 
 % del_table_copy/2: a replica goes; the last one deletes the table, and the schema's takes the node's tables along.
 del_copy(Tab, Node) ->

@@ -12,13 +12,21 @@
         clause_mnesia_locker,
         clause_mnesia_monitor,
         clause_mnesia_schema,
+        clause_mnesia_subscr,
         clause_mnesia_tm,
         clause_mnesia_written,
         mnesia,
         mnesia_frag_hash
     ]},
     {registered, [
-        mnesia_sup, mnesia_event, mnesia_ext_sup, mnesia_kernel_sup, mnesia_monitor, mnesia_locker, mnesia_tm
+        mnesia_sup,
+        mnesia_event,
+        mnesia_ext_sup,
+        mnesia_kernel_sup,
+        mnesia_monitor,
+        mnesia_subscr,
+        mnesia_locker,
+        mnesia_tm
     ]},
     {applications, [kernel, stdlib]},
     {env, []},
