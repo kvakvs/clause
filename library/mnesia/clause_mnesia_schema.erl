@@ -305,21 +305,41 @@ load_table(Cs) ->
 % and after it is stored, a deleted table's record deleted, and any other change's record written once.
 apply_change({Twice, #cstruct{name = Tab} = Cs}, Tid) when Twice =:= create; Twice =:= add_copy ->
     Record = {schema, Tab, cs2list(Cs)},
-    clause_mnesia_subscr:report_schema_event(Tid, Record, write),
+    schema_event(Tid, Record, write),
     case Twice of
         create -> insert(Cs, {dumper, create_table});
         add_copy -> redefine(Cs)
     end,
-    clause_mnesia_subscr:report_schema_event(Tid, Record, write);
+    schema_event(Tid, Record, write);
 apply_change({delete, Tab} = Change, Tid) ->
-    [clause_mnesia_subscr:report_schema_event(Tid, Record, delete) || Record <- ets:lookup(schema, Tab)],
+    [schema_event(Tid, Record, delete) || Record <- ets:lookup(schema, Tab)],
     apply_change(Change);
 apply_change({dump, _} = Change, _) ->
     apply_change(Change);
+apply_change({restore, Plan, Restore}, Tid) ->
+    clause_mnesia_backup:restore_tables(Plan, Restore, Tid);
+apply_change({records, Moves}, Tid) ->
+    move_records(Moves, Tid);
 apply_change(Change, Tid) ->
     Cs = element(2, Change),
-    clause_mnesia_subscr:report_schema_event(Tid, {schema, Cs#cstruct.name, cs2list(Cs)}, write),
+    schema_event(Tid, {schema, Cs#cstruct.name, cs2list(Cs)}, write),
     apply_change(Change).
+
+% Records moved between a fragmented table's fragments (MIM1G), whose disc_copies fragments are dumped.
+move_records(Moves, Tid) ->
+    [clause_mnesia_access:update(Tid, Frag, Key, Update) || {Frag, Key, Update} <- Moves],
+    clause_mnesia_disc:use_dir() andalso
+        [
+            clause_mnesia_disc:ets2dcd(F)
+         || F <- lists:usort([F || {F, _, _} <- Moves]), val({F, storage_type}) =:= disc_copies
+        ],
+    ok.
+
+% A schema record changed by transaction Tid: the schema's checkpoints retain the old one (MIM1F), its subscribers
+% get the event.
+schema_event(Tid, {schema, Tab, _} = Record, Op) ->
+    clause_mnesia_checkpoint:retain(schema, Tab, Op),
+    clause_mnesia_subscr:report_schema_event(Tid, Record, Op).
 
 apply_change({delete, Tab}) ->
     drop_replica(Tab),
@@ -360,6 +380,7 @@ transform_key(Tab, _, {_, Written, _}) ->
 redefine(#cstruct{name = Tab} = Cs) ->
     ets:insert(schema, {schema, Tab, cs2list(Cs)}),
     [set({Tab, Item}, Value) || {Item, Value} <- definition_properties(Cs), not lists:member(Item, ?RUNTIME)],
+    mnesia_frag:set_frag_hash(Tab, Cs#cstruct.frag_properties),
     ets:match_delete(?GVAR, {{Tab, user_property, '_'}, '_'}),
     set_user_properties(Cs),
     case {val({Tab, storage_type}), storage(Cs)} of
@@ -378,7 +399,8 @@ redefine(#cstruct{name = Tab} = Cs) ->
             converted(Cs, Old, New),
             set({Tab, storage_type}, New),
             [set({Tab, Item}, Value) || {Item, Value} <- writer_properties(Cs, New)]
-    end.
+    end,
+    clause_mnesia_snmp:sync(Cs, val({Tab, storage_type})).
 
 % A replica changes its storage type (MIM1D): the schema moves to or from the directory; a table's records move
 % between ets and dets, with indexes of the new kind, and its disc files follow.
@@ -400,12 +422,15 @@ converted(#cstruct{name = Tab}, ram_copies, disc_copies) ->
 converted(#cstruct{name = Tab}, disc_copies, ram_copies) ->
     clause_mnesia_disc:deleted(Tab).
 
-% This node's replica of a table goes: its storage, its index tables and its properties as a local table.
+% This node's replica of a table goes: its checkpoints (MIM1F), its storage, its index tables and its properties as a
+% local table.
 drop_replica(Tab) ->
     case val({Tab, storage_type}) of
         unknown ->
             ok;
         Storage ->
+            clause_mnesia_checkpoint:table_gone(Tab),
+            clause_mnesia_snmp:drop(Tab),
             clause_mnesia_index:drop_all(Tab),
             Tab =/= schema andalso close_storage(Tab, Storage),
             ets:delete(?GVAR, {Tab, index_info}),
@@ -420,6 +445,7 @@ close_storage(Tab, _) -> ets:delete(Tab).
 insert(#cstruct{name = Tab} = Cs, Reason) ->
     ets:insert(schema, {schema, Tab, cs2list(Cs)}),
     [set({Tab, Item}, Value) || {Item, Value} <- definition_properties(Cs)],
+    mnesia_frag:set_frag_hash(Tab, Cs#cstruct.frag_properties),
     set({schema, tables}, [Tab | val({schema, tables})]),
     set_user_properties(Cs),
     case storage(Cs) of
@@ -427,7 +453,8 @@ insert(#cstruct{name = Tab} = Cs, Reason) ->
             [set({Tab, Item}, Value) || {Item, Value} <- absent_properties()];
         Storage ->
             make_storage(Cs, Storage, Reason),
-            loaded(Cs, Storage, Reason)
+            loaded(Cs, Storage, Reason),
+            clause_mnesia_snmp:sync(Cs, Storage)
     end.
 
 % A replica loaded on this node: its properties, its place among the local tables and its indexes.

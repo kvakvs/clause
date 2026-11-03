@@ -1,0 +1,9 @@
+%% OTP 29 mnesia_backup exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
+{abort_write, 1, backup, implemented}.
+{close_read, 1, backup, implemented}.
+{commit_write, 1, backup, implemented}.
+{open_read, 1, backup, implemented}.
+{open_write, 1, backup, implemented}.
+{read, 1, backup, implemented}.
+{write, 2, backup, implemented}.

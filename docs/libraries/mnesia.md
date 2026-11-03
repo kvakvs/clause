@@ -26,12 +26,16 @@ Clause's `mnesia` application (plan 21, MIM1) exports the OTP 29 interface of `m
   - [text files](#text-files): `load_textfile/1` and `dump_to_textfile/1`;
   - [query tables](#query-tables): `table/1,2`;
   - [the report](#the-report) of `info/0` and `system_info/0`, and `lkill/0`, `kill/0` and `ms/0`.
-- **Still to come**, raising `{not_implemented, Name, Arity}` until then:
-  - checkpoints and backups (MIM1F);
-  - fragments, `mnesia_frag_hash` and SNMP (MIM1G).
+- **MIM1F, done:** [checkpoints](#checkpoints), [backups](#backups) through the default backup module `mnesia_backup`,
+  traversals, [restores](#restoring) and [fallbacks](#fallbacks).
+- **MIM1G, done:** [fragmented tables](#fragmented-tables) with `mnesia_frag_hash` and the access module
+  `mnesia_frag`, and [SNMP indexes](#snmp).
+- **Declined:** `add_backend_type/2`, which needs external storage backends (`mnesia_backend_type` modules); Clause
+  keeps tables in `ets` and `dets` only. It raises `{not_implemented, add_backend_type, 2}`.
+- **Later (MIM1H, optional):** several nodes over distribution.
 
-`mnesia` stays PARTIAL in [library_modules.py](../../tests/compiler/library/library_modules.py) until MIM1G. See the
-[function inventory](../../library/mnesia/mnesia.terms) and [differences](../differences.md#mnesia).
+Every other documented function works. See the [function inventory](../../library/mnesia/mnesia.terms) and
+[differences](../differences.md#mnesia).
 
 ## Design
 
@@ -63,7 +67,8 @@ The design keeps OTP's formats, so that a later step (MIM1H) can add more nodes.
     - `mnesia_subscr`, which keeps the [event subscriptions](#events)
       ([clause_mnesia_subscr](../../library/mnesia/clause_mnesia_subscr.erl));
     - `mnesia_locker`, the lock manager ([clause_mnesia_locker](../../library/mnesia/clause_mnesia_locker.erl));
-    - `mnesia_tm`, the transaction manager ([clause_mnesia_tm](../../library/mnesia/clause_mnesia_tm.erl)).
+    - `mnesia_tm`, the transaction manager ([clause_mnesia_tm](../../library/mnesia/clause_mnesia_tm.erl));
+    - `mnesia_checkpoint_sup`, with a process for each [checkpoint](#checkpoints).
 
 Later steps add the other servers.
 
@@ -422,6 +427,106 @@ each subscriber and drops its subscriptions when it exits.
 - **`lkill/0`:** kills mnesia's processes at once, as OTP's debug function does, and the application ends as
   `exited: normal`. `kill/0` does so on each node, and `ms/0` lists OTP's names that they end.
 
+## Checkpoints
+
+A checkpoint keeps its tables as they were when it was activated
+([clause_mnesia_checkpoint](../../library/mnesia/clause_mnesia_checkpoint.erl)).
+
+- **Activating:** `activate_checkpoint/1` returns `{ok, Name, Nodes}`; the default name is `{Integer, node()}`. OTP's
+  errors:
+  - `{badarg, Arg}` for an unknown argument, and `{already_exists, Name}` for a name in use;
+  - `combine_error` for a table in both `min` and `max`, for no table at all, and for any `ram_overrides_dump` list,
+    which OTP accepts only for tables in both lists;
+  - `{"Cannot prepare checkpoint (replica not available)", [Tab, Name]}` for a table without an active replica.
+- **Retainers:** each checkpoint is a process under `mnesia_checkpoint_sup` with a retainer for each table. Before an
+  update changes a key for the first time since activation, the retainer keeps the key's records; a cleared table
+  keeps each of its keys. The schema keeps its records in the same way.
+- **RAM tables:** a `ram_copies` table, unless `ram_overrides_dump` names it, keeps its records from its dump
+  ([`dump_tables/1`](#transaction-log)) and retains nothing, as in OTP. A backup of it holds its dumped records only.
+- **Bookkeeping**, as in OTP: `system_info(checkpoints)`, `table_info(Tab, checkpoints)`, the
+  `{Tab, {retainer, Name}}` variables and a `{checkpoints, Names}` entry first in the table's `commit_work`.
+- **Deactivating:** `deactivate_checkpoint/1` returns `ok`, or `{error, {no_exists, Name}}`. A checkpoint also ends when
+  its table's replica here goes, with the `{mnesia_checkpoint_deactivated, Name}` system event and OTP's error report.
+
+## Backups
+
+[clause_mnesia_backup](../../library/mnesia/clause_mnesia_backup.erl) writes and reads backups through a backup module,
+by default `mnesia_backup` ([mnesia_backup](../../library/mnesia/mnesia_backup.erl)), which keeps OTP's callbacks and its
+`disk_log` file.
+
+- **Contents:** a `#log_header{}` of kind `backup_log`, the schema's `{schema, Tab, CreateList}` items, then each
+  table's records named after the table, and `{Tab, Key}` deletes.
+- **`backup_checkpoint/2,3`:** the schema first, then each table of the checkpoint: its records now, then each
+  retained key as a delete followed by the records at activation, so that restoring them in order gives the
+  checkpoint's state. Without the schema in the checkpoint, each table's definition is written instead.
+  - Arguments: a backup module, or `{module, Mod}`, `{scope, global | local}`, `{tables, Tabs}` and
+    `{incremental, PreviousCheckpoint}`.
+  - An incremental backup holds the keys changed since the previous checkpoint: their records now, then the records
+    the newer checkpoint retained.
+  - Errors as OTP's: `{badarg, Arg}`, and `{error, {'EXIT', Reason}}` when the backup fails. A backup module whose
+    `abort_write/1` fails gets OTP's error report.
+- **`backup/1,2`:** a checkpoint of every table, backed up and deactivated. A table without a replica here makes it
+  fail.
+- **`traverse_backup/4,6`:** passes each schema item and record to the fun, and writes what it returns to the target,
+  or nothing with the target module `read_only`. The result is `{ok, Acc}` or OTP's errors, such as
+  `{"Backup traversal failed", Reason}`.
+
+## Restoring
+
+`restore/2` restores tables from a backup in one schema transaction and returns `{atomic, Tabs}`:
+
+- **Options:** each table is cleared (the default), kept, recreated with the backup's definition, or skipped:
+  `{clear_tables, Tabs}`, `{keep_tables, Tabs}`, `{recreate_tables, Tabs}`, `{skip_tables, Tabs}` and
+  `{default_op, Op}`; `{module, Mod}` names the backup module.
+- **Records:** the backup's records of the restored tables are written in order, and its deletes applied, under the
+  tables' record names. The schema's own definition is never restored.
+- **Errors:** `{aborted, Reason}` for a bad argument (`{badarg, {clear_tables, schema}}` and others) and for a
+  backup that cannot be read, before any transaction.
+
+## Fallbacks
+
+- **Installing:** `install_fallback/1,2` copies a backup to `FALLBACK.BUP`. The backup's schema must hold this node's
+  disc schema. Arguments: a backup module, `{module, Mod}`, `{scope, global | local}`, and `{mnesia_dir, Dir}` with
+  a local scope. Errors are OTP's `{"Cannot install fallback", Reason}`, such as `{already_exists, Node}` for a second
+  fallback.
+- **Uninstalling:** `uninstall_fallback/0,1` removes the fallback.
+- **Starting:** the next start replaces the directory's database with the fallback: its schema, and each local
+  table's records in the table's files.
+
+## Fragmented tables
+
+A table with `frag_properties` is split into fragments: the first is the table itself, fragment N the table
+`Tab_fragN` ([mnesia_frag](../../library/mnesia/mnesia_frag.erl)).
+
+- **Hashing:** [mnesia_frag_hash](../../library/mnesia/mnesia_frag_hash.erl) is OTP's linear hashing over `erlang:phash2/2`,
+  with OTP's `#hash_state{}` and fragment numbers; states from before OTP R13 hash with `erlang:phash/2`. The base
+  table's `frag_properties` hold the hash module and state, and `mnesia_gvar` holds them as `{Tab, frag_hash}`.
+- **Creating:** `create_table/2` with `frag_properties` checks them as OTP does (`n_fragments`, `node_pool`,
+  `n_ram_copies`, `n_disc_copies`, `n_disc_only_copies`, `foreign_key`, `hash_module`, `hash_state`) and creates each
+  fragment, with its replicas spread over the node pool. `delete_table/1` of the base table deletes every fragment.
+- **Access:** with `mnesia_frag` as the activity's access module, a record goes to the fragment of its key, or of its
+  foreign key; reads without a key, selects, folds, walks and index reads go through every fragment. `table_info/2`
+  in such an activity also answers `base_table`, `n_fragments`, `node_pool`, `foreign_key`, `foreigners`, the
+  replica counts, `frag_names`, `frag_dist`, `frag_size`, `frag_memory`, and `size` and `memory` over all fragments.
+- **`change_table_frag/2`:** `{activate, Props}`, `deactivate`, `{add_frag, NodesOrDist}` and `del_frag`, which
+  move the records that hash to another fragment, and `{add_node, Node}` and `{del_node, Node}`. Tables with a
+  foreign key follow their foreign table's fragments. Errors as OTP's.
+- **Majority:** `change_table_majority/2` of a base table changes every fragment; of another fragment it aborts with
+  `bad_type`, as in OTP.
+
+## SNMP
+
+A table with an snmp structure, `[{key, Types}]` given to `create_table/2` or `snmp_open_table/2`, keeps an ordered
+index of its rows by SNMP row index, as OTP's `mnesia_snmp_hook` does
+([clause_mnesia_snmp](../../library/mnesia/clause_mnesia_snmp.erl)):
+
+- **Row indexes:** an `integer` key is `[Key]`, a `string` key its length then its characters, a `fix_string` key its
+  characters; a tuple key joins its parts. A written key that makes no row index aborts with
+  `{bad_snmp_key, {Tab, Key}, Types}`.
+- **Lookups:** `snmp_get_row/2`, `snmp_get_next_index/2` and `snmp_get_mnesia_key/2`, which see a transaction's own
+  writes. Counter updates leave the index alone, as in OTP.
+- **`snmp_close_table/1`** removes the index.
+
 ## Tests
 
 - **`mnesia_dirty` golden:** generated from OTP ([fixture](../../tests/fixtures/executables/mnesia_dirty/mnesia_dirty.erl)).
@@ -445,6 +550,17 @@ each subscriber and drops its subscriptions when it exits.
   schema events, the commit work's order, subscribers that exit, the debug levels' printouts, `mnesia_down` at stop,
   `qlc` queries over `table/1,2` with `qlc:info/1`, text files with their errors, the report of `info/0` and
   `system_info/0`, and `lkill/0` and `kill/0`.
+- **`mnesia_backups` golden:** generated from OTP
+  ([fixture](../../tests/fixtures/executables/mnesia_backups/mnesia_backups.erl)). It covers checkpoints with their
+  errors and bookkeeping, backups of the database and of checkpoints (full, incremental, of some tables, of a RAM
+  schema), retained records of cleared tables, a checkpoint ended by its table's deletion, traversals that read and
+  rewrite backups, restores with each option and their errors, and fallbacks installed, uninstalled and taken at the
+  next start.
+- **`mnesia_fragments` golden:** generated from OTP
+  ([fixture](../../tests/fixtures/executables/mnesia_fragments/mnesia_fragments.erl)). It covers `mnesia_frag_hash`'s
+  states and fragment numbers, fragmented tables created with their errors, access through `mnesia_frag`, the
+  fragment information, fragments added and deleted, activation, node pools, foreign keys, and SNMP indexes with their
+  lookups in and outside transactions.
 - **What `mnesia_dirty` covers:** answers before starting, system information, every `create_table` option and error, table
   properties, dirty access of each table type, indexes, counters, argument errors, schema changes, `schema/1`'s
   printout, error descriptions, and stopping and restarting.

@@ -1,7 +1,7 @@
 %% OTP 29 mnesia_frag_hash exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
 %% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
-{add_frag, 1, fragments, stub}.
-{del_frag, 1, fragments, stub}.
-{init_state, 2, fragments, stub}.
-{key_to_frag_number, 2, fragments, stub}.
-{match_spec_to_frag_numbers, 2, fragments, stub}.
+{add_frag, 1, fragments, implemented}.
+{del_frag, 1, fragments, implemented}.
+{init_state, 2, fragments, implemented}.
+{key_to_frag_number, 2, fragments, implemented}.
+{match_spec_to_frag_numbers, 2, fragments, implemented}.

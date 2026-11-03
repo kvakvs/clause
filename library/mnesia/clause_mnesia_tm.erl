@@ -154,7 +154,8 @@ fix_error(Reason) -> Reason.
 % if the transaction's process dies meanwhile; an inner transaction hands its store to the outer one.
 commit() ->
     case get(mnesia_activity_state) of
-        {_, Tid, #tidstore{up_stores = []}} ->
+        {_, Tid, #tidstore{store = Store, up_stores = []}} ->
+            check_snmp_keys(Store),
             committed = request({commit, Tid}),
             outer;
         {_, Tid, #tidstore{store = Store, up_stores = [{OldMod, Outer} | Rest], level = Level} = Ts} ->
@@ -162,6 +163,12 @@ commit() ->
             put(mnesia_activity_state, {OldMod, Tid, Ts#tidstore{up_stores = Rest, level = Level - 1}}),
             inner
     end.
+
+% Each written key of a table with an SNMP index makes a row index, or the transaction aborts (MIM1G).
+check_snmp_keys(Store) ->
+    Oids = ets:select(Store, [{{'$1', '_', '_'}, [{is_tuple, '$1'}, {'=:=', {size, '$1'}, 2}], ['$1']}]),
+    [clause_mnesia_snmp:check(Tab, Key) || {Tab, Key} <- lists:usort(Oids)],
+    ok.
 
 % Each written record's operations, in the order the transaction made them, after the tables it clears; those of disc
 % tables logged first (MIM1D). A transaction that wrote, or changed the schema, completes an activity (MIM1E).

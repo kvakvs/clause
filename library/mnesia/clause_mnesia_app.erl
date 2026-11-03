@@ -1,7 +1,8 @@
 %% The mnesia application's callback and its supervisors, registered as in OTP (plan 21 step MIM1A,
 %% docs/libraries/mnesia.md#processes): mnesia_sup runs the mnesia_event manager, mnesia_ext_sup for backend
 %% processes and mnesia_kernel_sup: mnesia_monitor owns the tables, mnesia_subscr keeps the event subscriptions (MIM1E),
-%% mnesia_locker keeps the locks and mnesia_tm the transactions (MIM1B). Later steps add mnesia's other servers.
+%% mnesia_locker keeps the locks, mnesia_tm the transactions (MIM1B) and mnesia_checkpoint_sup the checkpoints
+%% (MIM1F). Later steps add mnesia's other servers.
 -module(clause_mnesia_app).
 -behaviour(application).
 -behaviour(supervisor).
@@ -43,7 +44,13 @@ init(mnesia_kernel_sup) ->
         {mnesia_tm, clause_mnesia_tm}
     ],
     Children = [#{id => Name, start => {Module, start_link, []}, shutdown => 3000} || {Name, Module} <- Servers],
-    {ok, {#{strategy => one_for_all, intensity => 0, period => 86400000}, Children}}.
+    {ok, {
+        #{strategy => one_for_all, intensity => 0, period => 86400000}, Children ++ [supervisor(mnesia_checkpoint_sup)]
+    }};
+% Each checkpoint's process (MIM1F), never restarted.
+init(mnesia_checkpoint_sup) ->
+    Checkpoint = #{id => checkpoint, start => {clause_mnesia_checkpoint, start_link, []}, restart => temporary},
+    {ok, {#{strategy => simple_one_for_one, intensity => 0, period => 3600}, [Checkpoint]}}.
 
 supervisor(Name) ->
     #{id => Name, start => {?MODULE, start_supervisor, [Name]}, shutdown => infinity, type => supervisor}.

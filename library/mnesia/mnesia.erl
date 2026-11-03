@@ -2,8 +2,8 @@
 %% with OTP's results, errors and table properties. Step MIM1A provides starting and stopping, the RAM schema and its
 %% information, dirty access and indexes; MIM1B transactions, activities and access modules. Step MIM1C adds the other
 %% schema changes, user properties, master nodes and configuration changes; MIM1D the disc schema and disc tables; MIM1E
-%% events, text files, query tables and the report on the terminal. Backups and fragments follow in MIM1F-MIM1G, and
-%% their functions raise not_implemented until then.
+%% events, text files, query tables and the report on the terminal; MIM1F checkpoints, backups, restores and fallbacks;
+%% MIM1G fragmented tables and SNMP indexes. add_backend_type/2 is declined: Clause keeps tables in ets and dets only.
 -module(mnesia).
 -export([
     start/0,
@@ -167,31 +167,31 @@
     system_info/0,
     ms/0,
     kill/0,
-    lkill/0
-]).
-%% OTP 29 exports implemented natively or not yet: catalog builtins, whose clause_builtin_placeholder body the runtime's
-%% builtin replaces, and stubs raising error({not_implemented, F, A}) (docs/libraries/library.md#runtime-module-replacements).
--export([
+    lkill/0,
     activate_checkpoint/1,
-    add_backend_type/2,
+    deactivate_checkpoint/1,
     backup/1,
     backup/2,
     backup_checkpoint/2,
     backup_checkpoint/3,
-    change_table_frag/2,
-    deactivate_checkpoint/1,
-    install_fallback/1,
-    install_fallback/2,
-    restore/2,
-    snmp_close_table/1,
-    snmp_get_mnesia_key/2,
-    snmp_get_next_index/2,
-    snmp_get_row/2,
-    snmp_open_table/2,
     traverse_backup/4,
     traverse_backup/6,
+    restore/2,
+    install_fallback/1,
+    install_fallback/2,
     uninstall_fallback/0,
-    uninstall_fallback/1
+    uninstall_fallback/1,
+    change_table_frag/2,
+    snmp_open_table/2,
+    snmp_close_table/1,
+    snmp_get_row/2,
+    snmp_get_next_index/2,
+    snmp_get_mnesia_key/2
+]).
+%% OTP 29 exports declined, raising error({not_implemented, F, A}) (docs/libraries/library.md#runtime-module-replacements):
+%% external storage backends (mnesia_backend_type modules).
+-export([
+    add_backend_type/2
 ]).
 
 -include("clause_mnesia.hrl").
@@ -345,6 +345,140 @@ change_table_load_order(Tab, Order) ->
 
 change_table_majority(Tab, Majority) when is_boolean(Majority) ->
     schema_operation({majority, Tab, Majority}).
+
+%% SNMP indexes (MIM1G): each row of a table with an snmp structure found and walked by its row index.
+
+snmp_open_table(Tab, Snmp) ->
+    schema_operation({add_snmp, Tab, Snmp}).
+
+snmp_close_table(Tab) ->
+    schema_operation({del_snmp, Tab}).
+
+% {ok, Row} or undefined; a transaction sees its own writes.
+snmp_get_row(Tab, RowIndex) when is_atom(Tab), Tab =/= schema, is_list(RowIndex) ->
+    case get(mnesia_activity_state) of
+        {Mod, Tid, #tidstore{store = Store} = Ts} when element(1, Tid) =:= tid ->
+            case snmp_key(RowIndex, Tab) of
+                unknown -> snmp_written(Store, Tab, RowIndex, fun(_, Row) -> {ok, Row} end);
+                Key -> snmp_row(Mod:read(Tid, Ts, Tab, Key, read))
+            end;
+        _ ->
+            dirty_rpc(Tab, clause_mnesia_snmp, get_row, [Tab, RowIndex])
+    end;
+snmp_get_row(Tab, _) ->
+    abort({bad_type, Tab}).
+
+snmp_row([Row]) -> {ok, Row};
+snmp_row(_) -> undefined.
+
+% A row index's key: from its parts, or from the index when a fix_string hides them; unknown when it is not there.
+snmp_key(RowIndex, Tab) ->
+    case clause_mnesia_snmp:oid_to_key(RowIndex, Tab) of
+        unknown ->
+            case dirty_rpc(Tab, clause_mnesia_snmp, get_mnesia_key, [Tab, RowIndex]) of
+                {ok, Key} -> Key;
+                undefined -> unknown
+            end;
+        Key ->
+            Key
+    end.
+
+% The transaction's last operation on the row index's key, its write as Found(Key, Row) gives it, or undefined.
+snmp_written(Store, Tab, RowIndex, Found) ->
+    Snmp = val({Tab, snmp}),
+    Pattern = val({Tab, wild_pattern}),
+    Ops = ets:select(Store, [
+        {{{Tab, '_'}, '_', write}, [], ['$_']},
+        {{{Tab, '_'}, '_', delete}, [], ['$_']},
+        {{{Tab, '_'}, Pattern, delete_object}, [], ['$_']}
+    ]),
+    lists:foldl(
+        fun({{_, Key}, Row, Op}, Result) ->
+            case clause_mnesia_snmp:key_to_oid(Tab, Key, Snmp) of
+                RowIndex when Op =:= write -> Found(Key, Row);
+                RowIndex -> undefined;
+                _ -> Result
+            end
+        end,
+        undefined,
+        Ops
+    ).
+
+% The row index after RowIndex, {ok, Next}, or endOfTable; a transaction sees its own writes.
+snmp_get_next_index(Tab, RowIndex) when is_atom(Tab), Tab =/= schema, is_list(RowIndex) ->
+    {Next, Key} = dirty_rpc(Tab, clause_mnesia_snmp, get_next_index, [Tab, RowIndex]),
+    case get(mnesia_activity_state) of
+        {_, Tid, #tidstore{store = Store}} when element(1, Tid) =:= tid ->
+            snmp_next_written(Store, Tab, RowIndex, Next, Key);
+        _ when Next =:= endOfTable ->
+            endOfTable;
+        _ ->
+            {ok, Next}
+    end;
+snmp_get_next_index(Tab, _) ->
+    abort({bad_type, Tab}).
+
+% The index's next key, unless the transaction deleted it last, among the keys the transaction writes.
+snmp_next_written(Store, Tab, RowIndex, _, undefined) ->
+    snmp_ordered(Store, Tab, RowIndex, []);
+snmp_next_written(Store, Tab, RowIndex, Next, Key) ->
+    case ets:match(Store, {{Tab, Key}, '_', '$1'}) of
+        [] -> snmp_ordered(Store, Tab, RowIndex, [Key]);
+        Ops -> snmp_after(lists:last(Ops), Store, Tab, RowIndex, Next, Key)
+    end.
+
+snmp_after([delete], _, Tab, _, Next, _) -> snmp_get_next_index(Tab, Next);
+snmp_after(_, Store, Tab, RowIndex, _, Key) -> snmp_ordered(Store, Tab, RowIndex, [Key]).
+
+snmp_ordered(Store, Tab, RowIndex, Keys) ->
+    Snmp = val({Tab, snmp}),
+    Written = written_keys(ets:match(Store, {{Tab, '$1'}, '_', '$2'}), Keys),
+    first_after(RowIndex, lists:sort([clause_mnesia_snmp:key_to_oid(Tab, K, Snmp) || K <- Written])).
+
+% The keys the transaction writes, with Keys: a write adds its key, a delete right after takes it away, as in OTP.
+written_keys([[Key, write] | Rest], [Key | _] = Keys) -> written_keys(Rest, Keys);
+written_keys([[Key, write] | Rest], Keys) -> written_keys(Rest, [Key | Keys]);
+written_keys([[Key, delete] | Rest], [Key | Keys]) -> written_keys(Rest, Keys);
+written_keys([_ | Rest], Keys) -> written_keys(Rest, Keys);
+written_keys([], Keys) -> Keys.
+
+first_after(Prev, [First | _]) when Prev < First -> {ok, First};
+first_after(Prev, [_ | Rest]) -> first_after(Prev, Rest);
+first_after(_, []) -> endOfTable.
+
+% {ok, Key} or undefined; a transaction sees its own writes.
+snmp_get_mnesia_key(Tab, RowIndex) when is_atom(Tab), Tab =/= schema, is_list(RowIndex) ->
+    Found = dirty_rpc(Tab, clause_mnesia_snmp, get_mnesia_key, [Tab, RowIndex]),
+    case get(mnesia_activity_state) of
+        {_, Tid, #tidstore{store = Store}} when element(1, Tid) =:= tid -> snmp_filter_key(Found, RowIndex, Tab, Store);
+        _ -> Found
+    end;
+snmp_get_mnesia_key(Tab, _) ->
+    abort({bad_type, Tab}).
+
+% The index's key unless the transaction's last operation on it is not a write; else a key the transaction wrote.
+snmp_filter_key({ok, Key} = Found, _, Tab, Store) ->
+    case ets:lookup(Store, {Tab, Key}) of
+        [] -> Found;
+        Ops -> snmp_last_write(lists:last(Ops), Found)
+    end;
+snmp_filter_key(undefined, RowIndex, Tab, Store) ->
+    case clause_mnesia_snmp:oid_to_key(RowIndex, Tab) of
+        unknown ->
+            snmp_written(Store, Tab, RowIndex, fun(Key, _) -> {ok, Key} end);
+        Key ->
+            case ets:lookup(Store, {Tab, Key}) of
+                [] -> undefined;
+                Ops -> snmp_last_write(lists:last(Ops), {ok, Key})
+            end
+    end.
+
+snmp_last_write({_, _, write}, Found) -> Found;
+snmp_last_write(_, _) -> undefined.
+
+% A fragmented table's fragments, node pool or fragmentation itself (MIM1G).
+change_table_frag(Tab, Change) ->
+    schema_operation({change_frag, Tab, Change}).
 
 schema_operation(Operation) ->
     case get(mnesia_activity_state) of
@@ -575,8 +709,7 @@ running_info(tables) ->
 running_info(local_tables) ->
     val({schema, local_tables});
 running_info(checkpoints) ->
-    val({schema, tables}),
-    [];
+    val(checkpoints);
 running_info(subscribers) ->
     clause_mnesia_subscr:subscribers();
 running_info(held_locks) ->
@@ -880,6 +1013,55 @@ lkill() ->
 
 kill() ->
     rpc:multicall(clause_mnesia_app, kill, []).
+
+%% Checkpoints and backups (MIM1F).
+
+activate_checkpoint(Args) ->
+    clause_mnesia_checkpoint:activate(Args).
+
+deactivate_checkpoint(Name) ->
+    clause_mnesia_checkpoint:deactivate(Name).
+
+backup(Opaque) ->
+    backup(Opaque, []).
+
+% The whole database through the backup module.
+backup(Opaque, ModuleOrArgs) ->
+    clause_mnesia_backup:backup(Opaque, ModuleOrArgs).
+
+backup_checkpoint(Name, Opaque) ->
+    backup_checkpoint(Name, Opaque, []).
+
+backup_checkpoint(Name, Opaque, ModuleOrArgs) ->
+    clause_mnesia_backup:backup_checkpoint(Name, Opaque, ModuleOrArgs).
+
+traverse_backup(Source, Target, Fun, Acc) ->
+    Module = clause_mnesia_monitor:get_env(backup_module),
+    traverse_backup(Source, Module, Target, Module, Fun, Acc).
+
+traverse_backup(Source, SourceMod, Target, TargetMod, Fun, Acc) ->
+    clause_mnesia_backup:traverse_backup(Source, SourceMod, Target, TargetMod, Fun, Acc).
+
+% A backup's tables restored in one schema transaction: {atomic, Tabs}.
+restore(Opaque, Args) ->
+    case clause_mnesia_backup:restore_args(Opaque, Args) of
+        {ok, Restore, Schema} -> schema_operation({restore, Restore, Schema});
+        Aborted -> Aborted
+    end.
+
+install_fallback(Opaque) ->
+    install_fallback(Opaque, []).
+
+install_fallback(Opaque, ModuleOrArgs) ->
+    loaded(),
+    clause_mnesia_backup:install_fallback(Opaque, ModuleOrArgs).
+
+uninstall_fallback() ->
+    uninstall_fallback([{scope, global}]).
+
+uninstall_fallback(Args) ->
+    loaded(),
+    clause_mnesia_backup:uninstall_fallback(Args).
 
 %% Events (MIM1E): system events, completed transactions and table updates, sent to the subscribing processes.
 
@@ -1208,6 +1390,7 @@ commit(Tab, Key, Update) ->
             abort({no_exists, Tab});
         Replicas ->
             val({Tab, where_to_read}) =:= nowhere andalso abort({no_exists, Tab}),
+            clause_mnesia_snmp:check(Tab, Key),
             clause_mnesia_disc:log([{Tab, Key, Update}]),
             lists:foldl(fun(Replica, Result) -> replica_update(Replica, Tab, Key, Update, Result) end, ok, Replicas)
     end.
@@ -1397,23 +1580,4 @@ local(Tab, Args, Read) ->
 
 val(Name) -> clause_mnesia_monitor:val(Name).
 
-activate_checkpoint(_) -> erlang:error({not_implemented, activate_checkpoint, 1}).
 add_backend_type(_, _) -> erlang:error({not_implemented, add_backend_type, 2}).
-backup(_) -> erlang:error({not_implemented, backup, 1}).
-backup(_, _) -> erlang:error({not_implemented, backup, 2}).
-backup_checkpoint(_, _) -> erlang:error({not_implemented, backup_checkpoint, 2}).
-backup_checkpoint(_, _, _) -> erlang:error({not_implemented, backup_checkpoint, 3}).
-change_table_frag(_, _) -> erlang:error({not_implemented, change_table_frag, 2}).
-deactivate_checkpoint(_) -> erlang:error({not_implemented, deactivate_checkpoint, 1}).
-install_fallback(_) -> erlang:error({not_implemented, install_fallback, 1}).
-install_fallback(_, _) -> erlang:error({not_implemented, install_fallback, 2}).
-restore(_, _) -> erlang:error({not_implemented, restore, 2}).
-snmp_close_table(_) -> erlang:error({not_implemented, snmp_close_table, 1}).
-snmp_get_mnesia_key(_, _) -> erlang:error({not_implemented, snmp_get_mnesia_key, 2}).
-snmp_get_next_index(_, _) -> erlang:error({not_implemented, snmp_get_next_index, 2}).
-snmp_get_row(_, _) -> erlang:error({not_implemented, snmp_get_row, 2}).
-snmp_open_table(_, _) -> erlang:error({not_implemented, snmp_open_table, 2}).
-traverse_backup(_, _, _, _) -> erlang:error({not_implemented, traverse_backup, 4}).
-traverse_backup(_, _, _, _, _, _) -> erlang:error({not_implemented, traverse_backup, 6}).
-uninstall_fallback() -> erlang:error({not_implemented, uninstall_fallback, 0}).
-uninstall_fallback(_) -> erlang:error({not_implemented, uninstall_fallback, 1}).

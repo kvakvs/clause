@@ -522,28 +522,34 @@ validate_record(Tab, Val) ->
     end.
 
 % An update of this node's replica and its indexes.
-% An update of this node's replica by activity Tid, its table events reported first, as OTP's commit does (MIM1E).
-update(Tid, Tab, Key, {write, Val}) ->
+% An update of this node's replica by activity Tid: the checkpoints retain what it replaces (MIM1F), and its table
+% events are reported first, as OTP's commit does (MIM1E).
+update(Tid, Tab, Key, Update) ->
+    clause_mnesia_checkpoint:retain(Tab, Key, Update),
+    clause_mnesia_snmp:update(Tab, Key, Update),
+    apply_update(Tid, Tab, Key, Update).
+
+apply_update(Tid, Tab, Key, {write, Val}) ->
     clause_mnesia_subscr:report_table_event(Tab, Tid, Val, write, undefined),
     clause_mnesia_index:written(Tab, Key, Val, undefined),
     ok = clause_mnesia_db:insert(Tab, Val),
     ok;
-update(Tid, Tab, Key, delete) ->
+apply_update(Tid, Tab, Key, delete) ->
     clause_mnesia_subscr:report_table_event(Tab, Tid, {Tab, Key}, delete, undefined),
     clause_mnesia_index:deleted(Tab, Key),
     ok = clause_mnesia_db:delete(Tab, Key),
     ok;
-update(Tid, Tab, Key, {delete_object, Val}) ->
+apply_update(Tid, Tab, Key, {delete_object, Val}) ->
     clause_mnesia_subscr:report_table_event(Tab, Tid, Val, delete_object, undefined),
     clause_mnesia_index:object_deleted(Tab, Key, Val),
     ok = clause_mnesia_db:match_delete(Tab, Val),
     ok;
-update(Tid, Tab, _, {clear_table, Pattern}) ->
+apply_update(Tid, Tab, _, {clear_table, Pattern}) ->
     clause_mnesia_subscr:report_table_event(Tab, Tid, Pattern, clear_table, undefined),
     Records = clause_mnesia_db:match_object(Tab, Pattern),
     ok = clause_mnesia_db:match_delete(Tab, Pattern),
     clause_mnesia_index:cleared(Tab, Records);
-update(Tid, Tab, Key, {update_counter, RecordName, Incr}) ->
+apply_update(Tid, Tab, Key, {update_counter, RecordName, Incr}) ->
     {New, Old} = counted(Tab, Key, RecordName, Incr),
     clause_mnesia_subscr:report_table_event(Tab, Tid, New, write, Old),
     clause_mnesia_index:written(Tab, Key, New, Old),

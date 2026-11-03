@@ -34,16 +34,23 @@ schema_change(Operation) ->
     case clause_mnesia_change:prepare(Operation) of
         {not_implemented, _} = NotImplemented ->
             NotImplemented;
+        {value, Value, Changes} ->
+            applied(Changes),
+            Value;
         Changes ->
-            {_, Tid, #tidstore{store = Store}} = get(mnesia_activity_state),
-            case gen_server:call(mnesia_monitor, {schema, Changes, Tid}, infinity) of
-                ok ->
-                    % A schema change counts as a write: its transaction completes an activity (MIM1E).
-                    true = ets:insert(Store, {op, schema_change}),
-                    ok;
-                {aborted, Reason} ->
-                    mnesia:abort(Reason)
-            end
+            applied(Changes)
+    end.
+
+% A change's result is ok, or the value its preparation gave, as restore/2's tables (MIM1F).
+applied(Changes) ->
+    {_, Tid, #tidstore{store = Store}} = get(mnesia_activity_state),
+    case gen_server:call(mnesia_monitor, {schema, Changes, Tid}, infinity) of
+        ok ->
+            % A schema change counts as a write: its transaction completes an activity (MIM1E).
+            true = ets:insert(Store, {op, schema_change}),
+            ok;
+        {aborted, Reason} ->
+            mnesia:abort(Reason)
     end.
 
 % A report to mnesia_event's handler, which prints it, and to the system subscribers, as OTP's mnesia_lib:important/2
@@ -238,7 +245,7 @@ init([]) ->
     [set(Name, Value) || {Name, Value} <- [{version, Version}, {use_dir, UseDir}, {{current, db_nodes}, [node()]}]],
     Counters = [{trans_commits, 2}, {trans_failures, 0}, {trans_restarts, 0}, {trans_log_writes, 0}],
     [set(Counter, N) || {Counter, N} <- Counters],
-    [set(Subscribers, []) || Subscribers <- [subscribers, activity_subscribers]],
+    [set(List, []) || List <- [subscribers, activity_subscribers, checkpoints]],
     case UseDir of
         true -> clause_mnesia_disc:start();
         false -> clause_mnesia_schema:init_schema()
@@ -269,6 +276,8 @@ handle_call({schema, Changes, Tid}, _From, State) ->
 handle_call({dump_log, InitBy}, _From, State) ->
     {reply, clause_mnesia_disc:dump_log(InitBy), State}.
 
+changed_table({restore, _, _}) -> schema;
+changed_table({records, _}) -> schema;
 changed_table({_, #cstruct{name = Tab}}) -> Tab;
 changed_table({_, #cstruct{name = Tab}, _}) -> Tab;
 changed_table({_, Tab}) -> Tab.

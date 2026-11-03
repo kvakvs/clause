@@ -7,6 +7,7 @@
 -export([use_dir/0, fallback_activated/0, create_schema/2, delete_schema/1, schema_source/0, purge_local/0]).
 -export([start/0, stop/0, to_disc_schema/0, to_ram_schema/0, save_schema/1, open_dat/1, load/2, created/2]).
 -export([deleted/1, ets2dcd/1, dump_exists/1, index_file/2, log/1, dump_log/1, sync_log/0, item_update/1]).
+-export([dumped_records/1]).
 
 -include("clause_mnesia.hrl").
 
@@ -218,7 +219,8 @@ start() ->
     replay_logs(),
     open_latest().
 
-% The fallback replaces the directory's database: its schema becomes schema.DAT.
+% The fallback replaces the directory's database: its schema becomes schema.DAT, and the records of each table held
+% here its files (MIM1F): a disc_only_copies table's DAT, another table's DCD, none for a RAM table without records.
 install_fallback() ->
     File = file(?FALLBACK),
     case exists(File) andalso not clause_mnesia_monitor:get_env(ignore_fallback_at_startup) of
@@ -228,12 +230,40 @@ install_fallback() ->
                 delete_file(file(F))
              || {ok, Files} <- [file:list_dir(dir())], F <- Files, F =/= ?FALLBACK, known_suffix(F)
             ],
-            Schema = [{schema, Tab, List} || {schema, Tab, List} <- Items],
+            {SchemaItems, Records} = lists:splitwith(fun(I) -> element(1, I) =:= schema end, Items),
+            Schema = [{schema, Tab, List} || {schema, Tab, List} <- SchemaItems],
             write_dat(tab_file(schema, ".DAT"), Schema),
+            [
+                fallback_table(clause_mnesia_schema:list2cs(List), Records)
+             || {schema, Tab, List} <- Schema, Tab =/= schema
+            ],
             ok = file:delete(File);
         false ->
             ok
     end.
+
+% A table's records in the fallback, written and deleted in order, to the files of its storage here.
+fallback_table(#cstruct{name = Tab, type = Type, record_name = RecordName} = Cs, Items) ->
+    Own = [I || I <- Items, element(1, I) =:= Tab],
+    Contents = ets:new(fallback, [Type, {keypos, 2}]),
+    [fallback_item(Contents, I, RecordName) || I <- Own],
+    Records = ets:tab2list(Contents),
+    ets:delete(Contents),
+    case clause_mnesia_schema:storage(Cs) of
+        disc_only_copies -> write_table_dat(Cs, Records);
+        disc_copies -> write_log(tab_file(Tab, ".DCD"), [header(dcd_log, "1.0") | Records]);
+        ram_copies when Own =/= [] -> write_log(tab_file(Tab, ".DCD"), [header(dcd_log, "1.0") | Records]);
+        _ -> ok
+    end.
+
+fallback_item(Contents, {_, Key}, _) -> ets:delete(Contents, Key);
+fallback_item(Contents, Record, RecordName) -> ets:insert(Contents, setelement(1, Record, RecordName)).
+
+write_table_dat(#cstruct{name = Tab, type = Type}, Records) ->
+    Name = make_ref(),
+    {ok, Name} = dets:open_file(Name, [{file, tab_file(Tab, ".DAT")}, {keypos, 2}, {type, Type}]),
+    ok = dets:insert(Name, Records),
+    ok = dets:close(Name).
 
 write_dat(File, Records) ->
     Name = make_ref(),
@@ -344,6 +374,13 @@ deleted(Tab) ->
 
 % A RAM table dumped by dump_tables/1 keeps its DCD file.
 dump_exists(Tab) -> exists(tab_file(Tab, ".DCD")).
+
+% A table's records in its DCD file, which a checkpoint of a RAM table keeps (MIM1F); none without a directory.
+dumped_records(Tab) ->
+    case use_dir() of
+        true -> [R || R <- read_log(tab_file(Tab, ".DCD")), not is_record(R, log_header)];
+        false -> []
+    end.
 
 % The table's records become its DCD file, whose writes since then the DCL file held.
 ets2dcd(Tab) ->

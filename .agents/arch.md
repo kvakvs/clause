@@ -179,7 +179,7 @@ behavior (`docs/differences.md` lists gaps).
   goes on, binder sets for anti_replay; sni_hosts/sni_fun pause the ClientHello and switch the server context;
   key_update_at/renegotiate_at counted in the connection's send path; CRL status checks in the verify fun over
   crl_cache modules; PSK keys from user_lookup_fun after the engine scans the peer's plaintext handshake), mnesia
-  (PARTIAL, MIM1A: RAM schema, dirty access and indexes over ets tables owned by `mnesia_monitor`, schema changes
+  (MIM1A: RAM schema, dirty access and indexes over ets tables owned by `mnesia_monitor`, schema changes
   serialized there; `mnesia_gvar` keeps OTP's `{Tab, Item}` rows, so `table_info`/`schema/1` list OTP's items;
   MIM1B: transactions run in the caller over a store ets owned by `mnesia_tm`, which commits; `mnesia_locker` queues
   older/refuses younger; schema changes are schema transactions in a spawned coordinator; MIM1C: the coordinator takes
@@ -189,6 +189,10 @@ behavior (`docs/differences.md` lists gaps).
   changes both run in `mnesia_monitor`; `clause_mnesia_db` sends table access to ets or dets; MIM1E: `mnesia_subscr`
   keeps subscriptions in OTP's gvar rows and `commit_work` entries, the events are sent where they happen: table events
   in record updates of dirty writes and commits, schema events as `mnesia_monitor` applies changes, activity events at
-  commit; text files, `table/1,2` qlc handles and the `info/0` report in their own modules).
+  commit; text files, `table/1,2` qlc handles and the `info/0` report in their own modules; MIM1F: a process per
+  checkpoint owns ets retainers, updates retain old records first, backups are table now + retainer; restore is a
+  schema transaction applied in `mnesia_monitor`; fallbacks are copied backups installed by the disc start; MIM1G:
+  fragments are tables Tab_fragN reached through the `mnesia_frag` access module, `{Tab, frag_hash}` gvar row; SNMP
+  row index per table kept by updates).
   Distribution and tracing
   answer as a non-alive node.

@@ -2,7 +2,7 @@
 %% each change takes OTP's locks and makes OTP's checks in OTP's order inside the transaction, then hands
 %% mnesia_monitor the changes to apply (clause_mnesia_schema:apply_change/1). Transform functions run here too.
 -module(clause_mnesia_change).
--export([prepare/1]).
+-export([prepare/1, check_new_table/1, check_deleted_table/1, check_active/1, lock_table/2]).
 
 -include("clause_mnesia.hrl").
 
@@ -18,7 +18,25 @@ prepare({delete_table, schema}) ->
 prepare({delete_table, Tab}) ->
     lock(write, schema),
     exists(Tab) orelse abort({no_exists, Tab}),
-    [delete_table(Tab)];
+    [delete_table(T) || T <- whole_table(Tab)];
+prepare({change_frag, Tab, Change}) when is_atom(Tab), Tab =/= schema ->
+    lock(write, schema),
+    mnesia_frag:change_table_frag(Tab, Change);
+prepare({change_frag, Tab, _}) ->
+    abort({bad_type, Tab});
+prepare({Snmp, schema, _}) when Snmp =:= add_snmp; Snmp =:= del_snmp ->
+    abort({bad_type, schema});
+prepare({add_snmp, Tab, Ustruct}) ->
+    lock(write, schema),
+    lock(read, Tab),
+    Cs = changed(Tab),
+    Cs#cstruct.snmp =:= [] orelse abort({already_exists, Tab, snmp}),
+    clause_mnesia_snmp:check_ustruct(Ustruct) orelse abort({badarg, Tab, snmp, Ustruct}),
+    [{redefine, verify(Cs#cstruct{snmp = Ustruct})}];
+prepare({del_snmp, Tab}) ->
+    lock(write, schema),
+    lock(read, Tab),
+    [{redefine, verify((changed(Tab))#cstruct{snmp = []})}];
 prepare({Op, schema, _}) when Op =:= add_index; Op =:= del_index ->
     abort({bad_type, schema});
 prepare({Op, Tab, Attribute}) when Op =:= add_index; Op =:= del_index ->
@@ -74,13 +92,56 @@ prepare({load_order, Tab, Order}) ->
     [{redefine, verify((changed(Tab))#cstruct{load_order = Order})}];
 prepare({majority, Tab, Majority}) ->
     lock(write, schema),
-    [{redefine, verify((changed(Tab))#cstruct{majority = Majority})}];
+    Cs = changed(Tab),
+    [{redefine, verify(C#cstruct{majority = Majority})} || C <- [Cs | majority_fragments(Cs)]];
 prepare(merge_schema) ->
     lock(write, schema),
     [];
 prepare({dump_tables, Tabs}) ->
     lock(write, schema),
-    dump_tables(Tabs).
+    dump_tables(Tabs);
+prepare({restore, Restore, Schema}) ->
+    lock(write, schema),
+    Plan = restore_plan(Schema, Restore, []),
+    {value, [T || {T, _} <- Plan, T =/= deleted], [{restore, Plan, Restore}]}.
+
+% restore/2's tables (MIM1F), the last first as OTP returns them: each with its operation's locks, the schema's own
+% definition left alone; a table the backup deletes goes.
+restore_plan([{schema, schema, _} | Rest], Restore, Plan) ->
+    restore_plan(Rest, Restore, Plan);
+restore_plan([{schema, Tab, List} | Rest], Restore, Plan) ->
+    case clause_mnesia_backup:restore_op(Tab, Restore) of
+        skip_tables -> restore_plan(Rest, Restore, Plan);
+        Op -> restore_plan(Rest, Restore, [{Tab, restore_table(Tab, Op, List)} | Plan])
+    end;
+restore_plan([{schema, Tab} | Rest], Restore, Plan) ->
+    exists(Tab) andalso lock(write, Tab),
+    restore_plan(Rest, Restore, [{deleted, Tab} | lists:keydelete(Tab, 1, Plan)]);
+restore_plan([], _, Plan) ->
+    Plan.
+
+restore_table(Tab, clear_tables, _) ->
+    lock(write, Tab),
+    {clear, val({Tab, record_name})};
+restore_table(Tab, keep_tables, _) ->
+    lock(write, Tab),
+    {keep, val({Tab, record_name})};
+restore_table(Tab, recreate_tables, List) ->
+    exists(Tab) andalso lock(write, Tab),
+    Cs = clause_mnesia_schema:list2cs(lists:keystore(cookie, 1, List, {cookie, undefined})),
+    {recreate, Cs}.
+
+% A fragmented base table's majority changes in each fragment too; a fragment's alone is refused (MIM1G).
+majority_fragments(#cstruct{name = Tab, frag_properties = Props}) ->
+    case lists:keyfind(base_table, 1, Props) of
+        {_, Tab} -> [check_active_cs(next_version(val({F, cstruct}))) || F <- mnesia_frag:frag_names(Tab) -- [Tab]];
+        false -> [];
+        {_, _} -> abort({bad_type, Tab})
+    end.
+
+check_active_cs(Cs) ->
+    ensure_active(Cs),
+    Cs.
 
 % dump_tables/1: RAM tables only, each under its read lock (MIM1D).
 dump_tables([schema | _]) ->
@@ -99,10 +160,17 @@ dump_tables([]) ->
 
 %% Creating and deleting tables and indexes (MIM1A's checks).
 
-% create_table/1: the definition checked, then the table on this node.
+% create_table/1: the definition checked, then the table on this node; a fragmented table's fragments, each checked
+% in turn (MIM1G).
 create_table(Def) ->
-    Cs0 = clause_mnesia_schema:cstruct(Def),
-    Tab = Cs0#cstruct.name,
+    Cs = clause_mnesia_schema:cstruct(Def),
+    case Cs#cstruct.frag_properties of
+        [] -> [{create, check_new_table(Cs)}];
+        _ -> [{create, check_new_table(F)} || F <- mnesia_frag:expand_cstruct(Cs)]
+    end.
+
+% A new table's checks: it does not exist, its definition is sound, and its disc nodes run.
+check_new_table(#cstruct{name = Tab} = Cs0) ->
     exists(Tab) andalso abort({already_exists, Tab}),
     Cs = verify(Cs0),
     Running = val({current, db_nodes}),
@@ -111,10 +179,32 @@ create_table(Def) ->
      || N <- Cs#cstruct.disc_copies ++ Cs#cstruct.disc_only_copies, not lists:member(N, Running)
     ],
     check_local_storage(Cs),
-    case Cs#cstruct.frag_properties of
-        [] -> [{create, Cs}];
-        _ -> {not_implemented, frag_properties}
+    Cs.
+
+% The tables delete_table/1 deletes: a fragmented table's fragments with it, when no other table's foreign key names
+% it (MIM1G).
+whole_table(Tab) ->
+    case val({Tab, frag_properties}) of
+        [] ->
+            [Tab];
+        _ ->
+            mnesia_frag:lookup_frag_hash(Tab),
+            case mnesia_frag:lookup_foreigners(Tab) of
+                [] -> mnesia_frag:frag_names(Tab);
+                Foreigners -> abort({combine_error, Tab, "Too many foreigners", Foreigners})
+            end
     end.
+
+% A fragment deleted by change_table_frag/2, as delete_table/1 checks it (MIM1G).
+check_deleted_table(Tab) ->
+    {delete, Tab} = delete_table(Tab),
+    ok.
+
+check_active(Cs) ->
+    ensure_active(Cs).
+
+lock_table(Kind, Tab) ->
+    lock(Kind, Tab).
 
 % A RAM schema holds no disc tables on this node.
 check_local_storage(#cstruct{name = Tab} = Cs) ->

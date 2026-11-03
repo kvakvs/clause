@@ -269,3 +269,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   and `commit_work` order), system/activity/table/schema events where they happen, `report_event`, the default
   handler's reports and debug-level subscriptions, `load_textfile`/`dump_to_textfile`, `table/1,2` for qlc, `info/0`,
   `system_info/0`, `lkill`/`kill`/`ms`; `mnesia_events` golden identical to OTP — `3d60509c`
+- **MIM1F** mnesia checkpoints and backups: a process per checkpoint under `mnesia_checkpoint_sup` with ets retainers
+  (updates and schema changes retain first; RAM tables from their dump), `backup`/`backup_checkpoint` (full,
+  incremental) through OTP's `mnesia_backup`, `traverse_backup`, `restore` as a schema transaction, fallbacks
+  installed, uninstalled and taken at start with their records; `mnesia_backups` golden identical to OTP — `PENDING`
+- **MIM1G** mnesia fragments and SNMP, `mnesia` complete: `mnesia_frag_hash` (linear hashing), the `mnesia_frag`
+  access module, fragmented `create_table`/`delete_table`, `change_table_frag`, foreign keys; SNMP row indexes;
+  `add_backend_type` declined; `mnesia_fragments` golden identical to OTP — `PENDING`

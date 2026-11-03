@@ -4,18 +4,26 @@
     {modules, [
         clause_mnesia_access,
         clause_mnesia_app,
+        clause_mnesia_backup,
+        clause_mnesia_checkpoint,
         clause_mnesia_change,
         clause_mnesia_db,
         clause_mnesia_disc,
         clause_mnesia_event,
         clause_mnesia_index,
+        clause_mnesia_info,
         clause_mnesia_locker,
         clause_mnesia_monitor,
+        clause_mnesia_qlc,
         clause_mnesia_schema,
+        clause_mnesia_snmp,
         clause_mnesia_subscr,
+        clause_mnesia_text,
         clause_mnesia_tm,
         clause_mnesia_written,
         mnesia,
+        mnesia_backup,
+        mnesia_frag,
         mnesia_frag_hash
     ]},
     {registered, [
@@ -26,7 +34,8 @@
         mnesia_monitor,
         mnesia_subscr,
         mnesia_locker,
-        mnesia_tm
+        mnesia_tm,
+        mnesia_checkpoint_sup
     ]},
     {applications, [kernel, stdlib]},
     {env, []},

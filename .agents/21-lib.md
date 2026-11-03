@@ -26,7 +26,7 @@ internal functions stay out unless a public function needs them (user direction 
   documented functions.
 - **Done:** every documented module of `erts`, `kernel` and `stdlib`, `crypto` (LIB79),
   `public_key` (LIB80) and `ssl` (LIB81A–D5) (`21-finished.md`).
-- **Left:** MongooseIM's missing applications (MIM1F–MIM9, `test-mim.toml`; `mnesia` PARTIAL since MIM1A), optional `ssl` steps
+- **Left:** MongooseIM's missing applications (MIM2–MIM9, `test-mim.toml`; `mnesia` complete, MIM1H optional), optional `ssl` steps
   on request (LIB81D3c, LIB81D4b, LIB81E) and test support (LIB82 `eunit`, LIB83 `common_test`,
   the appendix).
 - **Declined** (`00-reject.md`): the 20 `erlang` functions of the LIB9 remainder, LIB78
@@ -166,29 +166,15 @@ dependencies, non-test sources.
       Pid}` transaction ids, `table_info`/`system_info` items, event messages, the backup callback
       interface, registered names of the processes Clause has (`mnesia_sup`, `mnesia_monitor`,
       `mnesia_locker`, `mnesia_tm`, `mnesia_controller`, `mnesia_subscr`, `mnesia_event`).
-    - `mnesia` is in `library/` as PARTIAL (`library_modules.py`) since MIM1A and leaves it in
-      MIM1G. Docs in `docs/libraries/mnesia.md`; one golden per step, generated from OTP.
-    - Since MIM1A-MIM1E (`21-finished.md`): `mnesia_monitor` owns every table and applies the changes of schema
+    - `mnesia` is complete in `library/` since MIM1G (`add_backend_type/2` declined). Docs in
+      `docs/libraries/mnesia.md`; one golden per step, generated from OTP.
+    - Since MIM1A-MIM1G (`21-finished.md`): `mnesia_monitor` owns every table and applies the changes of schema
       transactions, whose coordinator takes OTP's locks and checks (`clause_mnesia_change`); `mnesia_gvar` holds
       OTP's `{Tab, Item}` rows; dirty access and transactions run in the caller, `mnesia_tm` commits,
       `mnesia_locker` keeps locks; on a disc schema `clause_mnesia_disc` keeps OTP's files (schema.DAT, LATEST.LOG,
       DCD/DCL, DAT, FALLBACK.BUP from create_schema), `clause_mnesia_db` dispatches table access to ets or dets;
-      `mnesia_subscr` keeps event subscriptions, events are reported where they happen. MIM1F's `install_fallback`
-      reuses the fallback installed at start (schema items only so far); MIM1F's checkpoints add `{checkpoints, _}`
-      entries to `commit_work`, which `clause_mnesia_subscr:sort_commit/1` already keeps first, as OTP's.
-  - **MIM1F Checkpoints and backups:**
-    - `activate_checkpoint/1`, `deactivate_checkpoint/1` with retainers.
-    - `backup/1,2`, `backup_checkpoint/2,3` through the backup callback module (default
-      `mnesia_backup` over `disk_log`), `traverse_backup/4,6`, `restore/2`.
-    - `install_fallback/1,2`, `uninstall_fallback/0,1` (the fallback replaces the database at the
-      next start).
-    - Golden `mnesia_backup`.
-  - **MIM1G Fragmentation and completion:**
-    - `mnesia_frag_hash` (5), `frag_properties`, `change_table_frag/2`, `activity` with
-      `mnesia_frag`. Golden `mnesia_frag`.
-    - `snmp_*` (5): decide (OTP's need the `snmp` application's `snmp_index`).
-    - `add_backend_type/2` (external storage backends, `mnesia_ext_sup`): decide.
-    - `mnesia` leaves PARTIAL; check `test-mim.toml` resolves `mnesia` from `library/`.
+      `mnesia_subscr` keeps event subscriptions, events are reported where they happen; checkpoints are processes
+      under `mnesia_checkpoint_sup`, backups go through OTP's `mnesia_backup`, fragments through `mnesia_frag`.
       `mnesia_tm:get_info/1` (prometheus) goes to MIM7.
 - **MIM2 `eldap`** (`eldap.hrl` and module `eldap`): `open`, `simple_bind`, `search` with the
   filter constructors (`equalityMatch`, `substrings`, `present`, `approxMatch`,
@@ -245,8 +231,7 @@ dependencies, non-test sources.
 
 ### Order
 
-1. MIM1F–MIM1G (MIM1A-MIM1E done 2026-11-02/03; the design was revised for named nodes in DIST13), then
-   MIM9's record wildcard fix, MIM6, MIM7
+1. MIM9's record wildcard fix, MIM6, MIM7 (MIM1A-MIM1G done 2026-11-02/03; MIM1H optional)
    (small), MIM3, MIM4, MIM2, MIM5; MIM8 after a user decision.
 2. LIB81D3c, LIB81D4b and LIB81E on request.
 3. LIB82, LIB83 last (test support).
