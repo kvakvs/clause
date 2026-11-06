@@ -296,4 +296,4 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   (accept links, reject), `{protocol, Node}`/`protocol_version`, `mnesia_recover:connect_nodes` with `recover_nodes`
   and the `{decisions, Node, [{trans_tid, serial, N}]}` exchange, `what_decision` answers, `mnesia_down` from monitor
   links (records in `mnesia_decision` and LATEST.LOG, system event), `inconsistent_database` on nodeup and at connect;
-  OTP-named `mnesia_monitor`/`mnesia_recover`; `mnesia_connect` golden identical to OTP both ways — `HASH`
+  OTP-named `mnesia_monitor`/`mnesia_recover`; `mnesia_connect` golden identical to OTP both ways — `0d91bc87`
