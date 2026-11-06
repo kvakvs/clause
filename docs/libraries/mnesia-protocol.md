@@ -103,3 +103,31 @@ it answers. A node that is not running mnesia answers too, as long as the node i
   registered under its name. `supervisor:which_children/1` lists each with its module and `gen_server` (`mnesia_monitor`
   and `proc_lib` for `mnesia_locker`, `mnesia_tm` and `mnesia_late_loader`); a checkpoint's process shows as
   `{undefined, Pid, worker, [mnesia_checkpoint_sup, mnesia_checkpoint, supervisor]}`.
+
+## Connecting (MIM1H4)
+
+How two nodes' mnesia connect, observed with both nodes on a RAM schema. Neither node merges the other's schema here:
+`{current, db_nodes}` stays the node itself (merging is MIM1H5).
+
+| Message | From, to | Answer or effect |
+| --- | --- | --- |
+| `{negotiate_protocol, Nodes}` | a local caller of `mnesia_monitor:negotiate_protocol/1`, to `mnesia_monitor` | a process of the monitor's asks each node's monitor through `rpc:multicall(Nodes, mnesia_monitor, call, [Msg])`; the reply lists the nodes that accepted |
+| `{negotiate_protocol, Mon, Version, Protocols}` | the asking node's negotiator, to `mnesia_monitor` by `gen_server:call` | `{Node, {accept, MonPid, Version, Protocol}}`, linking `Mon`; or `{Node, {reject, MonPid, Version, Protocol}}`. `Version` is mnesia's (`"4.27"`), `Protocols` `[{8,6}, {8,5}, {8,4}, {8,3}]`; a monitor accepts its own protocol when the asker lists it, `{8,5}` when the asker lists it first |
+| `{connect_nodes, Nodes}` | `mnesia_recover:connect_nodes/1`, to `mnesia_recover` | negotiates with the nodes not yet in `recover_nodes`, asks each `mnesia_lib:is_running/0`, adds those that run (`yes` or `starting`) to `recover_nodes` and replies `{NewNodes, AlreadyConnected}` |
+| `{decisions, Node, [{trans_tid, serial, N}]}` | the connecting node's `mnesia_recover`, to the new nodes' by `gen_server:abcast` | the receiver adds `Node` first in `recover_nodes`; a serial larger than its own makes its serial `N + 1` |
+| `{what_decision, Node, Decision}` | a node unsure of a transaction, to `mnesia_recover` by cast | the serial of the decision's tid is taken as above; the reply is `{decisions, Node, [D]}` with this node's decision on the tid, or the asked one when it has none |
+
+- **Variables:** after a negotiation both nodes have `{protocol, Other}` = `{{8,6}, false}` in `mnesia_gvar` (the flag says
+  that the protocol needs conversion); the asking node also sets `protocol_version` to `{8,6}`. The monitors stay
+  linked.
+- **Going down:** when the other node's mnesia stops, or the connection breaks (`noconnection`), the link's `EXIT`
+  reaches the monitor. Then the node leaves `recover_nodes` and `{current, db_nodes}`, the running node records
+  `{mnesia_down, {node, Node}, Date, Time}` in `mnesia_decision` (and `{mnesia_down, Node, Date, Time}` in
+  `LATEST.LOG` on a disc schema), and reports the `{mnesia_down, Node}` system event. A node whose mnesia is stopped
+  answers no negotiation (`[]`).
+- **Partitions:** `mnesia_recover:has_mnesia_down/1` is whether such a record exists;
+  `mnesia_monitor:has_remote_mnesia_down/1` answers `{true, node()}` when it does and the schema has no master nodes.
+  When a node comes up (`nodeup`) that a running node recorded down, the running node asks it
+  `has_remote_mnesia_down`; when that node recorded this one down too, it reports
+  `{inconsistent_database, running_partitioned_network, Node}`, which the default event handler logs as an error.
+  `connect_nodes` makes the same check with `starting_partitioned_network`. Records stay until the nodes merge (MIM1H5).

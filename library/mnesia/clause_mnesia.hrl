@@ -49,3 +49,7 @@
 -record(commit, {
     node, decision, ram_copies = [], disc_copies = [], disc_only_copies = [], ext = [], schema_ops = []
 }).
+
+%% A transaction's outcome as nodes exchange it (MIM1H4): its tid, committed, aborted or unclear, and the nodes that
+%% take part.
+-record(decision, {tid, outcome, disc_nodes, ram_nodes}).

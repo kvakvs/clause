@@ -948,3 +948,9 @@ gotchas and user directions not recorded elsewhere.
   New library modules can push the whole-library transform host link past Windows' 32K command line
   (transforms_host_setup: "filename or extension is too long"): run_linker now falls back to `@link.rsp`; clang++
   in g++ driver mode reads it with GNU quoting even on Windows (backslashes escaped).
+- MIM1H4 mnesia (2026-11-07): observe two-node protocols with erlang:trace(whereis(Name), true, ['receive',
+  {tracer, Pid}]) on mnesia_monitor/mnesia_recover/mnesia_controller (scratch/mim1h4/obs.erl, run.py A B [module src
+  prefix]); a stopped node's state crashes on whereis(mnesia_monitor)/mnesia_decision, so fixtures print only events
+  there. The recover server must never call the monitor's server while the monitor may cast to it: downs go monitor
+  -> recover by cast, negotiation runs in a process the monitor spawns. The whole mnesia_connect golden matched OTP on
+  the first BEAM run (scratch/mim1h4/all.sh).

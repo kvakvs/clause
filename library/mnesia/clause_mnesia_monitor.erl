@@ -2,10 +2,12 @@
 %% it owns mnesia_gvar, the schema and every table, so they live as long as mnesia runs, reads the configuration
 %% parameters, and applies schema changes one at a time. Each change runs in a schema transaction (MIM1B), which takes
 %% OTP's locks and makes OTP's checks before the monitor applies it (MIM1C). On a disc schema it also loads the
-%% directory at start and dumps the transaction log (MIM1D).
+%% directory at start and dumps the transaction log (MIM1D). Other nodes' monitors negotiate a protocol with it and
+%% stay linked to it, so that each sees the other's mnesia go down (MIM1H4, clause_mnesia_connect).
 -module(clause_mnesia_monitor).
 -behaviour(gen_server).
 -export([start_link/0, schema_transaction/1, important/2, val/1, is_running/0, get_env/1, check_env/2, increment/1]).
+-export([negotiate_protocol/1]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2]).
 
 -include("clause_mnesia.hrl").
@@ -53,6 +55,12 @@ applied(Changes, Ops) ->
         {aborted, Reason} ->
             mnesia:abort(Reason)
     end.
+
+% The nodes of Nodes whose monitors agreed on a protocol with this one, linked to it (MIM1H4).
+negotiate_protocol([]) ->
+    [];
+negotiate_protocol(Nodes) ->
+    gen_server:call(mnesia_monitor, {negotiate_protocol, Nodes}, infinity).
 
 % A report to mnesia_event's handler, which prints it, and to the system subscribers, as OTP's mnesia_lib:important/2
 % does (MIM1C).
@@ -256,6 +264,8 @@ init([]) ->
     end,
     ets:update_counter(mnesia_decision, serial, {3, 1}),
     set(mnesia_status, running),
+    % Nodes coming up are checked for a partitioned network (MIM1H4).
+    ok = net_kernel:monitor_nodes(true),
     {ok, dump_timer()}.
 
 % The next dump of the log after dump_log_time_threshold (MIM1D).
@@ -283,7 +293,14 @@ handle_call({schema, Changes, Ops, Tid}, _From, State) ->
         end,
     {reply, Result, State};
 handle_call({dump_log, InitBy}, _From, State) ->
-    {reply, clause_mnesia_disc:dump_log(InitBy), State}.
+    {reply, clause_mnesia_disc:dump_log(InitBy), State};
+% Another node's monitor asks for a protocol (MIM1H4).
+handle_call({negotiate_protocol, Mon, _Version, Protocols}, _From, State) when node(Mon) =/= node() ->
+    {reply, clause_mnesia_connect:answer(Mon, Protocols), State};
+% This node asks other nodes' monitors (MIM1H4).
+handle_call({negotiate_protocol, Nodes}, From, State) ->
+    ok = clause_mnesia_connect:negotiate(Nodes, From),
+    {noreply, State}.
 
 changed_table({restore, _, _}) -> schema;
 changed_table({records, _}) -> schema;
@@ -298,6 +315,13 @@ handle_cast({dump_log, InitBy}, State) ->
 handle_info({dump_log, time_threshold}, _Timer) ->
     clause_mnesia_disc:dump_log(time_threshold),
     {noreply, dump_timer()};
+% A linked monitor of another node ended: its mnesia went down (MIM1H4).
+handle_info({'EXIT', Pid, _}, State) when node(Pid) =/= node() ->
+    clause_mnesia_recover:mnesia_down(node(Pid)),
+    {noreply, State};
+handle_info({nodeup, Node}, State) ->
+    clause_mnesia_connect:node_up(Node),
+    {noreply, State};
 handle_info(_, State) ->
     {noreply, State}.
 

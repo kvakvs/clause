@@ -6,6 +6,7 @@
         clause_mnesia_app,
         clause_mnesia_backup,
         clause_mnesia_checkpoint,
+        clause_mnesia_connect,
         clause_mnesia_change,
         clause_mnesia_controller,
         clause_mnesia_db,
@@ -30,6 +31,8 @@
         mnesia_frag,
         mnesia_frag_hash,
         mnesia_lib,
+        mnesia_monitor,
+        mnesia_recover,
         mnesia_rpc,
         mnesia_schema
     ]},

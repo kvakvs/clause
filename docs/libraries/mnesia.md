@@ -35,8 +35,9 @@ Clause's `mnesia` application (plan 21, MIM1) exports the OTP 29 interface of `m
 - **MIM1H, optional, in steps:** several nodes over distribution, Clause and OTP nodes in one database. MIM1H1, done:
   the [same files](#disc-storage) as OTP's in mnesia's directory, so that OTP and Clause nodes take turns on one
   directory. MIM1H2, done: [schema transactions](#transaction-log) logged as OTP's operations. MIM1H3, done: OTP's
-  [process names](#processes) and the [queries other nodes make](#queries-from-other-nodes). What OTP writes and sends
-  is recorded in [mnesia's files and protocol](mnesia-protocol.md).
+  [process names](#processes) and the [queries other nodes make](#queries-from-other-nodes). MIM1H4, done:
+  [connecting nodes](#connecting-nodes). What OTP writes and sends is recorded in
+  [mnesia's files and protocol](mnesia-protocol.md).
 
 Every other documented function works. See the [function inventory](../../library/mnesia/mnesia.terms) and
 [differences](../differences.md#mnesia).
@@ -111,6 +112,24 @@ provides those modules, with the functions other nodes call and OTP's answers
 - [mnesia_rpc](../../library/mnesia/mnesia_rpc.erl): the server for `{apply, M, F, Args}` calls, and `call/4`.
 
 `create_schema/1` and `delete_schema/1` ask each node through these queries, so they work with OTP nodes too.
+
+### Connecting nodes
+
+Clause's mnesia connects to other nodes' mnesia, OTP's or Clause's, as OTP's does (plan 21 step MIM1H4,
+[mnesia's files and protocol](mnesia-protocol.md#connecting-mim1h4)):
+
+- **Protocol:** `mnesia_monitor:negotiate_protocol/1` agrees on protocol `{8,6}` (or `{8,5}`) with each node's
+  monitor, which links the two monitors ([clause_mnesia_connect](../../library/mnesia/clause_mnesia_connect.erl)).
+- **Recovery nodes:** `mnesia_recover:connect_nodes/1` adds the nodes whose mnesia runs to `recover_nodes`, and the
+  nodes exchange their transaction serials, so that transaction numbers keep growing across nodes
+  ([clause_mnesia_recover](../../library/mnesia/clause_mnesia_recover.erl)).
+- **Going down:** when a linked node's mnesia stops or its connection breaks, the node leaves `recover_nodes`, this node
+  records its `mnesia_down` (`mnesia_recover:has_mnesia_down/1`) and reports the `{mnesia_down, Node}` system event.
+- **Partitions:** two running nodes that recorded each other down report `{inconsistent_database,
+  running_partitioned_network, Node}` when they meet again, and `starting_partitioned_network` when they connect.
+
+Merging schemas (MIM1H5) and deciding transactions together (MIM1H8) come later: a decision another node sends is not
+taken yet.
 
 ### Global variables
 
@@ -625,6 +644,12 @@ index of its rows by SNMP row index, as OTP's `mnesia_snmp_hook` does
   each query before b's mnesia ever ran, with a fallback, while it runs on a disc schema and after it stops, reads b's
   records through `db_get` and b's `mnesia_rpc`, lists b's processes and supervisor children, and checks b with
   `create_schema/1` and `delete_schema/1`. Its runs pair Clause nodes with OTP nodes both ways.
+- **`mnesia_connect` golden:** generated from OTP
+  ([fixture](../../tests/fixtures/executables/mnesia_connect/mnesia_connect.erl)). Node a negotiates with node b's
+  monitor and connects to b, b refuses an unknown protocol and answers a decision query; b stops and starts and is
+  connected again, and a partition between the running nodes is reported on both when they meet. Each step shows both
+  nodes' system events, protocol and recovery variables, monitor links, `mnesia_down` records and transaction numbers.
+  Its runs pair Clause nodes with OTP nodes both ways.
 - **What `mnesia_dirty` covers:** answers before starting, system information, every `create_table` option and error, table
   properties, dirty access of each table type, indexes, counters, argument errors, schema changes, `schema/1`'s
   printout, error descriptions, and stopping and restarting.

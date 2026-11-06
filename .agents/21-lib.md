@@ -205,13 +205,10 @@ dependencies, non-test sources.
   - **MIM1H3 done** (`21-finished.md`): OTP's process tree and the queries peers make (`mnesia_lib`,
     `mnesia_schema`, `mnesia_controller`, `mnesia_rpc`). `mnesia_recover` and `mnesia_late_loader` are idle servers
     until H4 and H9; `mnesia:kill/0` still multicalls `clause_mnesia_app` (OTP peers call `mnesia_sup:kill/0`).
-  - **MIM1H4 Connecting:** `mnesia_monitor`'s protocol negotiation (`{negotiate_protocol, Mon, Version,
-    Protocols}`, accept and reject, `{protocol, Node}` variables), the links between monitors, `mnesia_recover`'s
-    `connect_nodes`, `announce_all` and decision exchange (`what_decision`, `decisions`), `mnesia_down` from a link
-    or `nodedown`, `has_remote_mnesia_down` and the `inconsistent_database` event.
-    - Golden `mnesia_connect`: OTP and Clause nodes with RAM schemas negotiate (via `mnesia_monitor:
-      negotiate_protocol/1` as the test's entry), see each other's `mnesia_up`/`mnesia_down` system events and
-      `recover_nodes`, both ways.
+  - **MIM1H4 done** (`21-finished.md`): negotiation, monitor links, `connect_nodes`, serial exchange, `mnesia_down` and
+    partition detection. Left for later steps: decision records in `{decisions, ...}` are not merged (H8), OTP's
+    `early_connects` (reject before mnesia_tm runs) and `busy` while a down is processed are not reproduced (Clause
+    processes a down at once), `{mnesia_down, ...}` records are not written to DECISION_TAB.LOG (H10).
   - **MIM1H5 Schema merge:** `mnesia_controller`'s merge: `get_cstructs`, the `merge_schema` schema transaction
     with `announce_im_running`, `im_running`, `adopt_orphans`, `i_have_tab`, `schema_is_merged`; `extra_db_nodes`
     at start and through `change_config/2`; `db_nodes`, `running_db_nodes`, tables held elsewhere becoming known
@@ -319,7 +316,7 @@ dependencies, non-test sources.
 
 ### Order
 
-1. MIM9's record wildcard fix, MIM6, MIM7 (MIM1A-MIM1G, MIM1H1-H3 done 2026-11-02/06; MIM1H4-H12 optional, in order)
+1. MIM9's record wildcard fix, MIM6, MIM7 (MIM1A-MIM1G, MIM1H1-H4 done 2026-11-02/07; MIM1H5-H12 optional, in order)
    (small), MIM3, MIM4, MIM2, MIM5; MIM8 after a user decision.
 2. LIB81D3c, LIB81D4b and LIB81E on request.
 3. LIB82, LIB83 last (test support).

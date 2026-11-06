@@ -292,3 +292,8 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   `create_schema/1`/`delete_schema/1` ask nodes through them; the schema table keeps the disc schema's list as read;
   the linker takes a response file when its command line is too long (the whole-library transform host outgrew
   Windows' limit); `mnesia_remote_queries` golden identical to OTP both ways — `e4698aa4`
+- **MIM1H4** mnesia connecting: `mnesia_monitor` protocol negotiation as asker (spawned negotiator) and answerer
+  (accept links, reject), `{protocol, Node}`/`protocol_version`, `mnesia_recover:connect_nodes` with `recover_nodes`
+  and the `{decisions, Node, [{trans_tid, serial, N}]}` exchange, `what_decision` answers, `mnesia_down` from monitor
+  links (records in `mnesia_decision` and LATEST.LOG, system event), `inconsistent_database` on nodeup and at connect;
+  OTP-named `mnesia_monitor`/`mnesia_recover`; `mnesia_connect` golden identical to OTP both ways — `HASH`

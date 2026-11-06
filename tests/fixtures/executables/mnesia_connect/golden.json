@@ -1,0 +1,110 @@
+{
+  "schema": 1,
+  "entry": "mnesia_connect",
+  "host_otp": true,
+  "runs": [
+    {
+      "nodes": [
+        {
+          "name": "a",
+          "args": [
+            "a"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname mrca@localhost --setcookie mrc"
+          },
+          "otp_flags": "-sname mrca@localhost -setcookie mrc",
+          "stderr": "(?si)^.*mnesia_event got \\{inconsistent_database, running_partitioned_network, mrcb@localhost\\}.*$",
+          "exit_status": 0,
+          "stdout": "before: [{a,[{events,[]},\n             {protocol_version,missing},\n             {protocol,missing},\n             {recover_nodes,[]},\n             {db_nodes,[mrca@localhost]},\n             {links,[]},\n             {downs,[]},\n             {has_down,false},\n             {remote_down,{false,mrca@localhost}},\n             {next_tid,3}]},\n         {b,[{events,[]},\n             {protocol_version,missing},\n             {protocol,missing},\n             {recover_nodes,[]},\n             {db_nodes,[mrcb@localhost]},\n             {links,[]},\n             {downs,[]},\n             {has_down,false},\n             {remote_down,{false,mrcb@localhost}},\n             {next_tid,3}]}]\nnegotiate: [mrcb@localhost]\nnegotiated: [{a,[{events,[]},\n                 {protocol_version,{8,6}},\n                 {protocol,{{8,6},false}},\n                 {recover_nodes,[]},\n                 {db_nodes,[mrca@localhost]},\n                 {links,[mrcb@localhost]},\n                 {downs,[]},\n                 {has_down,false},\n                 {remote_down,{false,mrca@localhost}},\n                 {next_tid,4}]},\n             {b,[{events,[]},\n                 {protocol_version,missing},\n                 {protocol,{{8,6},false}},\n                 {recover_nodes,[]},\n                 {db_nodes,[mrcb@localhost]},\n                 {links,[mrca@localhost]},\n                 {downs,[]},\n                 {has_down,false},\n                 {remote_down,{false,mrcb@localhost}},\n                 {next_tid,4}]}]\nconnect: {[mrcb@localhost],[]}\nconnected: [{a,[{events,[]},\n                {protocol_version,{8,6}},\n                {protocol,{{8,6},false}},\n                {recover_nodes,[mrcb@localhost]},\n                {db_nodes,[mrca@localhost]},\n                {links,[mrcb@localhost]},\n                {downs,[]},\n                {has_down,false},\n                {remote_down,{false,mrca@localhost}},\n                {next_tid,5}]},\n            {b,[{events,[]},\n                {protocol_version,missing},\n                {protocol,{{8,6},false}},\n                {recover_nodes,[mrca@localhost]},\n                {db_nodes,[mrcb@localhost]},\n                {links,[mrca@localhost]},\n                {downs,[]},\n                {has_down,false},\n                {remote_down,{false,mrcb@localhost}},\n                {next_tid,5}]}]\nconnect_again: {[],[mrcb@localhost]}\nreject: {mrcb@localhost,{reject,mrcb@localhost,\"4.27\",{8,6}}}\nwhat_decision: 102\nb_stop: stopped\ndown: [{mnesia_down,mrcb@localhost}]\nafter_stop: [{a,[{events,[]},\n                 {protocol_version,{8,6}},\n                 {protocol,{{8,6},false}},\n                 {recover_nodes,[]},\n                 {db_nodes,[mrca@localhost]},\n                 {links,[]},\n                 {downs,[{mnesia_down,mrcb@localhost}]},\n                 {has_down,true},\n                 {remote_down,{true,mrca@localhost}},\n                 {next_tid,6}]},\n             {b,[{events,[{mnesia_down,mrcb@localhost}]},{is_running,no}]}]\nnegotiate_stopped: []\nb_start: ok\nreconnect: {[mrcb@localhost],[]}\nreconnected: [{a,[{events,[]},\n                  {protocol_version,{8,6}},\n                  {protocol,{{8,6},false}},\n                  {recover_nodes,[mrcb@localhost]},\n                  {db_nodes,[mrca@localhost]},\n                  {links,[mrcb@localhost]},\n                  {downs,[{mnesia_down,mrcb@localhost}]},\n                  {has_down,true},\n                  {remote_down,{true,mrca@localhost}},\n                  {next_tid,7}]},\n              {b,[{events,[]},\n                  {protocol_version,missing},\n                  {protocol,{{8,6},false}},\n                  {recover_nodes,[mrca@localhost]},\n                  {db_nodes,[mrcb@localhost]},\n                  {links,[mrca@localhost]},\n                  {downs,[]},\n                  {has_down,false},\n                  {remote_down,{false,mrcb@localhost}},\n                  {next_tid,8}]}]\npartition: [{mnesia_down,mrcb@localhost}]\nrejoin: [{inconsistent_database,running_partitioned_network,mrcb@localhost}]\nrejoined: [{a,[{events,[]},\n               {protocol_version,{8,6}},\n               {protocol,{{8,6},false}},\n               {recover_nodes,[]},\n               {db_nodes,[mrca@localhost]},\n               {links,[]},\n               {downs,[{mnesia_down,mrcb@localhost}]},\n               {has_down,true},\n               {remote_down,{true,mrca@localhost}},\n               {next_tid,8}]},\n           {b,[{events,\n                   [{mnesia_down,mrca@localhost},\n                    {inconsistent_database,running_partitioned_network,\n                        mrca@localhost}]},\n               {protocol_version,missing},\n               {protocol,{{8,6},false}},\n               {recover_nodes,[]},\n               {db_nodes,[mrcb@localhost]},\n               {links,[]},\n               {downs,[{mnesia_down,mrca@localhost}]},\n               {has_down,true},\n               {remote_down,{true,mrcb@localhost}},\n               {next_tid,9}]}]\nfinished: {badrpc,nodedown}\nmnesia_connect: ok\n"
+        },
+        {
+          "name": "b",
+          "args": [
+            "b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname mrcb@localhost --setcookie mrc"
+          },
+          "otp_flags": "-sname mrcb@localhost -setcookie mrc",
+          "stderr": "(?si)^.*application: mnesia\\.?\\s+exited: stopped.*mnesia_event got \\{inconsistent_database, running_partitioned_network, mrca@localhost\\}.*$",
+          "exit_status": 0,
+          "stdout": "mnesia_connect: ok\n"
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "name": "a",
+          "kind": "otp",
+          "args": [
+            "a"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname mrca@localhost --setcookie mrc"
+          },
+          "otp_flags": "-sname mrca@localhost -setcookie mrc",
+          "stderr": "(?si)^.*mnesia_event got \\{inconsistent_database, running_partitioned_network, mrcb@localhost\\}.*$",
+          "exit_status": 0,
+          "stdout": "before: [{a,[{events,[]},\n             {protocol_version,missing},\n             {protocol,missing},\n             {recover_nodes,[]},\n             {db_nodes,[mrca@localhost]},\n             {links,[]},\n             {downs,[]},\n             {has_down,false},\n             {remote_down,{false,mrca@localhost}},\n             {next_tid,3}]},\n         {b,[{events,[]},\n             {protocol_version,missing},\n             {protocol,missing},\n             {recover_nodes,[]},\n             {db_nodes,[mrcb@localhost]},\n             {links,[]},\n             {downs,[]},\n             {has_down,false},\n             {remote_down,{false,mrcb@localhost}},\n             {next_tid,3}]}]\nnegotiate: [mrcb@localhost]\nnegotiated: [{a,[{events,[]},\n                 {protocol_version,{8,6}},\n                 {protocol,{{8,6},false}},\n                 {recover_nodes,[]},\n                 {db_nodes,[mrca@localhost]},\n                 {links,[mrcb@localhost]},\n                 {downs,[]},\n                 {has_down,false},\n                 {remote_down,{false,mrca@localhost}},\n                 {next_tid,4}]},\n             {b,[{events,[]},\n                 {protocol_version,missing},\n                 {protocol,{{8,6},false}},\n                 {recover_nodes,[]},\n                 {db_nodes,[mrcb@localhost]},\n                 {links,[mrca@localhost]},\n                 {downs,[]},\n                 {has_down,false},\n                 {remote_down,{false,mrcb@localhost}},\n                 {next_tid,4}]}]\nconnect: {[mrcb@localhost],[]}\nconnected: [{a,[{events,[]},\n                {protocol_version,{8,6}},\n                {protocol,{{8,6},false}},\n                {recover_nodes,[mrcb@localhost]},\n                {db_nodes,[mrca@localhost]},\n                {links,[mrcb@localhost]},\n                {downs,[]},\n                {has_down,false},\n                {remote_down,{false,mrca@localhost}},\n                {next_tid,5}]},\n            {b,[{events,[]},\n                {protocol_version,missing},\n                {protocol,{{8,6},false}},\n                {recover_nodes,[mrca@localhost]},\n                {db_nodes,[mrcb@localhost]},\n                {links,[mrca@localhost]},\n                {downs,[]},\n                {has_down,false},\n                {remote_down,{false,mrcb@localhost}},\n                {next_tid,5}]}]\nconnect_again: {[],[mrcb@localhost]}\nreject: {mrcb@localhost,{reject,mrcb@localhost,\"4.27\",{8,6}}}\nwhat_decision: 102\nb_stop: stopped\ndown: [{mnesia_down,mrcb@localhost}]\nafter_stop: [{a,[{events,[]},\n                 {protocol_version,{8,6}},\n                 {protocol,{{8,6},false}},\n                 {recover_nodes,[]},\n                 {db_nodes,[mrca@localhost]},\n                 {links,[]},\n                 {downs,[{mnesia_down,mrcb@localhost}]},\n                 {has_down,true},\n                 {remote_down,{true,mrca@localhost}},\n                 {next_tid,6}]},\n             {b,[{events,[{mnesia_down,mrcb@localhost}]},{is_running,no}]}]\nnegotiate_stopped: []\nb_start: ok\nreconnect: {[mrcb@localhost],[]}\nreconnected: [{a,[{events,[]},\n                  {protocol_version,{8,6}},\n                  {protocol,{{8,6},false}},\n                  {recover_nodes,[mrcb@localhost]},\n                  {db_nodes,[mrca@localhost]},\n                  {links,[mrcb@localhost]},\n                  {downs,[{mnesia_down,mrcb@localhost}]},\n                  {has_down,true},\n                  {remote_down,{true,mrca@localhost}},\n                  {next_tid,7}]},\n              {b,[{events,[]},\n                  {protocol_version,missing},\n                  {protocol,{{8,6},false}},\n                  {recover_nodes,[mrca@localhost]},\n                  {db_nodes,[mrcb@localhost]},\n                  {links,[mrca@localhost]},\n                  {downs,[]},\n                  {has_down,false},\n                  {remote_down,{false,mrcb@localhost}},\n                  {next_tid,8}]}]\npartition: [{mnesia_down,mrcb@localhost}]\nrejoin: [{inconsistent_database,running_partitioned_network,mrcb@localhost}]\nrejoined: [{a,[{events,[]},\n               {protocol_version,{8,6}},\n               {protocol,{{8,6},false}},\n               {recover_nodes,[]},\n               {db_nodes,[mrca@localhost]},\n               {links,[]},\n               {downs,[{mnesia_down,mrcb@localhost}]},\n               {has_down,true},\n               {remote_down,{true,mrca@localhost}},\n               {next_tid,8}]},\n           {b,[{events,\n                   [{mnesia_down,mrca@localhost},\n                    {inconsistent_database,running_partitioned_network,\n                        mrca@localhost}]},\n               {protocol_version,missing},\n               {protocol,{{8,6},false}},\n               {recover_nodes,[]},\n               {db_nodes,[mrcb@localhost]},\n               {links,[]},\n               {downs,[{mnesia_down,mrca@localhost}]},\n               {has_down,true},\n               {remote_down,{true,mrcb@localhost}},\n               {next_tid,9}]}]\nfinished: {badrpc,nodedown}\nmnesia_connect: ok\n"
+        },
+        {
+          "name": "b",
+          "args": [
+            "b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname mrcb@localhost --setcookie mrc"
+          },
+          "otp_flags": "-sname mrcb@localhost -setcookie mrc",
+          "stderr": "(?si)^.*application: mnesia\\.?\\s+exited: stopped.*mnesia_event got \\{inconsistent_database, running_partitioned_network, mrca@localhost\\}.*$",
+          "exit_status": 0,
+          "stdout": "mnesia_connect: ok\n"
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "name": "a",
+          "args": [
+            "a"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname mrca@localhost --setcookie mrc"
+          },
+          "otp_flags": "-sname mrca@localhost -setcookie mrc",
+          "stderr": "(?si)^.*mnesia_event got \\{inconsistent_database, running_partitioned_network, mrcb@localhost\\}.*$",
+          "exit_status": 0,
+          "stdout": "before: [{a,[{events,[]},\n             {protocol_version,missing},\n             {protocol,missing},\n             {recover_nodes,[]},\n             {db_nodes,[mrca@localhost]},\n             {links,[]},\n             {downs,[]},\n             {has_down,false},\n             {remote_down,{false,mrca@localhost}},\n             {next_tid,3}]},\n         {b,[{events,[]},\n             {protocol_version,missing},\n             {protocol,missing},\n             {recover_nodes,[]},\n             {db_nodes,[mrcb@localhost]},\n             {links,[]},\n             {downs,[]},\n             {has_down,false},\n             {remote_down,{false,mrcb@localhost}},\n             {next_tid,3}]}]\nnegotiate: [mrcb@localhost]\nnegotiated: [{a,[{events,[]},\n                 {protocol_version,{8,6}},\n                 {protocol,{{8,6},false}},\n                 {recover_nodes,[]},\n                 {db_nodes,[mrca@localhost]},\n                 {links,[mrcb@localhost]},\n                 {downs,[]},\n                 {has_down,false},\n                 {remote_down,{false,mrca@localhost}},\n                 {next_tid,4}]},\n             {b,[{events,[]},\n                 {protocol_version,missing},\n                 {protocol,{{8,6},false}},\n                 {recover_nodes,[]},\n                 {db_nodes,[mrcb@localhost]},\n                 {links,[mrca@localhost]},\n                 {downs,[]},\n                 {has_down,false},\n                 {remote_down,{false,mrcb@localhost}},\n                 {next_tid,4}]}]\nconnect: {[mrcb@localhost],[]}\nconnected: [{a,[{events,[]},\n                {protocol_version,{8,6}},\n                {protocol,{{8,6},false}},\n                {recover_nodes,[mrcb@localhost]},\n                {db_nodes,[mrca@localhost]},\n                {links,[mrcb@localhost]},\n                {downs,[]},\n                {has_down,false},\n                {remote_down,{false,mrca@localhost}},\n                {next_tid,5}]},\n            {b,[{events,[]},\n                {protocol_version,missing},\n                {protocol,{{8,6},false}},\n                {recover_nodes,[mrca@localhost]},\n                {db_nodes,[mrcb@localhost]},\n                {links,[mrca@localhost]},\n                {downs,[]},\n                {has_down,false},\n                {remote_down,{false,mrcb@localhost}},\n                {next_tid,5}]}]\nconnect_again: {[],[mrcb@localhost]}\nreject: {mrcb@localhost,{reject,mrcb@localhost,\"4.27\",{8,6}}}\nwhat_decision: 102\nb_stop: stopped\ndown: [{mnesia_down,mrcb@localhost}]\nafter_stop: [{a,[{events,[]},\n                 {protocol_version,{8,6}},\n                 {protocol,{{8,6},false}},\n                 {recover_nodes,[]},\n                 {db_nodes,[mrca@localhost]},\n                 {links,[]},\n                 {downs,[{mnesia_down,mrcb@localhost}]},\n                 {has_down,true},\n                 {remote_down,{true,mrca@localhost}},\n                 {next_tid,6}]},\n             {b,[{events,[{mnesia_down,mrcb@localhost}]},{is_running,no}]}]\nnegotiate_stopped: []\nb_start: ok\nreconnect: {[mrcb@localhost],[]}\nreconnected: [{a,[{events,[]},\n                  {protocol_version,{8,6}},\n                  {protocol,{{8,6},false}},\n                  {recover_nodes,[mrcb@localhost]},\n                  {db_nodes,[mrca@localhost]},\n                  {links,[mrcb@localhost]},\n                  {downs,[{mnesia_down,mrcb@localhost}]},\n                  {has_down,true},\n                  {remote_down,{true,mrca@localhost}},\n                  {next_tid,7}]},\n              {b,[{events,[]},\n                  {protocol_version,missing},\n                  {protocol,{{8,6},false}},\n                  {recover_nodes,[mrca@localhost]},\n                  {db_nodes,[mrcb@localhost]},\n                  {links,[mrca@localhost]},\n                  {downs,[]},\n                  {has_down,false},\n                  {remote_down,{false,mrcb@localhost}},\n                  {next_tid,8}]}]\npartition: [{mnesia_down,mrcb@localhost}]\nrejoin: [{inconsistent_database,running_partitioned_network,mrcb@localhost}]\nrejoined: [{a,[{events,[]},\n               {protocol_version,{8,6}},\n               {protocol,{{8,6},false}},\n               {recover_nodes,[]},\n               {db_nodes,[mrca@localhost]},\n               {links,[]},\n               {downs,[{mnesia_down,mrcb@localhost}]},\n               {has_down,true},\n               {remote_down,{true,mrca@localhost}},\n               {next_tid,8}]},\n           {b,[{events,\n                   [{mnesia_down,mrca@localhost},\n                    {inconsistent_database,running_partitioned_network,\n                        mrca@localhost}]},\n               {protocol_version,missing},\n               {protocol,{{8,6},false}},\n               {recover_nodes,[]},\n               {db_nodes,[mrcb@localhost]},\n               {links,[]},\n               {downs,[{mnesia_down,mrca@localhost}]},\n               {has_down,true},\n               {remote_down,{true,mrcb@localhost}},\n               {next_tid,9}]}]\nfinished: {badrpc,nodedown}\nmnesia_connect: ok\n"
+        },
+        {
+          "name": "b",
+          "kind": "otp",
+          "args": [
+            "b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname mrcb@localhost --setcookie mrc"
+          },
+          "otp_flags": "-sname mrcb@localhost -setcookie mrc",
+          "stderr": "(?si)^.*application: mnesia\\.?\\s+exited: stopped.*mnesia_event got \\{inconsistent_database, running_partitioned_network, mrca@localhost\\}.*$",
+          "exit_status": 0,
+          "stdout": "mnesia_connect: ok\n"
+        }
+      ]
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
+  },
+  "inputs": {
+    "mnesia_connect.erl": "11ccd266012fa029d38a0eefc97f8141ab9fc9888272b531b3121f8a7036753c"
+  }
+}
