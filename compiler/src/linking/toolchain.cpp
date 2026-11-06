@@ -71,12 +71,47 @@ std::string find_linker(const std::optional<std::filesystem::path> &linker) {
     throw std::runtime_error("cannot find clang++ or clang on PATH; install LLVM/Clang or pass --linker");
 }
 
+namespace {
+// One argument quoted as GNU response files are read, by the Clang driver in g++ mode on every host too: a backslash
+// escapes the next character. Added for linker response files.
+std::string gnu_quoted(const std::string &argument) {
+    std::string quoted = "\"";
+    for (const char c : argument) {
+        if (c == '\\' || c == '"') {
+            quoted.push_back('\\');
+        }
+        quoted.push_back(c);
+    }
+    return quoted + "\"";
+}
+
+// The arguments in a response file beside the log, which the linker driver reads from `@file`: a link of many
+// objects, as the whole library's, outgrows Windows' command line. Added for long link lines.
+std::string response_file(std::span<const std::string> arguments, const std::filesystem::path &log) {
+    auto path = log;
+    path.replace_extension(".rsp");
+    std::ofstream file(path, std::ios::binary);
+    for (const auto &argument : arguments) {
+        file << gnu_quoted(argument) << '\n';
+    }
+    if (!file.flush()) {
+        throw std::runtime_error("cannot write linker response file " + utf8_path(path));
+    }
+    return "@" + utf8_path(path);
+}
+} // namespace
+
 LinkerRun run_linker(const std::string &program, std::span<const std::string> arguments,
                      const std::filesystem::path &log) {
     std::vector<llvm::StringRef> argv;
     argv.reserve(arguments.size() + 1);
     argv.push_back(program);
     argv.insert(argv.end(), arguments.begin(), arguments.end());
+    std::string response;
+    if (!llvm::sys::commandLineFitsWithinSystemLimits(program, argv)) {
+        response = response_file(arguments, log);
+        argv = {program, response};
+    }
     const auto log_text = utf8_path(log);
     const std::array<std::optional<llvm::StringRef>, 3> redirects{llvm::StringRef(), llvm::StringRef(log_text),
                                                                   llvm::StringRef(log_text)};

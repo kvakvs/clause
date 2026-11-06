@@ -286,3 +286,9 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   `transform` and `change_table_copy_type`; restores and fragment moves logged (`clear_table`, `restore_recreate`,
   `rec`) and replayed in order instead of dumped; majority transactions under their decision; OTP's start serials;
   `mnesia_schema_ops` golden identical to OTP, `mnesia_dir_exchange` with schema transactions left in the log — `579b4ef1`
+- **MIM1H3** mnesia process names and remote queries: OTP's `mnesia_kernel_sup` children in OTP's order with OTP's
+  modules (`mnesia_recover`, `mnesia_rpc`, `mnesia_controller`, `mnesia_late_loader` added), OTP-named `mnesia_lib`,
+  `mnesia_schema`, `mnesia_controller` (peer queries implemented, the rest declined) and the `mnesia_rpc` server;
+  `create_schema/1`/`delete_schema/1` ask nodes through them; the schema table keeps the disc schema's list as read;
+  the linker takes a response file when its command line is too long (the whole-library transform host outgrew
+  Windows' limit); `mnesia_remote_queries` golden identical to OTP both ways — `HASH`

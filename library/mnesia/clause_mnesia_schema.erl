@@ -10,6 +10,7 @@
     unique_cookie/0,
     list2cs/1,
     schema_cstruct/0,
+    initial_cstruct/1,
     init_schema/0,
     init_schema/1,
     load_table/1,
@@ -278,11 +279,15 @@ unique_cookie() ->
 
 % The schema table's own definition.
 schema_cstruct() ->
+    initial_cstruct([node()]).
+
+% The definition of a new RAM schema on Nodes; with none, what a node not running reports to others (MIM1H3).
+initial_cstruct(Nodes) ->
     #cstruct{
         name = schema,
         record_name = schema,
         attributes = [table, cstruct],
-        ram_copies = [node()],
+        ram_copies = Nodes,
         cookie = unique_cookie()
     }.
 

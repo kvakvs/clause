@@ -195,7 +195,8 @@ behavior (`docs/differences.md` lists gaps).
   fragments are tables Tab_fragN reached through the `mnesia_frag` access module, `{Tab, frag_hash}` gvar row; MIM1H1:
   the directory's files are OTP's (decision log with the tid serial in `mnesia_decision`), so OTP and Clause nodes take
   turns on one directory; MIM1H2: schema transactions are logged with OTP's `{op, ...}` tuples (`clause_mnesia_ops`) and
-  replayed in log order; SNMP
+  replayed in log order; MIM1H3: OTP's kernel_sup children and names, peers' rpc queries answered by OTP-named
+  thin modules (`mnesia_lib`, `mnesia_schema`, `mnesia_controller`) and the `mnesia_rpc` server; SNMP
   row index per table kept by updates).
   Distribution and tracing
   answer as a non-alive node.

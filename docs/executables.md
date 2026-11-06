@@ -324,7 +324,10 @@ artifacts, meant for other programs, keep every export.
   from `PATH`, then (Windows) `%ProgramFiles%/LLVM/bin`. It runs as
   `<clang> --driver-mode=g++ --target=<triple> -o <staged> <objects> <runtime>`,
   so Clang chooses the platform linker and C/C++ runtime libraries (on Windows
-  it locates MSVC and the SDK itself; no developer shell is needed).
+  it locates MSVC and the SDK itself; no developer shell is needed). When the
+  command line would be too long for the system, as with many objects on
+  Windows, the arguments go to a response file (`<clang> @link.rsp`, GNU
+  quoting) in the staging directory.
 - Runtime: `--runtime-library PATH`, else the `clause_runtime` archive of the
   build that produced `clau` (path recorded relative to the executable, e.g.
   `bin/../lib/clause_runtime.lib`). Every native object in the archive must

@@ -1,0 +1,10 @@
+%% OTP 29 mnesia_rpc exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
+{call, 4, remote, implemented}.
+{code_change, 3, remote, implemented}.
+{handle_call, 3, remote, implemented}.
+{handle_cast, 2, remote, implemented}.
+{handle_info, 2, remote, implemented}.
+{init, 1, remote, implemented}.
+{start, 0, remote, implemented}.
+{terminate, 2, remote, implemented}.

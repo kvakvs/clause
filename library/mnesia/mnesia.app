@@ -7,6 +7,7 @@
         clause_mnesia_backup,
         clause_mnesia_checkpoint,
         clause_mnesia_change,
+        clause_mnesia_controller,
         clause_mnesia_db,
         clause_mnesia_disc,
         clause_mnesia_event,
@@ -15,6 +16,7 @@
         clause_mnesia_locker,
         clause_mnesia_monitor,
         clause_mnesia_qlc,
+        clause_mnesia_recover,
         clause_mnesia_schema,
         clause_mnesia_snmp,
         clause_mnesia_ops,
@@ -24,8 +26,12 @@
         clause_mnesia_written,
         mnesia,
         mnesia_backup,
+        mnesia_controller,
         mnesia_frag,
-        mnesia_frag_hash
+        mnesia_frag_hash,
+        mnesia_lib,
+        mnesia_rpc,
+        mnesia_schema
     ]},
     {registered, [
         mnesia_sup,
@@ -35,8 +41,12 @@
         mnesia_monitor,
         mnesia_subscr,
         mnesia_locker,
+        mnesia_recover,
         mnesia_tm,
-        mnesia_checkpoint_sup
+        mnesia_rpc,
+        mnesia_checkpoint_sup,
+        mnesia_controller,
+        mnesia_late_loader
     ]},
     {applications, [kernel, stdlib]},
     {env, []},

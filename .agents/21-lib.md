@@ -202,13 +202,9 @@ dependencies, non-test sources.
   - **MIM1H2 done** (`21-finished.md`): schema transactions logged as OTP's operations. The op forms of
     `add_table_copy`, `del_table_copy` of another copy and `move_table_copy` are not seen on one node: verify them in
     H9. `#checkpoint_args{}` alignment moves to H11, `#cstruct{}` as a record on the wire to H5.
-  - **MIM1H3 OTP's module names and remote queries:** the registered processes OTP peers expect and are missing
-    (`mnesia_recover`, `mnesia_controller`, `mnesia_late_loader`, `mnesia_rpc`, `mnesia_checkpoint_sup`'s
-    children as OTP names them), and the OTP-named library modules for the peers' `rpc` calls (rules above), each
-    answering a peer's query: `is_running`, `get_node_number`, `remote_read_schema`, `get_remote_cstructs`,
-    `db_get`, `mnesia_rpc`'s `{apply, M, F, A}`.
-    - Golden `mnesia_remote_queries`: an OTP node `rpc`s each query into a Clause node running mnesia, and the
-      reverse.
+  - **MIM1H3 done** (`21-finished.md`): OTP's process tree and the queries peers make (`mnesia_lib`,
+    `mnesia_schema`, `mnesia_controller`, `mnesia_rpc`). `mnesia_recover` and `mnesia_late_loader` are idle servers
+    until H4 and H9; `mnesia:kill/0` still multicalls `clause_mnesia_app` (OTP peers call `mnesia_sup:kill/0`).
   - **MIM1H4 Connecting:** `mnesia_monitor`'s protocol negotiation (`{negotiate_protocol, Mon, Version,
     Protocols}`, accept and reject, `{protocol, Node}` variables), the links between monitors, `mnesia_recover`'s
     `connect_nodes`, `announce_all` and decision exchange (`what_decision`, `decisions`), `mnesia_down` from a link
@@ -323,7 +319,7 @@ dependencies, non-test sources.
 
 ### Order
 
-1. MIM9's record wildcard fix, MIM6, MIM7 (MIM1A-MIM1G, MIM1H1-H2 done 2026-11-02/03; MIM1H3-H12 optional, in order)
+1. MIM9's record wildcard fix, MIM6, MIM7 (MIM1A-MIM1G, MIM1H1-H3 done 2026-11-02/06; MIM1H4-H12 optional, in order)
    (small), MIM3, MIM4, MIM2, MIM5; MIM8 after a user decision.
 2. LIB81D3c, LIB81D4b and LIB81E on request.
 3. LIB82, LIB83 last (test support).

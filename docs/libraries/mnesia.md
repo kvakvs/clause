@@ -34,8 +34,9 @@ Clause's `mnesia` application (plan 21, MIM1) exports the OTP 29 interface of `m
   keeps tables in `ets` and `dets` only. It raises `{not_implemented, add_backend_type, 2}`.
 - **MIM1H, optional, in steps:** several nodes over distribution, Clause and OTP nodes in one database. MIM1H1, done:
   the [same files](#disc-storage) as OTP's in mnesia's directory, so that OTP and Clause nodes take turns on one
-  directory. MIM1H2, done: [schema transactions](#transaction-log) logged as OTP's operations. What OTP writes and
-  sends is recorded in [mnesia's files and protocol](mnesia-protocol.md).
+  directory. MIM1H2, done: [schema transactions](#transaction-log) logged as OTP's operations. MIM1H3, done: OTP's
+  [process names](#processes) and the [queries other nodes make](#queries-from-other-nodes). What OTP writes and sends
+  is recorded in [mnesia's files and protocol](mnesia-protocol.md).
 
 Every other documented function works. See the [function inventory](../../library/mnesia/mnesia.terms) and
 [differences](../differences.md#mnesia).
@@ -70,10 +71,17 @@ The design keeps OTP's formats, so that a later step (MIM1H) can add more nodes.
     - `mnesia_subscr`, which keeps the [event subscriptions](#events)
       ([clause_mnesia_subscr](../../library/mnesia/clause_mnesia_subscr.erl));
     - `mnesia_locker`, the lock manager ([clause_mnesia_locker](../../library/mnesia/clause_mnesia_locker.erl));
+    - `mnesia_recover` ([clause_mnesia_recover](../../library/mnesia/clause_mnesia_recover.erl)), where other nodes
+      will exchange transaction decisions (MIM1H4);
     - `mnesia_tm`, the transaction manager ([clause_mnesia_tm](../../library/mnesia/clause_mnesia_tm.erl));
-    - `mnesia_checkpoint_sup`, with a process for each [checkpoint](#checkpoints).
+    - `mnesia_rpc`, which runs other nodes' calls ([mnesia_rpc](../../library/mnesia/mnesia_rpc.erl), see
+      [queries from other nodes](#queries-from-other-nodes));
+    - `mnesia_checkpoint_sup`, with a process for each [checkpoint](#checkpoints);
+    - `mnesia_controller` and `mnesia_late_loader`
+      ([clause_mnesia_controller](../../library/mnesia/clause_mnesia_controller.erl)): the controller answers the table
+      definitions other nodes fetch.
 
-Later steps add the other servers.
+Each child has OTP's name, order and modules, as `supervisor:which_children/1` shows them.
 
 `mnesia_monitor` does four things:
 
@@ -88,6 +96,21 @@ Later steps add the other servers.
     ([clause_mnesia_change](../../library/mnesia/clause_mnesia_change.erl)), then the monitor applies the change;
   - it counts as one committed or failed transaction; starting counts two commits;
   - inside any activity it returns `{aborted, nested_transaction}`.
+
+### Queries from other nodes
+
+Another node's mnesia, OTP's or Clause's, calls OTP's internal module names on this node (plan 21 step MIM1H3). Clause
+provides those modules, with the functions other nodes call and OTP's answers
+([mnesia's files and protocol](mnesia-protocol.md#remote-queries-mim1h3)); their other functions are declined:
+
+- [mnesia_lib](../../library/mnesia/mnesia_lib.erl): `is_running/0`, `is_running_remote/0`, `get_node_number/0`, and the
+  record reads `db_get`, `db_first`, `db_last`, `db_next_key` and `db_prev_key`;
+- [mnesia_schema](../../library/mnesia/mnesia_schema.erl): `remote_read_schema/0`, where a start would take the schema
+  from, and `delete_schema2/0`;
+- [mnesia_controller](../../library/mnesia/mnesia_controller.erl): `get_remote_cstructs/0`, the table definitions;
+- [mnesia_rpc](../../library/mnesia/mnesia_rpc.erl): the server for `{apply, M, F, Args}` calls, and `call/4`.
+
+`create_schema/1` and `delete_schema/1` ask each node through these queries, so they work with OTP nodes too.
 
 ### Global variables
 
@@ -597,6 +620,11 @@ index of its rows by SNMP row index, as OTP's `mnesia_snmp_hook` does
   ([fixture](../../tests/fixtures/executables/mnesia_schema_ops/mnesia_schema_ops.erl)). Each schema operation runs
   between a start and a stop, and the log's terms after it are compared with OTP's, then the records the next start
   replays, and the directory's files after the last dump.
+- **`mnesia_remote_queries` golden:** generated from OTP
+  ([fixture](../../tests/fixtures/executables/mnesia_remote_queries/mnesia_remote_queries.erl)). Node a asks node b
+  each query before b's mnesia ever ran, with a fallback, while it runs on a disc schema and after it stops, reads b's
+  records through `db_get` and b's `mnesia_rpc`, lists b's processes and supervisor children, and checks b with
+  `create_schema/1` and `delete_schema/1`. Its runs pair Clause nodes with OTP nodes both ways.
 - **What `mnesia_dirty` covers:** answers before starting, system information, every `create_table` option and error, table
   properties, dirty access of each table type, indexes, counters, argument errors, schema changes, `schema/1`'s
   printout, error descriptions, and stopping and restarting.

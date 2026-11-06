@@ -5,7 +5,7 @@
 %% backup create_schema/2 writes, installed at the next start; DECISION_TAB.LOG the transaction serial and master nodes
 %% each dump finds (MIM1H1). mnesia_monitor runs every change of these files.
 -module(clause_mnesia_disc).
--export([use_dir/0, fallback_activated/0, create_schema/2, delete_schema/1, schema_source/0, purge_local/0]).
+-export([use_dir/0, fallback_activated/0, create_schema/2, delete_schema/1, read_schema/0, purge_local/0]).
 -export([start/0, stop/0, to_disc_schema/0, to_ram_schema/0, save_schema/1, open_dat/1, load/2, created/2]).
 -export([deleted/1, ets2dcd/1, dump_exists/1, index_file/2, log/3, log_schema/3, dump_log/1, sync_log/0]).
 -export([item_update/1]).
@@ -69,7 +69,7 @@ create_schema(Nodes, Props) when is_list(Nodes), is_list(Props) ->
 create_schema(Nodes, _) ->
     {error, {badarg, Nodes}}.
 
-% ok, or the first node with a schema or without mnesia.
+% ok, or the first node with a schema or without mnesia; each node answers OTP's query, as OTP nodes do (MIM1H3).
 no_schema([Node | Rest]) when is_atom(Node) ->
     case source(Node) of
         {badrpc, Reason} -> {Node, {"All nodes not running", Node, Reason}};
@@ -81,27 +81,37 @@ no_schema([Node | _]) ->
 no_schema([]) ->
     ok.
 
-source(Node) when Node =:= node() -> schema_source();
-source(Node) -> rpc:call(Node, ?MODULE, schema_source, []).
+source(Node) when Node =:= node() -> mnesia_schema:remote_read_schema();
+source(Node) -> rpc:call(Node, mnesia_schema, remote_read_schema, []).
 
-% Where a start would take the schema from: {ok, ram | default | fallback | disc, CreateList} or {error, Reason}.
-schema_source() ->
+% mnesia_schema:remote_read_schema/0, where a start would take the schema from (MIM1H3): {ok, ram | default |
+% fallback | disc, CreateList} with the schema's create list there, or {error, Reason}.
+read_schema() ->
     _ = application:load(mnesia),
     case clause_mnesia_monitor:is_running() of
         yes ->
-            {ok, ram, []};
+            {ok, ram, ets:lookup_element(schema, schema, 3)};
         _ ->
             case use_dir() of
-                false -> {ok, default, []};
-                true -> disc_source()
+                false -> {ok, default, clause_mnesia_schema:cs2list(clause_mnesia_schema:initial_cstruct([]))};
+                true -> read_disc_schema()
             end
     end.
 
-disc_source() ->
-    case {exists(file(?FALLBACK)), exists(tab_file(schema, ".DAT"))} of
-        {true, _} -> {ok, fallback, []};
-        {_, true} -> {ok, disc, []};
-        _ -> {error, "No schema file exists"}
+% The fallback's schema item, or the schema's record in schema.DAT, as written.
+read_disc_schema() ->
+    Dat = tab_file(schema, ".DAT"),
+    case {exists(file(?FALLBACK)), exists(Dat)} of
+        {true, _} ->
+            [{schema, schema, List}] = [I || {schema, schema, _} = I <- read_log(file(?FALLBACK))],
+            {ok, fallback, List};
+        {_, true} ->
+            {ok, Name} = dets:open_file(make_ref(), [{file, Dat}, {keypos, 2}, {access, read}]),
+            [{schema, schema, List}] = dets:lookup(Name, schema),
+            ok = dets:close(Name),
+            {ok, disc, List};
+        _ ->
+            {error, "No schema file exists"}
     end.
 
 new_schema(ok, Nodes, Props) ->
@@ -162,11 +172,11 @@ schema_property({backend_types, Types}) -> {mnesia_backend_types, Types};
 schema_property({index_plugins, Plugins}) -> {mnesia_index_plugins, Plugins};
 schema_property(P) -> mnesia:abort({bad_schema_property, P}).
 
-% delete_schema/1: every node's files go, when mnesia runs on none.
+% delete_schema/1: every node's files go, when mnesia runs on none; the nodes answer OTP's queries (MIM1H3).
 delete_schema(Nodes) when is_list(Nodes), Nodes =/= [] ->
-    case [N || N <- Nodes, running_at(N)] of
+    case mnesia_lib:running_nodes(Nodes) of
         [] ->
-            case rpc:multicall(Nodes, ?MODULE, purge_local, []) of
+            case rpc:multicall(Nodes, mnesia_schema, delete_schema2, []) of
                 {Replies, []} ->
                     case [R || R <- Replies, R =/= ok] of
                         [] -> ok;
@@ -180,9 +190,6 @@ delete_schema(Nodes) when is_list(Nodes), Nodes =/= [] ->
     end;
 delete_schema(Nodes) ->
     {error, {badarg, Nodes}}.
-
-running_at(Node) when Node =:= node() -> clause_mnesia_monitor:is_running() =:= yes;
-running_at(Node) -> rpc:call(Node, clause_mnesia_monitor, is_running, []) =:= yes.
 
 % This node's mnesia files go; the directory stays.
 purge_local() ->
@@ -220,6 +227,8 @@ start() ->
     Records = dets:match_object(schema, '_'),
     {value, {schema, schema, SchemaList}, Tables} = lists:keytake(schema, 2, Records),
     clause_mnesia_schema:init_schema(clause_mnesia_schema:list2cs(SchemaList)),
+    % The schema table keeps the schema's list as read, as OTP's does, which other nodes ask for (MIM1H3).
+    true = ets:insert(schema, {schema, schema, SchemaList}),
     [clause_mnesia_schema:load_table(clause_mnesia_schema:list2cs(List)) || {schema, _, List} <- Tables],
     read_decisions(),
     replay_logs(),

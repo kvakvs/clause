@@ -74,3 +74,32 @@ the new version.
   `move_table_copy/3`. Clause writes `{op, add_table_copy, Storage, Node, Cs}`, `{op, del_table_copy, Storage, Node,
   Cs}` and `{op, move_table_copy, From, To, Cs}` until MIM1H9 observes them.
 - **Serial at start:** a start whose log held schema transactions takes one serial more before its own two.
+
+## Remote queries (MIM1H3)
+
+What a node asks another node's mnesia through `rpc:call/4`, or through the other node's `mnesia_rpc` server, and what
+it answers. A node that is not running mnesia answers too, as long as the node itself runs.
+
+| Query | Answer |
+| --- | --- |
+| `mnesia_lib:is_running/0` | `yes`, `no`, `starting` or `stopping` |
+| `mnesia_lib:is_running_remote/0` | `{IsRunning, node()}`, `IsRunning` `true` only for `yes`; `delete_schema/1` asks each node this |
+| `mnesia_lib:get_node_number/0` | `{node(), Pid}`, the answering process |
+| `mnesia_schema:remote_read_schema/0` | `{ok, Source, CreateList}`: `ram` while running, with the schema table's list; `fallback` or `disc` with the list in `FALLBACK.BUP` or `schema.DAT`, as written (no `majority` or `storage_properties`); `default` without a directory to use, with a new RAM schema on no nodes; `{error, "No schema file exists"}`. `create_schema/1` asks each node this and refuses any other source than `default` |
+| `mnesia_schema:delete_schema2/0` | `ok`, the directory's mnesia files deleted, or `{error, {"Mnesia still running", Node}}` |
+| `mnesia_controller:get_remote_cstructs/0` | `{cstructs, Cstructs, RunningNodes}`: a `#cstruct{}` record per table, newest first, the schema last; without mnesia a `{badmatch, {error, {node_not_running, Node}}}` failure |
+| `mnesia_lib:db_get/2` | the records under the key in this node's replica; `{aborted, {no_exists, {Tab, storage_type}}}` or `{aborted, {node_not_running, Node}}` exits |
+
+- **The schema table's list:** while running, the schema table keeps the schema's own list as it was read from disc, so
+  `remote_read_schema/0` answers it without `majority` and `storage_properties` on a disc schema. Backups write the
+  whole definition instead.
+- **`mnesia_rpc`:** a `gen_server` registered as `mnesia_rpc` answers `{apply, M, F, Args}` calls. `mnesia_lib`'s
+  `db_get`, `db_first`, `db_last`, `db_next_key` and `db_prev_key` of a `ram_copies` or `disc_copies` table are
+  answered by the server itself; any other apply runs in a process of its own. A throw answers its value, any other
+  failure `{badrpc, {'EXIT', Reason}}` without a stack. `mnesia_rpc:call/4` uses the server only when the nodes agreed
+  on a protocol after `{8,4}` (`{protocol, Node}` in `mnesia_gvar`), and `rpc:call/4` otherwise.
+- **Processes:** `mnesia_kernel_sup` starts `mnesia_monitor`, `mnesia_subscr`, `mnesia_locker`, `mnesia_recover`,
+  `mnesia_tm`, `mnesia_rpc`, `mnesia_checkpoint_sup`, `mnesia_controller` and `mnesia_late_loader` in this order, each
+  registered under its name. `supervisor:which_children/1` lists each with its module and `gen_server` (`mnesia_monitor`
+  and `proc_lib` for `mnesia_locker`, `mnesia_tm` and `mnesia_late_loader`); a checkpoint's process shows as
+  `{undefined, Pid, worker, [mnesia_checkpoint_sup, mnesia_checkpoint, supervisor]}`.

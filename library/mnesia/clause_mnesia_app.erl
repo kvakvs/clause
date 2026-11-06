@@ -2,7 +2,8 @@
 %% docs/libraries/mnesia.md#processes): mnesia_sup runs the mnesia_event manager, mnesia_ext_sup for backend
 %% processes and mnesia_kernel_sup: mnesia_monitor owns the tables, mnesia_subscr keeps the event subscriptions (MIM1E),
 %% mnesia_locker keeps the locks, mnesia_tm the transactions (MIM1B) and mnesia_checkpoint_sup the checkpoints
-%% (MIM1F). Later steps add mnesia's other servers.
+%% (MIM1F); mnesia_recover, mnesia_rpc, mnesia_controller and mnesia_late_loader are where other nodes find them
+%% (MIM1H3).
 -module(clause_mnesia_app).
 -behaviour(application).
 -behaviour(supervisor).
@@ -27,9 +28,12 @@ start_event() ->
         Error -> Error
     end.
 
-% Every child stops mnesia as a whole: none restarts.
+% Every child stops mnesia as a whole: none restarts. The children's modules are OTP's, as supervisor:which_children/1
+% shows them to other nodes (MIM1H3).
 init(mnesia_sup) ->
-    Event = #{id => mnesia_event, start => {?MODULE, start_event, []}, shutdown => 30000, modules => dynamic},
+    Event = #{
+        id => mnesia_event, start => {?MODULE, start_event, []}, shutdown => 30000, modules => [mnesia_event, gen_event]
+    },
     {ok,
         {#{strategy => one_for_all, intensity => 0, period => 3600}, [
             Event, supervisor(mnesia_ext_sup), supervisor(mnesia_kernel_sup)
@@ -37,23 +41,51 @@ init(mnesia_sup) ->
 init(mnesia_ext_sup) ->
     {ok, {#{strategy => one_for_all, intensity => 0, period => 3600}, []}};
 init(mnesia_kernel_sup) ->
-    Servers = [
-        {mnesia_monitor, clause_mnesia_monitor},
-        {mnesia_subscr, clause_mnesia_subscr},
-        {mnesia_locker, clause_mnesia_locker},
-        {mnesia_tm, clause_mnesia_tm}
+    % The literal funs link into programs the servers that child specs, and the modules that other nodes, name only as
+    % data (MIM1H3).
+    _ = [
+        fun clause_mnesia_recover:start_link/0,
+        fun mnesia_rpc:start/0,
+        fun mnesia_lib:is_running/0,
+        fun mnesia_controller:get_cstructs/0
     ],
-    Children = [#{id => Name, start => {Module, start_link, []}, shutdown => 3000} || {Name, Module} <- Servers],
-    {ok, {
-        #{strategy => one_for_all, intensity => 0, period => 86400000}, Children ++ [supervisor(mnesia_checkpoint_sup)]
-    }};
+    {ok, {#{strategy => one_for_all, intensity => 0, period => 86400000}, kernel_children()}};
 % Each checkpoint's process (MIM1F), never restarted.
 init(mnesia_checkpoint_sup) ->
-    Checkpoint = #{id => checkpoint, start => {clause_mnesia_checkpoint, start_link, []}, restart => temporary},
+    Checkpoint = #{
+        id => mnesia_checkpoint_sup,
+        start => {clause_mnesia_checkpoint, start_link, []},
+        restart => temporary,
+        modules => [mnesia_checkpoint_sup, mnesia_checkpoint, supervisor]
+    },
     {ok, {#{strategy => simple_one_for_one, intensity => 0, period => 3600}, [Checkpoint]}}.
 
+% mnesia_kernel_sup's servers in OTP's order, with OTP's names and modules (MIM1H3).
+kernel_children() ->
+    Lib = [mnesia_monitor, proc_lib],
+    [
+        worker(mnesia_monitor, {clause_mnesia_monitor, start_link, []}, [gen_server]),
+        worker(mnesia_subscr, {clause_mnesia_subscr, start_link, []}, [gen_server]),
+        worker(mnesia_locker, {clause_mnesia_locker, start_link, []}, Lib),
+        worker(mnesia_recover, {clause_mnesia_recover, start_link, []}, [gen_server]),
+        worker(mnesia_tm, {clause_mnesia_tm, start_link, []}, Lib),
+        worker(mnesia_rpc, {mnesia_rpc, start, []}, [gen_server]),
+        supervisor(mnesia_checkpoint_sup),
+        worker(mnesia_controller, {clause_mnesia_controller, start_link, []}, [gen_server]),
+        worker(mnesia_late_loader, {clause_mnesia_controller, start_late_loader, []}, Lib)
+    ].
+
+worker(Name, Start, Modules) ->
+    #{id => Name, start => Start, shutdown => 3000, modules => [Name | Modules]}.
+
 supervisor(Name) ->
-    #{id => Name, start => {?MODULE, start_supervisor, [Name]}, shutdown => infinity, type => supervisor}.
+    #{
+        id => Name,
+        start => {?MODULE, start_supervisor, [Name]},
+        shutdown => infinity,
+        type => supervisor,
+        modules => [Name, supervisor]
+    }.
 
 % mnesia:lkill/0 (MIM1E): every mnesia process killed, the top supervisor's application master told it ended normally,
 % as OTP's debug function does; again until the application is gone.

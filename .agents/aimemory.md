@@ -939,3 +939,12 @@ gotchas and user directions not recorded elsewhere.
   schema items in reverse of OTP's ets order. A module reached only through an atom (mnesia_frag's default hash
   module) is undef in programs that never name it: call it by name. clau crashed on cold -O2 builds with --jobs 2
   (1 in 3; jobs 1 never): plan 11 VAL6; a rerun with warm caches passes.
+- MIM1H3 mnesia (2026-11-06): OTP's `schema` ets keeps the disc schema's own list as read (no majority/
+  storage_properties) while backups write cs2list of the cstruct: Clause mirrors both. which_children shows the child
+  spec's `modules` (data only), so OTP's lists are copied there; a simple_one_for_one child's id prints `undefined`.
+  Peer-called OTP module names are linked with `_ = [fun M:F/A ...]` in clause_mnesia_app's kernel_sup init. Scratch
+  pair runs (scratch/mim1h3/pair.py, all.sh) need a fresh dir per run: stray `epmd -daemon` processes started by erl
+  -sname keep their cwd locked, so rmtree of an old run dir fails.
+  New library modules can push the whole-library transform host link past Windows' 32K command line
+  (transforms_host_setup: "filename or extension is too long"): run_linker now falls back to `@link.rsp`; clang++
+  in g++ driver mode reads it with GNU quoting even on Windows (backslashes escaped).

@@ -163,8 +163,12 @@ write_table(B, Tab) ->
     Records = [setelement(1, R, Tab) || R <- table_records(Tab)],
     write_chunks(B, Records).
 
-table_records(schema) -> ets:tab2list(schema);
+table_records(schema) -> [defined(R) || R <- ets:tab2list(schema)];
 table_records(Tab) -> clause_mnesia_db:match_object(Tab, '_').
+
+% A schema record with its table's whole definition, as OTP's backups write it even where the schema table keeps the
+% list read from disc (MIM1H3).
+defined({schema, Tab, _}) -> {schema, Tab, clause_mnesia_schema:cs2list(clause_mnesia_monitor:val({Tab, cstruct}))}.
 
 % Each retained key as a delete of the key, then its records now (latest) or at activation (checkpoint).
 write_keys(B, Tab, Store, Val) ->
@@ -174,7 +178,7 @@ write_keys(B, Tab, Store, Val) ->
 key_items(Tab, Key, _, latest) -> [{Tab, Key} | [setelement(1, R, Tab) || R <- table_records(Tab, Key)]];
 key_items(Tab, Key, Old, checkpoint) -> [{Tab, Key} | [setelement(1, R, Tab) || R <- Old]].
 
-table_records(schema, Key) -> ets:lookup(schema, Key);
+table_records(schema, Key) -> [defined(R) || R <- ets:lookup(schema, Key)];
 table_records(Tab, Key) -> clause_mnesia_db:lookup(Tab, Key).
 
 write_chunks(B, Items) when length(Items) > ?KEYS ->
