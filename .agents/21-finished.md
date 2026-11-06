@@ -291,4 +291,4 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   `mnesia_schema`, `mnesia_controller` (peer queries implemented, the rest declined) and the `mnesia_rpc` server;
   `create_schema/1`/`delete_schema/1` ask nodes through them; the schema table keeps the disc schema's list as read;
   the linker takes a response file when its command line is too long (the whole-library transform host outgrew
-  Windows' limit); `mnesia_remote_queries` golden identical to OTP both ways — `HASH`
+  Windows' limit); `mnesia_remote_queries` golden identical to OTP both ways — `e4698aa4`
