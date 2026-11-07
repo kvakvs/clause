@@ -316,4 +316,4 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   `{granted, Records, [WHOLETABLE]}`, `{not_granted, #cyclic{}}`), also when a queued request is granted later; the
   store's `{nodes, N}` entries end the transaction there (`simple_commit`, `release_tid`, `sync_release_tid` with
   `tid_released` at restarts, `what_happened` + `do_abort` when its process dies); global locks on the running listed
-  nodes; OTP-named `mnesia_tm:fixtable/3`; `mnesia_remote_locks` golden identical to OTP both ways — `HASH`
+  nodes; OTP-named `mnesia_tm:fixtable/3`; `mnesia_remote_locks` golden identical to OTP both ways — `947f51b4`
