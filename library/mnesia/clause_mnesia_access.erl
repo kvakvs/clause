@@ -442,13 +442,13 @@ index_read(Tid, Ts, Tab, Key, Attr, Kind) when is_atom(Tab), Tab =/= schema ->
 index_read(_, _, Tab, _, _, _) ->
     abort({bad_type, Tab}).
 
-% The records an index finds, under a read lock of the table.
+% The records an index finds, under a read lock of the table, read where the table is (MIM1H7); the index positions
+% come from the table's definition, which a node without a replica has too.
 index_records(Tid, Store, Tab, Key, Pos) ->
     clause_mnesia_monitor:val({Tab, where_to_read}) =:= nowhere andalso abort({no_exists, Tab}),
-    #index{pos_list = Positions} = clause_mnesia_monitor:val({Tab, index_info}),
-    lists:keymember(Pos, 1, [P || {P, _} <- Positions]) orelse abort({no_exists, Tab, {index, [Pos]}}),
-    clause_mnesia_locker:rlock_table(Tid, Store, Tab),
-    clause_mnesia_index:read(Tab, Key, Pos).
+    #cstruct{index = Indexes} = clause_mnesia_monitor:val({Tab, cstruct}),
+    lists:keymember(Pos, 1, Indexes) orelse abort({no_exists, Tab, {index, [Pos]}}),
+    clause_mnesia_locker:ix_read(Tid, Store, Tab, Key, Pos).
 
 index_match_object(Tid, Ts, Tab, Pat, Attr, Kind) when
     is_atom(Tab), Tab =/= schema, is_tuple(Pat), tuple_size(Pat) > 2

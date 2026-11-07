@@ -3,7 +3,9 @@
 %% stores of its locks and writes, and releases the locks of a transaction whose process exits. Transactions run in
 %% the caller with the client functions here: nesting, restarts after refused locks, aborts and the commit. Other
 %% nodes' coordinators send it OTP's raw commit requests (MIM1H5, clause_mnesia_commit), and other nodes' dirty
-%% writes come to it as OTP's commits (MIM1H6).
+%% writes come to it as OTP's commits (MIM1H6). A transaction that took locks on other nodes ends there too: a commit
+%% sends their transaction managers simple_commit, an abort their lock managers release_tid, a restart sync_release_tid
+%% (MIM1H7).
 -module(clause_mnesia_tm).
 -behaviour(gen_server).
 -export([start_link/0, transaction/6, non_transaction/5, transactions/0, send_dirty/5, dirty_results/1]).
@@ -116,6 +118,7 @@ restart(Mod, Tid, Ts, Fun, Args, Factor, Retries, Kind, Why) ->
             outer(Mod, Fun, Args, Retries, Kind);
         _ ->
             clause_mnesia_locker:release_tid_sync(Tid),
+            clause_mnesia_locker:sync_release_remote(Tid, clause_mnesia_locker:lock_nodes(Ts#tidstore.store)),
             {restarted, Tid} = request({restart, Tid, Ts#tidstore.store}),
             timer:sleep(pause(Factor)),
             execute(Fun, Args, Factor + 1, Retries, Kind)
@@ -133,10 +136,12 @@ return_abort(Reason) ->
     case Up of
         [] ->
             clause_mnesia_locker:release_tid(Tid),
+            clause_mnesia_locker:release_remote(Tid, clause_mnesia_locker:lock_nodes(Store)),
             gen_server:cast(mnesia_tm, {delete_transaction, Tid}),
             left(),
             {aborted, fix_error(Reason)};
         [{OldMod, Outer} | Rest] ->
+            ets:insert(Outer, [{nodes, Node} || Node <- clause_mnesia_locker:lock_nodes(Store)]),
             request({del_store, Tid, Outer, Store}),
             put(mnesia_activity_state, {OldMod, Tid, Ts#tidstore{store = Outer, up_stores = Rest, level = Level - 1}}),
             restarts(Reason) andalso exit({aborted, Reason}),
@@ -159,6 +164,7 @@ commit(Kind) ->
     case get(mnesia_activity_state) of
         {_, Tid, #tidstore{store = Store, up_stores = []}} ->
             check_snmp_keys(Store),
+            [{mnesia_tm, Node} ! {Tid, simple_commit} || Node <- clause_mnesia_locker:lock_nodes(Store)],
             committed = request({commit, Tid, Kind}),
             outer;
         {_, Tid, #tidstore{store = Store, up_stores = [{OldMod, Outer} | Rest], level = Level} = Ts} ->
@@ -334,10 +340,11 @@ handle_cast({delete_transaction, Tid}, State) ->
     {noreply, forget(Tid, State)}.
 
 % A process that exits in a transaction leaves no locks behind.
-handle_info({'EXIT', Pid, _}, #state{tids = Tids} = State) ->
+handle_info({'EXIT', Pid, _}, #state{tids = Tids, stores = Stores} = State) ->
     case Tids of
         #{Pid := Tid} ->
             clause_mnesia_locker:release_tid(Tid),
+            abort_remote(Tid, store_nodes(Tid, Stores)),
             {noreply, forget(Tid, State)};
         _ ->
             {noreply, State}
@@ -352,6 +359,10 @@ handle_info({#tid{counter = Counter} = Tid, simple_commit}, State) ->
     clause_mnesia_recover:sync_serial(Counter),
     clause_mnesia_locker:release_tid(Tid),
     {noreply, State};
+% Another node's transaction that took locks here ended without a decision (MIM1H7): its locks go.
+handle_info({#tid{} = Tid, {do_abort, _Reason}}, State) ->
+    clause_mnesia_locker:release_tid(Tid),
+    {noreply, State};
 % Another node's dirty write of this node's replicas (MIM1H6): applied and logged here, the result answered to a
 % sync_dirty one.
 handle_info({From, {sync_dirty, Tid, Commit, _Tab}}, State) ->
@@ -362,6 +373,24 @@ handle_info({_From, {async_dirty, Tid, Commit, _Tab}}, State) ->
     {noreply, State};
 handle_info(_, State) ->
     {noreply, State}.
+
+% The other nodes where any of a transaction's stores took locks.
+store_nodes(Tid, Stores) ->
+    lists:usort(lists:append([clause_mnesia_locker:lock_nodes(Store) || Store <- maps:get(Tid, Stores, [])])).
+
+% A transaction whose process died had locks on Nodes: each node is asked what happened to it, then told to abort it,
+% as OTP's transaction manager does, from a process of its own (MIM1H7).
+abort_remote(_, []) ->
+    ok;
+abort_remote(Tid, Nodes) ->
+    _ = spawn(fun() ->
+        [
+            safe(fun() -> gen_server:call({mnesia_recover, Node}, {what_happened, unclear, Tid}, infinity) end)
+         || Node <- Nodes
+        ],
+        [{mnesia_tm, Node} ! {Tid, {do_abort, {mnesia_down, node()}}} || Node <- Nodes]
+    end),
+    ok.
 
 forget(#tid{pid = Pid} = Tid, #state{stores = Stores, tids = Tids} = State) ->
     [ets:delete(S) || S <- maps:get(Tid, Stores, [])],

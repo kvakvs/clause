@@ -967,3 +967,8 @@ gotchas and user directions not recorded elsewhere.
   waits RETURNS {'EXIT', {aborted, {node_not_running, N}}}. scratch/mim1h6 (obs.erl tracer probes, all.sh/cmp.py) runs
   the fixture on the BEAM in all pairings; the golden matched OTP after those two fixes. BEAM runs hide unlinked
   modules: a new OTP-named module reached only by apply(M, F, A) needs a `fun M:F/A` in clause_mnesia_app's list.
+- MIM1H7 mnesia (2026-11-07): tid age across nodes is the counter of each node's own transactions (lock requests
+  exchange no serials): to make a transaction younger in a fixture, run transactions on its node until
+  get(mnesia_activity_state)'s tid is larger (bump_past). A restarted transaction reruns its fun in the same process:
+  fixture funs that wait for a go message must wait only on the first run (process dictionary flag). Restart counts
+  depend on timing: goldens print only that a restart happened.

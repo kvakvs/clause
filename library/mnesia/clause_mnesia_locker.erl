@@ -2,11 +2,13 @@
 %% read and write locks on records, whole tables and global items for transactions. A conflicting request of an older
 %% transaction waits in a queue; a younger one is refused with a #cyclic{} reason and its transaction restarts.
 %% Transactions call the client functions here, in their own process; the server keeps the locks and the queue.
-%% Other nodes' transactions send OTP's raw requests, answered as {mnesia_locker, Node, Reply} (MIM1H5).
+%% Other nodes' transactions send OTP's raw requests, answered as {mnesia_locker, Node, Reply} (MIM1H5); a transaction
+%% here asks the lock managers of the nodes that keep the table in the same form, and remembers each such node in its
+%% store as {nodes, Node} so that its end releases the locks there (MIM1H7).
 -module(clause_mnesia_locker).
 -behaviour(gen_server).
 -export([start_link/0, held_locks/0, lock_queue/0, release_tid/1, release_tid_sync/1]).
--export([remote_request/2, mnesia_down/1]).
+-export([remote_request/2, mnesia_down/1, ix_read/5, lock_nodes/1, release_remote/2, sync_release_remote/2]).
 -export([rlock/3, rlock_table/3, wlock/3, wlock_table/3, wlock_no_exist/4, load_lock_table/3, rwlock/3]).
 -export([sticky_wlock/3, sticky_wlock_table/3, sticky_rwlock/3, global_lock/5]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2]).
@@ -19,6 +21,7 @@
 -define(STICK, '______STICK_____').
 
 %% A queued request: the lock it waits for, the transaction, its operation, who to answer and the holder it waits on.
+%% Another node's request is answered from {Pid, {remote, Answer}}, Answer saying what its grant carries (MIM1H7).
 -record(queue, {oid, tid, op, from, lucky}).
 %% The server's state: the queue of waiting requests, oldest first, and the tables stuck to this node by sticky locks.
 -record(state, {queue = [] :: [#queue{}], sticky = [] :: [atom()]}).
@@ -60,17 +63,19 @@ mnesia_down(Node) ->
 
 %% Client side: the locks of a transaction, each asked for once and remembered in its store as {{locks, Tab, Key}, Lock}.
 
-% A read lock on a record returns its records; on a table ok when taken, its node when held already, as OTP's do.
+% A read lock on a record returns its records; on a table ok when taken, its node when held already, as OTP's do. The
+% lock is taken on the node the table is read on, which sends the records with its grant when it is another (MIM1H7).
 rlock(Tid, Store, {Tab, Key} = Oid) ->
     Node = readable(Tab),
     case need_lock(Store, Tab, Key, '_') of
         yes ->
-            granted(request({read, Tid, Oid}), Oid),
+            Records = lock_on(Node, Store, {read, Tid, Oid}),
             ets:insert(Store, {{locks, Tab, Key}, read}),
             case Oid of
                 {_, ?ALL} -> ok;
                 {?GLOBAL, _} -> ok;
-                _ -> read_result(Oid, Node)
+                _ when Node =:= node() -> read_result(Oid, Node);
+                _ -> Records
             end;
         no ->
             read_result(Oid, Node)
@@ -89,7 +94,7 @@ wlock(Tid, Store, {Tab, Key} = Oid, Op) ->
         yes ->
             {Nodes, _Majority} = writers(Tab),
             ets:insert(Store, {{locks, Tab, Key}, write}),
-            granted(request({Op, Tid, Oid}), Oid),
+            [lock_on(Node, Store, {Op, Tid, Oid}) || Node <- Nodes],
             Nodes;
         no when Key =/= ?ALL, Tab =/= ?GLOBAL ->
             [];
@@ -116,15 +121,17 @@ wlock_no_exist(Tid, Store, Tab, _Active) ->
 load_lock_table(Tid, Store, Tab) ->
     wlock(Tid, Store, {Tab, ?ALL}).
 
-% wread: a write lock that returns the record's records.
+% wread: a write lock that returns the record's records, read with the lock on the node the table is read on and
+% written with it on the other nodes that write it (MIM1H7).
 rwlock(Tid, Store, {Tab, Key} = Oid) ->
     Node = readable(Tab),
     case need_lock(Store, Tab, Key, write) of
         yes ->
-            _ = writers(Tab),
-            granted(request({read_write, Tid, Oid}), Oid),
+            {Nodes, _Majority} = writers(Tab),
+            Records = lock_on(Node, Store, {read_write, Tid, Oid}),
+            [lock_on(N, Store, {write, Tid, Oid}) || N <- Nodes, N =/= Node],
             ets:insert(Store, {{locks, Tab, Key}, write}),
-            read_result(Oid, Node);
+            remote_records(Oid, Node, Records);
         no when Key =:= ?ALL; Tab =:= ?GLOBAL ->
             element(2, writers(Tab));
         no ->
@@ -169,13 +176,31 @@ sticky_result({Tab, Key}, read_write, _) -> ets:lookup(Tab, Key);
 sticky_result({_, ?ALL}, _, Node) -> [Node];
 sticky_result(_, _, _) -> ok.
 
-% A lock of a global item on the listed nodes this node knows: a write lock returns the nodes, a read lock too.
+% A lock of a global item on the listed nodes running with this one, in their order (MIM1H7): a write lock returns the
+% nodes, a read lock too.
 global_lock(Tid, Store, Item, Kind, Nodes) ->
     Oid = {?GLOBAL, Item},
-    Known = [N || N <- Nodes, N =:= node()],
-    [granted(request({Kind, Tid, Oid}), Oid) || _ <- Known],
+    Running = clause_mnesia_monitor:val({current, db_nodes}),
+    Known = [N || N <- Nodes, lists:member(N, Running)],
+    [lock_on(N, Store, {Kind, Tid, Oid}) || N <- Known],
     Kind =:= read andalso Known =/= [] andalso ets:insert(Store, {{locks, ?GLOBAL, Item}, read}),
     Known.
+
+% An index read under the table's read lock: the records whose attribute at Pos is Value, read on this node, or with
+% the lock on the node the table is read on, as OTP's ix_read (MIM1H7).
+ix_read(Tid, Store, Tab, Value, Pos) ->
+    Node = readable(Tab),
+    case {Node =:= node(), need_lock(Store, Tab, ?ALL, '_')} of
+        {true, _} ->
+            rlock_table(Tid, Store, Tab),
+            clause_mnesia_index:read(Tab, Value, Pos);
+        {false, yes} ->
+            Records = lock_on(Node, Store, {ix_read, Tid, Tab, Value, Pos}),
+            ets:insert(Store, {{locks, Tab, ?ALL}, read}),
+            Records;
+        {false, no} ->
+            mnesia:dirty_rpc(Tab, mnesia_index, dirty_read2, [Tab, Value, Pos])
+    end.
 
 % The node a table is read on; no_exists without one.
 readable(Tab) ->
@@ -207,7 +232,47 @@ need_lock(Store, Tab, Key, Lock) ->
 
 read_result({_, ?ALL}, Node) -> [Node];
 read_result({?GLOBAL, _}, Node) -> [Node];
-read_result({Tab, Key}, _) -> clause_mnesia_db:lookup(Tab, Key).
+read_result({Tab, Key}, Node) when Node =:= node() -> clause_mnesia_db:lookup(Tab, Key);
+read_result({Tab, Key}, _) -> mnesia:dirty_rpc(Tab, mnesia_lib, db_get, [Tab, Key]).
+
+% The records of a lock taken on Node: read here, or those its grant carried.
+remote_records(Oid, Node, _) when Node =:= node() -> read_result(Oid, Node);
+remote_records(_, _, Records) -> Records.
+
+% A lock taken by Node's lock manager: this node's by a call, another's by OTP's raw request, whose grant may carry the
+% records read (MIM1H7). A refusal aborts the transaction.
+lock_on(Node, _Store, Request) when Node =:= node() ->
+    granted(request(Request), Request);
+lock_on(Node, Store, Request) ->
+    ets:insert(Store, {nodes, Node}),
+    case remote_request(Node, Request) of
+        granted -> ok;
+        {granted, Records} -> Records;
+        {granted, Records, _Locked} -> Records;
+        Refused -> granted(Refused, Request)
+    end.
+
+% The other nodes whose lock managers a transaction's store names.
+lock_nodes(Store) ->
+    lists:usort([Node || {nodes, Node} <- ets:lookup(Store, nodes)]).
+
+% An ended transaction's locks go on the other nodes too, without waiting (MIM1H7).
+release_remote(Tid, Nodes) ->
+    [{mnesia_locker, Node} ! {release_tid, Tid} || Node <- Nodes],
+    ok.
+
+% A restarting transaction's locks go on the other nodes, each confirming, or gone (MIM1H7).
+sync_release_remote(Tid, Nodes) ->
+    [sync_release(Node, Tid) || Node <- Nodes],
+    ok.
+
+sync_release(Node, Tid) ->
+    Ref = erlang:monitor(process, {mnesia_locker, Node}),
+    {mnesia_locker, Node} ! {self(), {sync_release_tid, Tid}},
+    receive
+        {mnesia_locker, Node, {tid_released, Tid}} -> erlang:demonitor(Ref, [flush]);
+        {'DOWN', Ref, process, _, _} -> false
+    end.
 
 request(Request) ->
     case whereis(mnesia_locker) of
@@ -248,25 +313,59 @@ handle_cast({mnesia_down, Node}, State) ->
     Tids = lists:usort([Tid || {{#tid{pid = Pid} = Tid, _, _}} <- ets:tab2list(mnesia_tid_locks), node(Pid) =:= Node]),
     {noreply, lists:foldl(fun release/2, State, Tids)}.
 
-% Another node's transaction asks for a lock, or ends, with OTP's raw messages (MIM1H5).
+% Another node's transaction asks for a lock, or an index read under its table's read lock, or ends, with OTP's raw
+% messages (MIM1H5, MIM1H7).
 handle_info({Pid, {Op, Tid, Oid}}, State) when
     is_pid(Pid), (Op =:= read orelse Op =:= write orelse Op =:= read_write)
 ->
-    case try_lock(Tid, Op, Oid, {Pid, remote}, State) of
-        {reply, Reply, State2} ->
-            reply({Pid, remote}, Reply),
-            {noreply, State2};
-        NoReply ->
-            NoReply
-    end;
+    remote_lock(Tid, Op, Oid, {Pid, {remote, answer(Op, Oid)}}, State);
+handle_info({Pid, {ix_read, Tid, Tab, Value, Pos}}, State) when is_pid(Pid) ->
+    remote_lock(Tid, read, {Tab, ?ALL}, {Pid, {remote, {index, Value, Pos}}}, State);
+handle_info({Pid, {sync_release_tid, Tid}}, State) when is_pid(Pid) ->
+    State2 = release(Tid, State),
+    Pid ! {mnesia_locker, node(), {tid_released, Tid}},
+    {noreply, State2};
 handle_info({release_tid, Tid}, State) ->
     {noreply, release(Tid, State)};
 handle_info(_, State) ->
     {noreply, State}.
 
-% An answer to a local transaction's call, or to another node's raw request (MIM1H5).
-reply({Pid, remote}, Reply) -> Pid ! {mnesia_locker, node(), Reply};
-reply(From, Reply) -> gen_server:reply(From, Reply).
+remote_lock(Tid, Op, Oid, From, State) ->
+    case try_lock(Tid, Op, Oid, From, State) of
+        {reply, Reply, State2} ->
+            reply(From, Oid, Reply),
+            {noreply, State2};
+        NoReply ->
+            NoReply
+    end.
+
+% What another node's grant carries, as OTP's (MIM1H7): a record's records for a read, ok for a table or global read,
+% nothing for a write.
+answer(Op, {Tab, Key}) when Op =/= write, Key =/= ?ALL, Tab =/= ?GLOBAL -> records;
+answer(read, _) -> ok;
+answer(_, _) -> plain.
+
+% An answer to a local transaction's call, or to another node's raw request (MIM1H5): its grant in OTP's form.
+reply({Pid, {remote, Answer}}, Oid, granted) -> Pid ! {mnesia_locker, node(), grant(Answer, Oid)};
+reply({Pid, {remote, _}}, _, Reply) -> Pid ! {mnesia_locker, node(), Reply};
+reply(From, _, Reply) -> gen_server:reply(From, Reply).
+
+grant(records, {Tab, Key}) ->
+    {granted, safe_read(fun() -> clause_mnesia_db:lookup(Tab, Key) end)};
+grant(ok, _) ->
+    {granted, ok};
+grant(plain, _) ->
+    granted;
+grant({index, Value, Pos}, {Tab, _}) ->
+    {granted, safe_read(fun() -> clause_mnesia_index:read(Tab, Value, Pos) end), [?ALL]}.
+
+% A read for another node's grant; none when this node no longer holds the table, so that the lock manager runs on.
+safe_read(Read) ->
+    try
+        Read()
+    catch
+        _:_ -> []
+    end.
 
 % A request is granted, queued behind a younger holder, or refused.
 try_lock(Tid, Op, Oid, From, #state{queue = Queue} = State) ->
@@ -404,13 +503,13 @@ try_waiter(#queue{oid = Oid, tid = Tid, op = Op, from = From} = Waiter, #state{q
         yes ->
             dequeue(Waiter),
             set_lock(Tid, Oid, Lock),
-            reply(From, granted),
+            reply(From, Oid, granted),
             {locked, State#state{queue = lists:delete(Waiter, Queue)}};
         {queue, _} ->
             {queued, State};
         {no, Lucky} ->
             dequeue(Waiter),
-            reply(From, {not_granted, cyclic(Oid, Op, Lock, Lucky)}),
+            reply(From, Oid, {not_granted, cyclic(Oid, Op, Lock, Lucky)}),
             {removed, State#state{queue = lists:delete(Waiter, Queue)}}
     end.
 

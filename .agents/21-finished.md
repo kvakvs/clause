@@ -311,3 +311,9 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   (`sync_dirty` with an alias-monitor reply, `async_dirty` only with a local replica in an async activity) that the
   holder's `mnesia_tm` applies with table events; a holder going returns `{'EXIT', {aborted, {node_not_running, N}}}`;
   `mnesia_remote_dirty` golden identical to OTP both ways — `bbb9daa1`
+- **MIM1H7** mnesia remote locks: a transaction's locks go to the lock manager of each node keeping them as OTP's raw
+  `{Pid, {read | write | read_write | ix_read, ...}}` requests (`{granted, Records}`, `{granted, ok}`, `granted`,
+  `{granted, Records, [WHOLETABLE]}`, `{not_granted, #cyclic{}}`), also when a queued request is granted later; the
+  store's `{nodes, N}` entries end the transaction there (`simple_commit`, `release_tid`, `sync_release_tid` with
+  `tid_released` at restarts, `what_happened` + `do_abort` when its process dies); global locks on the running listed
+  nodes; OTP-named `mnesia_tm:fixtable/3`; `mnesia_remote_locks` golden identical to OTP both ways — `HASH`

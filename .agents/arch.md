@@ -203,6 +203,8 @@ behavior (`docs/differences.md` lists gaps).
   participant spawned by `mnesia_tm`); `{Tab, active_replicas}` drives where_to_read/write/commit, controllers adopt
   each other's tables; MIM1H6: dirty reads of a table held elsewhere are `mnesia:dirty_rpc` applies through the
   holder's `mnesia_rpc`, dirty writes OTP's `sync_dirty`/`async_dirty` commits to its `mnesia_tm` (alias replies);
+  MIM1H7: locks go to the lock manager of the node keeping them as OTP's raw requests (grants carry records), the store's
+  `{nodes, N}` entries drive `simple_commit`/`release_tid`/`sync_release_tid` and `do_abort` on a dead transaction;
   SNMP row index per table kept by updates).
   Distribution and tracing
   answer as a non-alive node.

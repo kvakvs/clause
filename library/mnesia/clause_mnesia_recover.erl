@@ -55,6 +55,10 @@ handle_call({connect_nodes, Nodes}, _From, State) ->
 handle_call({log_mnesia_up, Node}, _From, State) ->
     ets:delete(mnesia_decision, {node, Node}),
     {reply, ok, State};
+% Another node asks what became of a transaction that took locks here (MIM1H7): no outcome is kept here before
+% MIM1H8, so the answer is the asker's default, as OTP's for a transaction it never decided.
+handle_call({what_happened, Default, _Tid}, _From, State) ->
+    {reply, {ok, Default}, State};
 handle_call(_Request, _From, State) ->
     {reply, badop, State}.
 

@@ -223,11 +223,12 @@ dependencies, non-test sources.
     (H7, H8); replicated tables (both nodes holding one) are not created over nodes yet (H8, H9), so `async_dirty`
     commits to other replicas are sent and received but not tested; snmp reads (`mnesia:dirty_rpc` of
     `clause_mnesia_snmp`) reach only Clause holders (H12).
-  - **MIM1H7 Remote locks:** `mnesia_locker`'s protocol between nodes: `{From, {write | read | read_write |
-    ix_read | sync_release_tid | test_set_sticky | is_locked, ...}}` requests, `{mnesia_locker, Node, Reply}`
-    replies (`granted`, `{not_granted, #cyclic{}}`, `{switch, ...}`), `release_tid` and sticky `stick`/`unstick`
-    casts, waiting and restarts across nodes, locks of nodes that go down.
-    - Golden `mnesia_remote_locks`: transactions on both nodes contend for each other's records and tables.
+  - **MIM1H7 done** (`21-finished.md`): locks on the lock managers of the nodes keeping them in OTP's raw form,
+    grants carrying records, `ix_read`, waiting and refusals by tid across nodes, `simple_commit`/`release_tid`/
+    `sync_release_tid` ends, `what_happened` + `do_abort` for a dead transaction, waiters restarting when a node goes
+    down; `mnesia_tm:fixtable/3` answered for OTP peers (Clause walks without fixing). Left for later steps: OTP's
+    `{switch, ...}` reply and unsticking replicated tables need tables held on several nodes (H8, H9); `what_happened`
+    answers the asker's default until decisions are kept (H8); a transaction writing another node's table (H8).
   - **MIM1H8 Two-phase commit:** transactions writing tables held on several nodes: `#commit{}` per node,
     `sym_trans`/`sync_sym_trans` with `{Tid, ask_commit}`, votes, `pre_commit`, `committed`, `do_commit`,
     `do_abort`, `simple_commit` for read-only; `asym_trans` for schema operations over several nodes; decisions in
@@ -319,7 +320,7 @@ dependencies, non-test sources.
 
 ### Order
 
-1. MIM9's record wildcard fix, MIM6, MIM7 (MIM1A-MIM1G, MIM1H1-H6 done 2026-11-02/07; MIM1H7-H12 optional, in order)
+1. MIM9's record wildcard fix, MIM6, MIM7 (MIM1A-MIM1G, MIM1H1-H7 done 2026-11-02/07; MIM1H8-H12 optional, in order)
    (small), MIM3, MIM4, MIM2, MIM5; MIM8 after a user decision.
 2. LIB81D3c, LIB81D4b and LIB81E on request.
 3. LIB82, LIB83 last (test support).

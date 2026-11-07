@@ -1,0 +1,110 @@
+{
+  "schema": 1,
+  "entry": "mnesia_remote_locks",
+  "host_otp": true,
+  "runs": [
+    {
+      "nodes": [
+        {
+          "name": "a",
+          "args": [
+            "a"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname mrla@localhost --setcookie mrl"
+          },
+          "otp_flags": "-sname mrla@localhost -setcookie mrl",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "merge: {ok,[mrlb@localhost]}\na_locks_tb: [{read,{atomic,[{tb,1,mrlb@localhost}]}},\n             {read_missing,{atomic,[]}},\n             {wread,{atomic,[{tb,1,mrlb@localhost}]}},\n             {table_read,{atomic,ok}},\n             {table_write,{atomic,[mrlb@localhost]}},\n             {record_write,{atomic,[mrlb@localhost]}},\n             {global_write,{atomic,[mrla@localhost,mrlb@localhost]}},\n             {global_read,{atomic,[mrlb@localhost]}},\n             {index_read,{atomic,[{tb,0,mrlb@localhost},\n                                  {tb,1,mrlb@localhost},\n                                  {tb,2,mrlb@localhost},\n                                  {tb,3,mrlb@localhost}]}},\n             {index_held,{atomic,[{tb,0,mrlb@localhost},\n                                  {tb,1,mrlb@localhost},\n                                  {tb,2,mrlb@localhost},\n                                  {tb,3,mrlb@localhost}]}},\n             {match,{atomic,[{tb,0,mrlb@localhost},\n                             {tb,1,mrlb@localhost},\n                             {tb,2,mrlb@localhost},\n                             {tb,3,mrlb@localhost}]}},\n             {select,{atomic,[0,1,2,3]}},\n             {walk,{atomic,[0,1,2,3]}},\n             {all_keys,{atomic,[0,1,2,3]}},\n             {foldl,{atomic,[0,1,2,3]}},\n             {chunks,{atomic,[{tb,0,mrlb@localhost},\n                              {tb,1,mrlb@localhost},\n                              {tb,2,mrlb@localhost},\n                              {tb,3,mrlb@localhost}]}},\n             {held,{atomic,{[{{tb,1},read,{tid,mrla@localhost}},\n                             {{tb,'______WHOLETABLE_____'},\n                              write,\n                              {tid,mrla@localhost}}],\n                            []}}},\n             {abort,{aborted,stop}},\n             {after_abort,unlocked},\n             {nested,{atomic,{atomic,[{tb,2,mrlb@localhost}]}}},\n             {nested_abort,{atomic,{{aborted,inner},\n                                    {[{{tb,3},read,{tid,mrla@localhost}}],\n                                     []}}}},\n             {after_nested,unlocked},\n             {sticky,{aborted,{not_local,tb}}},\n             {locks_after,{[],[]}}]\nb_locks_ta: [{read,{atomic,[{ta,1,mrla@localhost}]}},\n             {read_missing,{atomic,[]}},\n             {wread,{atomic,[{ta,1,mrla@localhost}]}},\n             {table_read,{atomic,ok}},\n             {table_write,{atomic,[mrla@localhost]}},\n             {record_write,{atomic,[mrla@localhost]}},\n             {global_write,{atomic,[mrlb@localhost,mrla@localhost]}},\n             {global_read,{atomic,[mrla@localhost]}},\n             {index_read,{atomic,[{ta,0,mrla@localhost},\n                                  {ta,1,mrla@localhost},\n                                  {ta,2,mrla@localhost},\n                                  {ta,3,mrla@localhost}]}},\n             {index_held,{atomic,[{ta,0,mrla@localhost},\n                                  {ta,1,mrla@localhost},\n                                  {ta,2,mrla@localhost},\n                                  {ta,3,mrla@localhost}]}},\n             {match,{atomic,[{ta,0,mrla@localhost},\n                             {ta,1,mrla@localhost},\n                             {ta,2,mrla@localhost},\n                             {ta,3,mrla@localhost}]}},\n             {select,{atomic,[0,1,2,3]}},\n             {walk,{atomic,[0,1,2,3]}},\n             {all_keys,{atomic,[0,1,2,3]}},\n             {foldl,{atomic,[0,1,2,3]}},\n             {chunks,{atomic,[{ta,0,mrla@localhost},\n                              {ta,1,mrla@localhost},\n                              {ta,2,mrla@localhost},\n                              {ta,3,mrla@localhost}]}},\n             {held,{atomic,{[{{ta,1},read,{tid,mrlb@localhost}},\n                             {{ta,'______WHOLETABLE_____'},\n                              write,\n                              {tid,mrlb@localhost}}],\n                            []}}},\n             {abort,{aborted,stop}},\n             {after_abort,unlocked},\n             {nested,{atomic,{atomic,[{ta,2,mrla@localhost}]}}},\n             {nested_abort,{atomic,{{aborted,inner},\n                                    {[{{ta,3},read,{tid,mrlb@localhost}}],\n                                     []}}}},\n             {after_nested,unlocked},\n             {sticky,{aborted,{not_local,ta}}},\n             {locks_after,{[],[]}}]\na_waits_for_b: [{queued,{[{{tb,1},write,{tid,mrlb@localhost}}],\n                         [{{tb,1},\n                           read,mrla@localhost,\n                           {tid,mrla@localhost},\n                           {tid,mrlb@localhost}}]}},\n                {holder,released},\n                {waiter,{atomic,[{tb,1,mrlb@localhost}]}},\n                {after_wait,unlocked}]\nb_waits_for_a: [{queued,{[{{ta,1},write,{tid,mrla@localhost}}],\n                         [{{ta,1},\n                           read,mrlb@localhost,\n                           {tid,mrlb@localhost},\n                           {tid,mrla@localhost}}]}},\n                {holder,released},\n                {waiter,{atomic,[{ta,1,mrla@localhost}]}},\n                {after_wait,unlocked}]\na_refused_by_b: [{held,{[{{tb,2},write,{tid,mrlb@localhost}}],[]}},\n                 {holder,released},\n                 {refused,{atomic,[{tb,2,mrlb@localhost}]}},\n                 {retried,true},\n                 {restarts_counted,true},\n                 {after_refusal,unlocked}]\nb_refused_by_a: [{held,{[{{ta,2},write,{tid,mrla@localhost}}],[]}},\n                 {holder,released},\n                 {refused,{atomic,[{ta,2,mrla@localhost}]}},\n                 {retried,true},\n                 {restarts_counted,true},\n                 {after_refusal,unlocked}]\na_killed: [{held,{[{{tb,3},write,{tid,mrla@localhost}}],[]}},\n           {after_kill,unlocked}]\nholder_down: [{here,{[{{ta,3},write,{tid,mrlb@localhost}}],[]}},\n              {queued,{[{{tb,3},write,{tid,mrlb@localhost}}],\n                       [{{tb,3},\n                         read_write,mrla@localhost,\n                         {tid,mrla@localhost},\n                         {tid,mrlb@localhost}}]}},\n              {finished,{badrpc,nodedown}},\n              {waiter,{aborted,{no_exists,tb}}},\n              {after_down,unlocked}]\nmnesia_remote_locks: ok\n"
+        },
+        {
+          "name": "b",
+          "args": [
+            "b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname mrlb@localhost --setcookie mrl"
+          },
+          "otp_flags": "-sname mrlb@localhost -setcookie mrl",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "mnesia_remote_locks: ok\n"
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "name": "a",
+          "kind": "otp",
+          "args": [
+            "a"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname mrla@localhost --setcookie mrl"
+          },
+          "otp_flags": "-sname mrla@localhost -setcookie mrl",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "merge: {ok,[mrlb@localhost]}\na_locks_tb: [{read,{atomic,[{tb,1,mrlb@localhost}]}},\n             {read_missing,{atomic,[]}},\n             {wread,{atomic,[{tb,1,mrlb@localhost}]}},\n             {table_read,{atomic,ok}},\n             {table_write,{atomic,[mrlb@localhost]}},\n             {record_write,{atomic,[mrlb@localhost]}},\n             {global_write,{atomic,[mrla@localhost,mrlb@localhost]}},\n             {global_read,{atomic,[mrlb@localhost]}},\n             {index_read,{atomic,[{tb,0,mrlb@localhost},\n                                  {tb,1,mrlb@localhost},\n                                  {tb,2,mrlb@localhost},\n                                  {tb,3,mrlb@localhost}]}},\n             {index_held,{atomic,[{tb,0,mrlb@localhost},\n                                  {tb,1,mrlb@localhost},\n                                  {tb,2,mrlb@localhost},\n                                  {tb,3,mrlb@localhost}]}},\n             {match,{atomic,[{tb,0,mrlb@localhost},\n                             {tb,1,mrlb@localhost},\n                             {tb,2,mrlb@localhost},\n                             {tb,3,mrlb@localhost}]}},\n             {select,{atomic,[0,1,2,3]}},\n             {walk,{atomic,[0,1,2,3]}},\n             {all_keys,{atomic,[0,1,2,3]}},\n             {foldl,{atomic,[0,1,2,3]}},\n             {chunks,{atomic,[{tb,0,mrlb@localhost},\n                              {tb,1,mrlb@localhost},\n                              {tb,2,mrlb@localhost},\n                              {tb,3,mrlb@localhost}]}},\n             {held,{atomic,{[{{tb,1},read,{tid,mrla@localhost}},\n                             {{tb,'______WHOLETABLE_____'},\n                              write,\n                              {tid,mrla@localhost}}],\n                            []}}},\n             {abort,{aborted,stop}},\n             {after_abort,unlocked},\n             {nested,{atomic,{atomic,[{tb,2,mrlb@localhost}]}}},\n             {nested_abort,{atomic,{{aborted,inner},\n                                    {[{{tb,3},read,{tid,mrla@localhost}}],\n                                     []}}}},\n             {after_nested,unlocked},\n             {sticky,{aborted,{not_local,tb}}},\n             {locks_after,{[],[]}}]\nb_locks_ta: [{read,{atomic,[{ta,1,mrla@localhost}]}},\n             {read_missing,{atomic,[]}},\n             {wread,{atomic,[{ta,1,mrla@localhost}]}},\n             {table_read,{atomic,ok}},\n             {table_write,{atomic,[mrla@localhost]}},\n             {record_write,{atomic,[mrla@localhost]}},\n             {global_write,{atomic,[mrlb@localhost,mrla@localhost]}},\n             {global_read,{atomic,[mrla@localhost]}},\n             {index_read,{atomic,[{ta,0,mrla@localhost},\n                                  {ta,1,mrla@localhost},\n                                  {ta,2,mrla@localhost},\n                                  {ta,3,mrla@localhost}]}},\n             {index_held,{atomic,[{ta,0,mrla@localhost},\n                                  {ta,1,mrla@localhost},\n                                  {ta,2,mrla@localhost},\n                                  {ta,3,mrla@localhost}]}},\n             {match,{atomic,[{ta,0,mrla@localhost},\n                             {ta,1,mrla@localhost},\n                             {ta,2,mrla@localhost},\n                             {ta,3,mrla@localhost}]}},\n             {select,{atomic,[0,1,2,3]}},\n             {walk,{atomic,[0,1,2,3]}},\n             {all_keys,{atomic,[0,1,2,3]}},\n             {foldl,{atomic,[0,1,2,3]}},\n             {chunks,{atomic,[{ta,0,mrla@localhost},\n                              {ta,1,mrla@localhost},\n                              {ta,2,mrla@localhost},\n                              {ta,3,mrla@localhost}]}},\n             {held,{atomic,{[{{ta,1},read,{tid,mrlb@localhost}},\n                             {{ta,'______WHOLETABLE_____'},\n                              write,\n                              {tid,mrlb@localhost}}],\n                            []}}},\n             {abort,{aborted,stop}},\n             {after_abort,unlocked},\n             {nested,{atomic,{atomic,[{ta,2,mrla@localhost}]}}},\n             {nested_abort,{atomic,{{aborted,inner},\n                                    {[{{ta,3},read,{tid,mrlb@localhost}}],\n                                     []}}}},\n             {after_nested,unlocked},\n             {sticky,{aborted,{not_local,ta}}},\n             {locks_after,{[],[]}}]\na_waits_for_b: [{queued,{[{{tb,1},write,{tid,mrlb@localhost}}],\n                         [{{tb,1},\n                           read,mrla@localhost,\n                           {tid,mrla@localhost},\n                           {tid,mrlb@localhost}}]}},\n                {holder,released},\n                {waiter,{atomic,[{tb,1,mrlb@localhost}]}},\n                {after_wait,unlocked}]\nb_waits_for_a: [{queued,{[{{ta,1},write,{tid,mrla@localhost}}],\n                         [{{ta,1},\n                           read,mrlb@localhost,\n                           {tid,mrlb@localhost},\n                           {tid,mrla@localhost}}]}},\n                {holder,released},\n                {waiter,{atomic,[{ta,1,mrla@localhost}]}},\n                {after_wait,unlocked}]\na_refused_by_b: [{held,{[{{tb,2},write,{tid,mrlb@localhost}}],[]}},\n                 {holder,released},\n                 {refused,{atomic,[{tb,2,mrlb@localhost}]}},\n                 {retried,true},\n                 {restarts_counted,true},\n                 {after_refusal,unlocked}]\nb_refused_by_a: [{held,{[{{ta,2},write,{tid,mrla@localhost}}],[]}},\n                 {holder,released},\n                 {refused,{atomic,[{ta,2,mrla@localhost}]}},\n                 {retried,true},\n                 {restarts_counted,true},\n                 {after_refusal,unlocked}]\na_killed: [{held,{[{{tb,3},write,{tid,mrla@localhost}}],[]}},\n           {after_kill,unlocked}]\nholder_down: [{here,{[{{ta,3},write,{tid,mrlb@localhost}}],[]}},\n              {queued,{[{{tb,3},write,{tid,mrlb@localhost}}],\n                       [{{tb,3},\n                         read_write,mrla@localhost,\n                         {tid,mrla@localhost},\n                         {tid,mrlb@localhost}}]}},\n              {finished,{badrpc,nodedown}},\n              {waiter,{aborted,{no_exists,tb}}},\n              {after_down,unlocked}]\nmnesia_remote_locks: ok\n"
+        },
+        {
+          "name": "b",
+          "args": [
+            "b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname mrlb@localhost --setcookie mrl"
+          },
+          "otp_flags": "-sname mrlb@localhost -setcookie mrl",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "mnesia_remote_locks: ok\n"
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "name": "a",
+          "args": [
+            "a"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname mrla@localhost --setcookie mrl"
+          },
+          "otp_flags": "-sname mrla@localhost -setcookie mrl",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "merge: {ok,[mrlb@localhost]}\na_locks_tb: [{read,{atomic,[{tb,1,mrlb@localhost}]}},\n             {read_missing,{atomic,[]}},\n             {wread,{atomic,[{tb,1,mrlb@localhost}]}},\n             {table_read,{atomic,ok}},\n             {table_write,{atomic,[mrlb@localhost]}},\n             {record_write,{atomic,[mrlb@localhost]}},\n             {global_write,{atomic,[mrla@localhost,mrlb@localhost]}},\n             {global_read,{atomic,[mrlb@localhost]}},\n             {index_read,{atomic,[{tb,0,mrlb@localhost},\n                                  {tb,1,mrlb@localhost},\n                                  {tb,2,mrlb@localhost},\n                                  {tb,3,mrlb@localhost}]}},\n             {index_held,{atomic,[{tb,0,mrlb@localhost},\n                                  {tb,1,mrlb@localhost},\n                                  {tb,2,mrlb@localhost},\n                                  {tb,3,mrlb@localhost}]}},\n             {match,{atomic,[{tb,0,mrlb@localhost},\n                             {tb,1,mrlb@localhost},\n                             {tb,2,mrlb@localhost},\n                             {tb,3,mrlb@localhost}]}},\n             {select,{atomic,[0,1,2,3]}},\n             {walk,{atomic,[0,1,2,3]}},\n             {all_keys,{atomic,[0,1,2,3]}},\n             {foldl,{atomic,[0,1,2,3]}},\n             {chunks,{atomic,[{tb,0,mrlb@localhost},\n                              {tb,1,mrlb@localhost},\n                              {tb,2,mrlb@localhost},\n                              {tb,3,mrlb@localhost}]}},\n             {held,{atomic,{[{{tb,1},read,{tid,mrla@localhost}},\n                             {{tb,'______WHOLETABLE_____'},\n                              write,\n                              {tid,mrla@localhost}}],\n                            []}}},\n             {abort,{aborted,stop}},\n             {after_abort,unlocked},\n             {nested,{atomic,{atomic,[{tb,2,mrlb@localhost}]}}},\n             {nested_abort,{atomic,{{aborted,inner},\n                                    {[{{tb,3},read,{tid,mrla@localhost}}],\n                                     []}}}},\n             {after_nested,unlocked},\n             {sticky,{aborted,{not_local,tb}}},\n             {locks_after,{[],[]}}]\nb_locks_ta: [{read,{atomic,[{ta,1,mrla@localhost}]}},\n             {read_missing,{atomic,[]}},\n             {wread,{atomic,[{ta,1,mrla@localhost}]}},\n             {table_read,{atomic,ok}},\n             {table_write,{atomic,[mrla@localhost]}},\n             {record_write,{atomic,[mrla@localhost]}},\n             {global_write,{atomic,[mrlb@localhost,mrla@localhost]}},\n             {global_read,{atomic,[mrla@localhost]}},\n             {index_read,{atomic,[{ta,0,mrla@localhost},\n                                  {ta,1,mrla@localhost},\n                                  {ta,2,mrla@localhost},\n                                  {ta,3,mrla@localhost}]}},\n             {index_held,{atomic,[{ta,0,mrla@localhost},\n                                  {ta,1,mrla@localhost},\n                                  {ta,2,mrla@localhost},\n                                  {ta,3,mrla@localhost}]}},\n             {match,{atomic,[{ta,0,mrla@localhost},\n                             {ta,1,mrla@localhost},\n                             {ta,2,mrla@localhost},\n                             {ta,3,mrla@localhost}]}},\n             {select,{atomic,[0,1,2,3]}},\n             {walk,{atomic,[0,1,2,3]}},\n             {all_keys,{atomic,[0,1,2,3]}},\n             {foldl,{atomic,[0,1,2,3]}},\n             {chunks,{atomic,[{ta,0,mrla@localhost},\n                              {ta,1,mrla@localhost},\n                              {ta,2,mrla@localhost},\n                              {ta,3,mrla@localhost}]}},\n             {held,{atomic,{[{{ta,1},read,{tid,mrlb@localhost}},\n                             {{ta,'______WHOLETABLE_____'},\n                              write,\n                              {tid,mrlb@localhost}}],\n                            []}}},\n             {abort,{aborted,stop}},\n             {after_abort,unlocked},\n             {nested,{atomic,{atomic,[{ta,2,mrla@localhost}]}}},\n             {nested_abort,{atomic,{{aborted,inner},\n                                    {[{{ta,3},read,{tid,mrlb@localhost}}],\n                                     []}}}},\n             {after_nested,unlocked},\n             {sticky,{aborted,{not_local,ta}}},\n             {locks_after,{[],[]}}]\na_waits_for_b: [{queued,{[{{tb,1},write,{tid,mrlb@localhost}}],\n                         [{{tb,1},\n                           read,mrla@localhost,\n                           {tid,mrla@localhost},\n                           {tid,mrlb@localhost}}]}},\n                {holder,released},\n                {waiter,{atomic,[{tb,1,mrlb@localhost}]}},\n                {after_wait,unlocked}]\nb_waits_for_a: [{queued,{[{{ta,1},write,{tid,mrla@localhost}}],\n                         [{{ta,1},\n                           read,mrlb@localhost,\n                           {tid,mrlb@localhost},\n                           {tid,mrla@localhost}}]}},\n                {holder,released},\n                {waiter,{atomic,[{ta,1,mrla@localhost}]}},\n                {after_wait,unlocked}]\na_refused_by_b: [{held,{[{{tb,2},write,{tid,mrlb@localhost}}],[]}},\n                 {holder,released},\n                 {refused,{atomic,[{tb,2,mrlb@localhost}]}},\n                 {retried,true},\n                 {restarts_counted,true},\n                 {after_refusal,unlocked}]\nb_refused_by_a: [{held,{[{{ta,2},write,{tid,mrla@localhost}}],[]}},\n                 {holder,released},\n                 {refused,{atomic,[{ta,2,mrla@localhost}]}},\n                 {retried,true},\n                 {restarts_counted,true},\n                 {after_refusal,unlocked}]\na_killed: [{held,{[{{tb,3},write,{tid,mrla@localhost}}],[]}},\n           {after_kill,unlocked}]\nholder_down: [{here,{[{{ta,3},write,{tid,mrlb@localhost}}],[]}},\n              {queued,{[{{tb,3},write,{tid,mrlb@localhost}}],\n                       [{{tb,3},\n                         read_write,mrla@localhost,\n                         {tid,mrla@localhost},\n                         {tid,mrlb@localhost}}]}},\n              {finished,{badrpc,nodedown}},\n              {waiter,{aborted,{no_exists,tb}}},\n              {after_down,unlocked}]\nmnesia_remote_locks: ok\n"
+        },
+        {
+          "name": "b",
+          "kind": "otp",
+          "args": [
+            "b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname mrlb@localhost --setcookie mrl"
+          },
+          "otp_flags": "-sname mrlb@localhost -setcookie mrl",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "mnesia_remote_locks: ok\n"
+        }
+      ]
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
+  },
+  "inputs": {
+    "mnesia_remote_locks.erl": "412407e30fec54035e12c50e7f4a84344c12d855a3b0c352458ea2c8919f656a"
+  }
+}

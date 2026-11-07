@@ -218,3 +218,47 @@ of two RAM schemas. In the tables, a reads and writes, b holds the table.
 - **The holder going:** when b goes while a waits for its `dirty_res`, the write returns
   `{'EXIT', {aborted, {node_not_running, b}}}` instead of failing. Once a recorded b's `mnesia_down`, the table is
   read `nowhere`: reads abort with `{no_exists, Args}`, writes with `{no_exists, Tab}`.
+
+## Remote locks (MIM1H7)
+
+How a transaction locks a table that only another node holds, observed after a [merge](#schema-merge-mim1h5) of two
+RAM schemas. In the tables, a's transaction locks a table that b holds. Requests go to each lock manager as raw
+messages `{Pid, Request}`, and it answers `{mnesia_locker, Node, Reply}` to `Pid`, the transaction's process. a's own
+lock manager answers a read of a record held on a `{granted, lookup_in_client}`, and the transaction reads the record
+itself.
+
+| Request to b's `mnesia_locker` | Lock | Grant |
+| --- | --- | --- |
+| `{read, Tid, {Tab, Key}}` | read lock of the record, on the node that `where_to_read` names | `{granted, Records}`, the records read under the lock |
+| `{read, Tid, {Tab, '______WHOLETABLE_____'}}` | read lock of the table: `lock/2`, `match_object`, `select`, walks, folds, `all_keys` | `{granted, ok}`; the reads follow through b's `mnesia_rpc` ([remote reads](#remote-reads-and-dirty-writes-mim1h6)) |
+| `{write, Tid, Oid}` | write lock of a record or table, on each node of `where_to_wlock` | `granted` |
+| `{read_write, Tid, {Tab, Key}}` | `read/3` with `write`: write lock and read | `{granted, Records}` |
+| `{ix_read, Tid, Tab, Value, Pos}` | `index_read/3`: read lock of the table and the index read | `{granted, Records, ['______WHOLETABLE_____']}` |
+| `{read, Tid, {'______GLOBAL_____', Item}}`, `{write, ...}` | `lock({global, Item, Nodes}, Kind)`, on each listed node | `{granted, ok}`, `granted` |
+| `{sync_release_tid, Tid}` | a restarting transaction's locks | `{tid_released, Tid}` |
+
+| Message | From, to | Effect |
+| --- | --- | --- |
+| `{not_granted, #cyclic{}}` | b's lock manager, to a younger transaction asking for a lock that an older one holds | `#cyclic{node = b, oid = Oid, op = Op, lock = Lock, lucky = HolderTid}`; the transaction restarts with the same tid |
+| `{Tid, simple_commit}` | a's transaction at its commit, to b's `mnesia_tm`, when it only took locks on b | b releases the transaction's locks and takes its serial as when [connecting](#connecting-mim1h4) |
+| `{release_tid, Tid}` | a's aborting transaction, to each lock manager it used | the locks go |
+| `{what_happened, unclear, Tid}` | a's `mnesia_tm`, when a transaction's process dies, to b's `mnesia_recover` by `gen_server:call` | `{ok, unclear}` for a transaction b decided nothing about |
+| `{Tid, {do_abort, {mnesia_down, a}}}` | a's `mnesia_tm`, after that question, to b's `mnesia_tm` | b releases the transaction's locks |
+| `{apply, mnesia_tm, fixtable, [Tab, true, Pid]}` | a's transaction before it walks the table or reads `select/4` chunks, to b's `mnesia_rpc` | b answers its node name; a's `mnesia_tm` sends `[Tab, false, Pid]` once the transaction ends |
+
+- **Waiting:** an older transaction (smaller tid) asking for a lock that a younger one holds waits in b's queue:
+  `system_info(lock_queue)` on b lists `{Oid, Op, Pid, Tid, HolderTid}` with a's process and tid. It is granted, in the
+  grant form above, when the holder ends. A tid's counter is its node's; a lock request does not exchange serials, so
+  an older transaction is the one whose node counted fewer transactions.
+- **Restarts:** a refused transaction restarts with the same tid: it asks a's `mnesia_tm` to restart, sends
+  `sync_release_tid` to every lock manager it used, its own node's included, waits for each `tid_released`, and runs
+  its fun again after a pause. The restarts count in a's `transaction_restarts`, not b's.
+- **Ends:** a commit sends `simple_commit` to the other nodes' `mnesia_tm` and releases its own node's locks; an abort
+  sends `release_tid` to each lock manager, its own node's included. A nested transaction's locks stay until the outer
+  one ends.
+- **Sticky locks:** a sticky lock of a table held elsewhere aborts with `{not_local, Tab}` before any request. A node
+  whose table is stuck to it asks its own lock manager `{test_set_sticky, Tid, Oid, Lock}` (`not_stuck` the first
+  time, `granted` once stuck) and sends it `{stick, Oid, Node}`; other nodes' locks of that table are granted as usual.
+- **A node going down:** a transaction waiting for b's grant when b goes down is told so (`{mnesia_down, b}`), releases
+  its locks on every node and restarts; once b's tables are read nowhere it aborts with `{no_exists, Tab}`. a's lock
+  manager drops the locks of b's transactions.

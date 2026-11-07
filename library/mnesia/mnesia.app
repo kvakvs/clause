@@ -37,7 +37,8 @@
         mnesia_monitor,
         mnesia_recover,
         mnesia_rpc,
-        mnesia_schema
+        mnesia_schema,
+        mnesia_tm
     ]},
     {registered, [
         mnesia_sup,

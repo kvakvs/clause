@@ -37,7 +37,7 @@ Clause's `mnesia` application (plan 21, MIM1) exports the OTP 29 interface of `m
   directory. MIM1H2, done: [schema transactions](#transaction-log) logged as OTP's operations. MIM1H3, done: OTP's
   [process names](#processes) and the [queries other nodes make](#queries-from-other-nodes). MIM1H4, done:
   [connecting nodes](#connecting-nodes). MIM1H5, done: [merging schemas](#merging-schemas). MIM1H6, done:
-  [dirty access](#dirty-access) to tables held on another node. What OTP writes and sends is recorded in
+  [dirty access](#dirty-access) to tables held on another node. MIM1H7, done: [locks](#locks) on other nodes. What OTP writes and sends is recorded in
   [mnesia's files and protocol](mnesia-protocol.md).
 
 Every other documented function works. See the [function inventory](../../library/mnesia/mnesia.terms) and
@@ -110,6 +110,8 @@ provides those modules, with the functions other nodes call and OTP's answers
   `db_select_init`, `db_select_rev_init` and `db_select_cont` (MIM1H6);
 - [mnesia_index](../../library/mnesia/mnesia_index.erl): the index reads `dirty_read2/3` and `dirty_match_object/3`
   (MIM1H6);
+- [mnesia_tm](../../library/mnesia/mnesia_tm.erl): `fixtable/3`, which a transaction walking a table here calls
+  (MIM1H7);
 - [mnesia_schema](../../library/mnesia/mnesia_schema.erl): `remote_read_schema/0`, where a start would take the schema
   from, and `delete_schema2/0`;
 - [mnesia_controller](../../library/mnesia/mnesia_controller.erl): `get_remote_cstructs/0`, the table definitions;
@@ -154,8 +156,8 @@ those of the nodes that run mnesia, OTP's or Clause's, as OTP's does (plan 21 st
   - schema changes after a merge stay on the node that makes them, and a node asked to commit another node's schema
     change votes no (MIM1H8);
   - a replica held on another node too is not copied when a node starts: it starts empty (MIM1H9);
-  - a transaction cannot read or write a table held only on another node (MIM1H7, MIM1H8); [dirty access](#dirty-access)
-    to it works (MIM1H6).
+  - a transaction cannot write a table held only on another node (MIM1H8); it can [lock](#locks) and read it
+    (MIM1H7), and [dirty access](#dirty-access) to it works (MIM1H6).
 
 ### Global variables
 
@@ -413,6 +415,14 @@ items ([clause_mnesia_locker](../../library/mnesia/clause_mnesia_locker.erl)):
 - **Sticky locks:** `s_write/1` and the other sticky operations need a replica here; the table's first one also takes
   its read lock and its sticky item.
 - **Information:** `system_info(held_locks)`, `lock_queue` and `transactions` give OTP's terms.
+- **Other nodes** (plan 21 step MIM1H7, [mnesia's files and protocol](mnesia-protocol.md#remote-locks-mim1h7)): a
+  lock is taken by the lock manager of the node that keeps it, OTP's or Clause's, with OTP's raw messages: a read lock
+  on the node `where_to_read` names, which sends the records read with its grant, a write lock on each node of
+  `where_to_write`, a global lock on each listed node running with this one, an index read as one `ix_read` request.
+  The transaction remembers those nodes: its commit sends their transaction managers `simple_commit`, its abort their
+  lock managers `release_tid`, and a restart waits for each of them to release its locks. Conflicts follow the same
+  rules across nodes, by tid. When a transaction's process dies, the other nodes are told to abort it; when a node goes
+  down, a transaction waiting for its grant restarts, and the node's transactions lose their locks here.
 
 ## Activities
 
@@ -695,6 +705,11 @@ index of its rows by SNMP row index, as OTP's `mnesia_snmp_hook` does
   the table events; then chunked selects, folds and writes in dirty activities, failing reads and refused writes, a
   write whose holder goes while it waits, and reads once the holder is gone. Its runs pair Clause nodes with OTP nodes
   both ways.
+- **`mnesia_remote_locks` golden:** generated from OTP
+  ([fixture](../../tests/fixtures/executables/mnesia_remote_locks/mnesia_remote_locks.erl)). After a merge, each node's
+  transactions take every kind of lock on the other node's table and read it, abort and nest; an older transaction
+  waits in the other node's queue, a younger one is refused and restarts, a killed transaction's locks go, and a holder
+  going down ends a wait and releases its transactions' locks. Its runs pair Clause nodes with OTP nodes both ways.
 - **What `mnesia_dirty` covers:** answers before starting, system information, every `create_table` option and error, table
   properties, dirty access of each table type, indexes, counters, argument errors, schema changes, `schema/1`'s
   printout, error descriptions, and stopping and restarting.
