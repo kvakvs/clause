@@ -303,4 +303,4 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   with OTP's asym_trans messages (`clause_mnesia_commit`, participants spawned by `mnesia_tm`, `simple_commit`);
   controllers' `im_running`/`adopt_orphans`/`i_have_tab`/`schema_is_merged`/`disc_load_intents`, `log_mnesia_up`;
   active replicas drive where_to_read/write/commit and go with `mnesia_down`; `mnesia_merge` golden identical to
-  OTP both ways — `HASH`
+  OTP both ways — `008629b4`
