@@ -310,4 +310,4 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   through the holder's `mnesia_rpc`, retried or failed as OTP's; dirty writes send OTP's `presume_commit` commits
   (`sync_dirty` with an alias-monitor reply, `async_dirty` only with a local replica in an async activity) that the
   holder's `mnesia_tm` applies with table events; a holder going returns `{'EXIT', {aborted, {node_not_running, N}}}`;
-  `mnesia_remote_dirty` golden identical to OTP both ways — `HASH`
+  `mnesia_remote_dirty` golden identical to OTP both ways — `bbb9daa1`
