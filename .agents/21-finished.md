@@ -297,3 +297,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   and the `{decisions, Node, [{trans_tid, serial, N}]}` exchange, `what_decision` answers, `mnesia_down` from monitor
   links (records in `mnesia_decision` and LATEST.LOG, system event), `inconsistent_database` on nodeup and at connect;
   OTP-named `mnesia_monitor`/`mnesia_recover`; `mnesia_connect` golden identical to OTP both ways — `0d91bc87`
+- **MIM1H5** mnesia schema merge: `change_config(extra_db_nodes)` and the start's `extra_db_nodes` run OTP's merge
+  (`clause_mnesia_merge`: schema locked on every node by raw `mnesia_locker` requests, `get_remote_cstructs`,
+  `announce_im_running`/`merge_schema` ops, merged schema version and cookie, OTP's bad cookie message), committed
+  with OTP's asym_trans messages (`clause_mnesia_commit`, participants spawned by `mnesia_tm`, `simple_commit`);
+  controllers' `im_running`/`adopt_orphans`/`i_have_tab`/`schema_is_merged`/`disc_load_intents`, `log_mnesia_up`;
+  active replicas drive where_to_read/write/commit and go with `mnesia_down`; `mnesia_merge` golden identical to
+  OTP both ways — `HASH`

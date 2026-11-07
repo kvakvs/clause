@@ -4,7 +4,7 @@
 %% connected to are the recover_nodes variable.
 -module(clause_mnesia_recover).
 -behaviour(gen_server).
--export([start_link/0, call/1, connect_nodes/1, has_mnesia_down/1, mnesia_down/1]).
+-export([start_link/0, call/1, connect_nodes/1, has_mnesia_down/1, mnesia_down/1, log_mnesia_up/1, sync_serial/1]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2]).
 
 -include("clause_mnesia.hrl").
@@ -33,6 +33,10 @@ connect_nodes(Nodes) ->
 has_mnesia_down(Node) ->
     ets:member(mnesia_decision, {node, Node}).
 
+% Node's mnesia came up with this node's after a schema merge (MIM1H5): its mnesia_down record goes.
+log_mnesia_up(Node) ->
+    call({log_mnesia_up, Node}).
+
 % Node's mnesia went down, as its monitor's link says: it is no longer a node to recover with.
 mnesia_down(Node) ->
     del(recover_nodes, Node),
@@ -48,6 +52,9 @@ handle_call({connect_nodes, Nodes}, _From, State) ->
         [] -> {reply, {[], Connected}, State};
         Agreed -> {reply, {connected(Agreed), Connected}, State}
     end;
+handle_call({log_mnesia_up, Node}, _From, State) ->
+    ets:delete(mnesia_decision, {node, Node}),
+    {reply, ok, State};
 handle_call(_Request, _From, State) ->
     {reply, badop, State}.
 
@@ -83,6 +90,9 @@ handle_cast({mnesia_down, Node}, State) ->
     del(recover_nodes, Node),
     clause_mnesia_monitor:is_running() =:= yes andalso log_mnesia_down(Node),
     del({current, db_nodes}, Node),
+    % Its replicas are no longer active, and its transactions' locks go (MIM1H5).
+    [clause_mnesia_schema:del_active(Tab, Node) || Tab <- tables()],
+    clause_mnesia_locker:mnesia_down(Node),
     ets:delete(?GVAR, {node_up, Node}),
     clause_mnesia_subscr:report_system_event({mnesia_down, Node}),
     {noreply, State};
@@ -97,6 +107,13 @@ decision(Tid, Asked) ->
     case ets:lookup(mnesia_decision, Tid) of
         [#decision{} = Decision] -> Decision;
         _ -> Asked
+    end.
+
+tables() ->
+    try
+        val({schema, tables})
+    catch
+        error:badarg -> []
     end.
 
 % Another node's transaction serial: this node's next transactions come after it.

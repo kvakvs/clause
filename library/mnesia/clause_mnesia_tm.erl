@@ -1,7 +1,8 @@
 %% mnesia's transaction manager, registered as mnesia_tm as in OTP (plan 21 step MIM1B,
 %% docs/libraries/mnesia.md#transactions). The server gives each transaction its {tid, Counter, Pid} id and the ets
 %% stores of its locks and writes, and releases the locks of a transaction whose process exits. Transactions run in
-%% the caller with the client functions here: nesting, restarts after refused locks, aborts and the commit.
+%% the caller with the client functions here: nesting, restarts after refused locks, aborts and the commit. Other
+%% nodes' coordinators send it OTP's raw commit requests (MIM1H5, clause_mnesia_commit).
 -module(clause_mnesia_tm).
 -behaviour(gen_server).
 -export([start_link/0, transaction/6, non_transaction/5, transactions/0]).
@@ -288,6 +289,16 @@ handle_info({'EXIT', Pid, _}, #state{tids = Tids} = State) ->
         _ ->
             {noreply, State}
     end;
+% Another node's coordinator asks this node to take part in a commit, or ends a transaction that only took locks here
+% (MIM1H5); this node's next transactions come after it.
+handle_info({From, {ask_commit, Protocol, #tid{counter = Counter} = Tid, Commit, DiscNodes, RamNodes}}, State) ->
+    clause_mnesia_recover:sync_serial(Counter),
+    clause_mnesia_commit:participate(From, Protocol, Tid, Commit, DiscNodes ++ RamNodes),
+    {noreply, State};
+handle_info({#tid{counter = Counter} = Tid, simple_commit}, State) ->
+    clause_mnesia_recover:sync_serial(Counter),
+    clause_mnesia_locker:release_tid(Tid),
+    {noreply, State};
 handle_info(_, State) ->
     {noreply, State}.
 

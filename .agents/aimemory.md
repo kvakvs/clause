@@ -954,3 +954,10 @@ gotchas and user directions not recorded elsewhere.
   there. The recover server must never call the monitor's server while the monitor may cast to it: downs go monitor
   -> recover by cast, negotiation runs in a process the monitor spawns. The whole mnesia_connect golden matched OTP on
   the first BEAM run (scratch/mim1h4/all.sh).
+- MIM1H5 mnesia (2026-11-07): OTP's merge is a full asym_trans (remote raw locks + ask_commit/vote_yes/pre_commit/
+  committed/schema_commit), so H5 carries minimal H7/H8 pieces; trace with set_on_spawn on the caller to see the
+  coordinator, the participant is spawned by mnesia_tm untraced. Current db_nodes must change at commit
+  (announce_im_running), else the merge loop never ends. Two mnesia_up events race: fixtures sort them. Python writes
+  on Windows give CRLF unless newline='' (erlfmt keeps it): count CR bytes before committing. scratch/mim1h4/
+  all.sh's diff filter dropped indented lines: scratch/mim1h5/cmp.py strips only report blocks. Golden matched on the
+  first BEAM run.

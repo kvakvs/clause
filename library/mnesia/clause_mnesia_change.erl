@@ -94,9 +94,6 @@ prepare({majority, Tab, Majority}) ->
     lock(write, schema),
     Cs = changed(Tab),
     [{redefine, verify(C#cstruct{majority = Majority})} || C <- [Cs | majority_fragments(Cs)]];
-prepare(merge_schema) ->
-    lock(write, schema),
-    [];
 prepare({dump_tables, Tabs}) ->
     lock(write, schema),
     dump_tables(Tabs);

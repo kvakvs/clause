@@ -15,6 +15,8 @@
     init_schema/1,
     load_table/1,
     apply_change/2,
+    add_active/2,
+    del_active/2,
     storage/1,
     storage/2,
     properties/1,
@@ -322,6 +324,22 @@ apply_change({delete, Tab} = Change, Tid) ->
     apply_change(Change);
 apply_change({dump, _} = Change, _) ->
     apply_change(Change);
+% A definition of a schema merge (MIM1H5): a table new to this node joins its schema, with a replica here when the
+% definition lists this node; a known one is redefined.
+apply_change({merge, #cstruct{name = Tab} = Cs}, _) ->
+    case ets:member(schema, Tab) of
+        true -> redefine(Cs);
+        false -> insert(Cs, initial)
+    end;
+% The other side of a merge runs with this node (MIM1H5): its nodes are running db nodes and hold the schema.
+apply_change({announce, Running, RemoteRunning}, _) ->
+    Others =
+        case lists:member(node(), Running) of
+            true -> RemoteRunning;
+            false -> Running
+        end,
+    [running(Node) || Node <- Others, Node =/= node()],
+    ok;
 apply_change({restore, Plan, Restore}, Tid) ->
     clause_mnesia_backup:restore_tables(Plan, Restore, Tid);
 apply_change({records, Moves}, Tid) ->
@@ -330,6 +348,11 @@ apply_change(Change, Tid) ->
     Cs = element(2, Change),
     schema_event(Tid, {schema, Cs#cstruct.name, cs2list(Cs)}, write),
     apply_change(Change).
+
+running(Node) ->
+    Current = val({current, db_nodes}),
+    lists:member(Node, Current) orelse set({current, db_nodes}, [Node | Current]),
+    add_active(schema, Node).
 
 % Records moved between a fragmented table's fragments (MIM1G), which the log keeps as OTP's rec operations (MIM1H2).
 move_records(Moves, Tid) ->
@@ -395,11 +418,11 @@ redefine(#cstruct{name = Tab} = Cs) ->
             clause_mnesia_disc:deleted(Tab),
             [set({Tab, Item}, Value) || {Item, Value} <- absent_properties()];
         {Storage, Storage} ->
-            [set({Tab, Item}, Value) || {Item, Value} <- writer_properties(Cs, Storage)];
+            [set({Tab, Item}, Value) || {Item, Value} <- writer_properties(Cs, active(Tab))];
         {Old, New} ->
             converted(Cs, Old, New),
             set({Tab, storage_type}, New),
-            [set({Tab, Item}, Value) || {Item, Value} <- writer_properties(Cs, New)]
+            [set({Tab, Item}, Value) || {Item, Value} <- writer_properties(Cs, active(Tab))]
     end,
     clause_mnesia_snmp:sync(Cs, val({Tab, storage_type})).
 
@@ -540,31 +563,70 @@ absent_properties() ->
         {where_to_write, []}
     ].
 
-% The properties of a table loaded on this node.
-loaded_properties(#cstruct{type = Type} = Cs, Storage, Reason) ->
+% The properties of a table loaded on this node, which joins the nodes holding an active replica.
+loaded_properties(#cstruct{name = Tab, type = Type} = Cs, Storage, Reason) ->
     Node = node(),
+    Active = [Node | lists:delete(Node, active(Tab))],
     [
-        {active_replicas, [Node]},
+        {active_replicas, Active},
         {index_info, #index{setorbag = Type}},
         {load_node, Node},
         {load_reason, Reason},
         {storage_type, Storage},
         {where_to_read, Node}
-        | writer_properties(Cs, Storage)
+        | writer_properties(Cs, Active)
     ].
 
-% Where a loaded table is written: nowhere when read_only.
-writer_properties(#cstruct{access_mode = Access, majority = Majority}, Storage) ->
+% Where a table is written: on its active replicas, the earliest active first, or nowhere when read_only; commits
+% name each node's storage, in node order, as OTP's.
+writer_properties(#cstruct{access_mode = Access, majority = Majority} = Cs, Active) ->
     Writers =
         case Access of
-            read_write -> [node()];
+            read_write -> lists:reverse(Active);
             read_only -> []
         end,
     [
-        {where_to_commit, [{N, Storage} || N <- Writers]},
+        {where_to_commit, lists:sort([{N, storage(N, Cs)} || N <- Writers])},
         {where_to_wlock, {Writers, Majority}},
         {where_to_write, Writers}
     ].
+
+% The nodes holding an active replica of a table, the latest first; none for a table not yet known.
+active(Tab) ->
+    try
+        ets:lookup_element(?GVAR, {Tab, active_replicas}, 2)
+    catch
+        error:badarg -> []
+    end.
+
+% Node's replica of Tab became active (MIM1H5): the table is written there, and read there when this node has no
+% replica.
+add_active(Tab, Node) ->
+    case lists:member(Node, active(Tab)) of
+        true -> ok;
+        false -> set_active(Tab, [Node | active(Tab)])
+    end.
+
+% Node's replica of Tab is no longer active, as its mnesia went down (MIM1H5).
+del_active(Tab, Node) ->
+    case lists:member(Node, active(Tab)) of
+        true -> set_active(Tab, lists:delete(Node, active(Tab)));
+        false -> ok
+    end.
+
+set_active(Tab, Active) ->
+    set({Tab, active_replicas}, Active),
+    set({Tab, where_to_read}, read_node(Active)),
+    [set({Tab, Item}, Value) || {Item, Value} <- writer_properties(val({Tab, cstruct}), Active)],
+    ok.
+
+read_node([]) ->
+    nowhere;
+read_node(Active) ->
+    case lists:member(node(), Active) of
+        true -> node();
+        false -> hd(Active)
+    end.
 
 % A table's {Item, Value} properties as schema/1 prints them: its mnesia_gvar rows with size, memory and master
 % nodes, sorted; [] for an unknown table.

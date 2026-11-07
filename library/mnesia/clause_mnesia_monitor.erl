@@ -303,6 +303,7 @@ handle_call({negotiate_protocol, Nodes}, From, State) ->
     {noreply, State}.
 
 changed_table({restore, _, _}) -> schema;
+changed_table({announce, _, _}) -> schema;
 changed_table({records, _}) -> schema;
 changed_table({_, #cstruct{name = Tab}}) -> Tab;
 changed_table({_, #cstruct{name = Tab}, _}) -> Tab;

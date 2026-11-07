@@ -131,3 +131,50 @@ How two nodes' mnesia connect, observed with both nodes on a RAM schema. Neither
   `has_remote_mnesia_down`; when that node recorded this one down too, it reports
   `{inconsistent_database, running_partitioned_network, Node}`, which the default event handler logs as an error.
   `connect_nodes` makes the same check with `starting_partitioned_network`. Records stay until the nodes merge (MIM1H5).
+
+## Schema merge (MIM1H5)
+
+How two running nodes with RAM schemas merge them, observed with `mnesia:change_config(extra_db_nodes, [B])` on node a
+and with node b starting again with `extra_db_nodes` naming a. The merge is a schema transaction of a process the
+merging node starts: it locks the schema on every node and commits the merged definitions on both sides with OTP's
+`asym_trans` commit. In the tables, a is the merging node.
+
+| Message | From, to | Answer or effect |
+| --- | --- | --- |
+| `{merging_schema, A}` | a, to `mnesia_controller` on a and on the nodes given, by cast | nothing observable |
+| `{connect_nodes, Nodes}` | a, to its own `mnesia_recover` | as when [connecting](#connecting-mim1h4); only nodes not yet running with a are merged, so a second call merges nothing |
+| `{Pid, {write, Tid, {schema, '______WHOLETABLE_____'}}}` | the transaction, to `mnesia_locker` of a, then of each running node and each node to merge | `{mnesia_locker, Node, granted}`; an ended transaction sends `{release_tid, Tid}` to each locker when it aborts |
+| `mnesia_controller:get_remote_cstructs/0` | the transaction, to the first node to merge, by `rpc` | `{cstructs, Cstructs, RunningNodes}` ([remote queries](#remote-queries-mim1h3)) |
+| `{Pid, {ask_commit, asym_trans, Tid, #commit{}, DiscNodes, RamNodes}}` | the transaction, to each other node's `mnesia_tm` | a participant process of that node answers `{mnesia_tm, Node, {vote_yes, Tid, Participant}}`; the commit's `decision` is `#decision{tid = Tid, outcome = presume_abort}` with the same node lists, and its `schema_ops` are the merge's operations below |
+| `{Tid, pre_commit}` | the transaction, to each participant | `{mnesia_tm, Node, {acc_pre_commit, Tid, Participant, true}}` |
+| `{Tid, committed}` | the transaction, to each participant | the participant applies the operations and answers `{mnesia_tm, Node, {schema_commit, Tid, Participant}}` |
+| `{Tid, simple_commit}` | a transaction that only locked, to that node's `mnesia_tm` | the node's locks of the transaction go |
+| `{im_running, A, Friends}` | a, after a merge, to the controllers of each side, naming the other side; after a transaction that merged nothing, to its own controller naming itself | the controller casts `{adopt_orphans, node(), Tabs}` to each of `Friends`, `Tabs` being the tables it holds, without the schema |
+| `{adopt_orphans, Node, Tabs}` | a controller, to another node's or its own | `{log_mnesia_up, Node}` to its `mnesia_recover` (which removes Node's `mnesia_down` record), then the `{mnesia_up, Node}` system event; `Tabs` are read and written on Node |
+| `{schema_is_merged, [], late_merge, []}` | a, after the merges, to the controllers of a and the connected nodes, by `gen_server:multi_call` | `ignore` |
+| `disc_load_intents` | a node loading its tables at start, to each running node's controller, under the lock `{'______GLOBAL_____', mnesia_late_disc_load}` | `{ok, Node, Tabs}`, the tables that node holds |
+| `{i_have_tab, Tab, Node}` | a node that loaded its replica, to the other controllers | `Tab` is read and written on Node |
+
+- **Operations:** the commit's `schema_ops` are `{op, announce_im_running, A, SchemaList, Running, RemoteRunning}`
+  (`SchemaList` the other side's schema definition as a list, `Running` a's running nodes, `RemoteRunning` the other
+  side's), then `{op, merge_schema, List}` for each definition the other node sent, in its order, merged with a's, then
+  for each table only a has. On every node, the nodes of the other side join `{current, db_nodes}` (first) at the
+  commit, so `running_db_nodes` lists them.
+- **The schema's definition:** its node lists are the other side's followed by a's, its cookie stays a's, and its
+  version becomes `{{Major + 1, 0}, {A, erlang:timestamp()}}`, `Major` the larger of the two. Another table known on
+  both nodes must have the same cookie; otherwise the transaction throws OTP's message and `change_config/2` returns
+  `{error, {merge_schema_failed, "Bad cookie in table definition Tab: A = CsA, B = CsB\n"}}`, the cstructs printed with
+  `~w`. The nodes stay connected (`recover_nodes`) but not running together.
+- **Table information:** a table held on the other node has that node as `where_to_read`, `where_to_write` and
+  `active_replicas`, storage type `unknown` and size 0 here. A node joining a table's replicas comes first in
+  `active_replicas` and last in `where_to_write`; `where_to_commit` lists `{Node, Storage}` in node order. When the other
+  node's mnesia goes down, its replicas are no longer active: its tables are read `nowhere` and written on no node,
+  while their definitions stay.
+- **Nothing to merge:** `change_config(extra_db_nodes, Nodes)` runs the schema transaction even when no node is left
+  to merge (it counts as a committed transaction); the node's own `im_running` follows only a merge.
+- **Starting again:** a node started with `extra_db_nodes` merges at start: its new schema takes the definitions of
+  the running nodes, including its own tables there, so a RAM table of its own comes back empty and is loaded at once.
+  Both nodes report `{mnesia_up, Node}` of each other; the merging node also reports its own after the second
+  transaction, which merges nothing.
+- **Serials:** a node asked to commit another node's transaction, or to end it (`ask_commit`, `simple_commit`), takes
+  its serial as when [connecting](#connecting-mim1h4).

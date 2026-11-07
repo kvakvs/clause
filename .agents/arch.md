@@ -197,7 +197,10 @@ behavior (`docs/differences.md` lists gaps).
   turns on one directory; MIM1H2: schema transactions are logged with OTP's `{op, ...}` tuples (`clause_mnesia_ops`) and
   replayed in log order; MIM1H3: OTP's kernel_sup children and names, peers' rpc queries answered by OTP-named
   thin modules (`mnesia_lib`, `mnesia_schema`, `mnesia_controller`) and the `mnesia_rpc` server; MIM1H4: monitors
-  negotiate and link (`clause_mnesia_connect`), `clause_mnesia_recover` keeps `recover_nodes`, serials and downs; SNMP
-  row index per table kept by updates).
+  negotiate and link (`clause_mnesia_connect`), `clause_mnesia_recover` keeps `recover_nodes`, serials and downs;
+  MIM1H5: schema merges (`clause_mnesia_merge`) lock the schema on every node through the lockers' raw requests and
+  commit OTP's merge ops with OTP's asym_trans messages (`clause_mnesia_commit`: coordinator in the transaction,
+  participant spawned by `mnesia_tm`); `{Tab, active_replicas}` drives where_to_read/write/commit, controllers adopt
+  each other's tables; SNMP row index per table kept by updates).
   Distribution and tracing
   answer as a non-alive node.

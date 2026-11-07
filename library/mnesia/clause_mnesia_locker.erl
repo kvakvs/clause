@@ -2,12 +2,14 @@
 %% read and write locks on records, whole tables and global items for transactions. A conflicting request of an older
 %% transaction waits in a queue; a younger one is refused with a #cyclic{} reason and its transaction restarts.
 %% Transactions call the client functions here, in their own process; the server keeps the locks and the queue.
+%% Other nodes' transactions send OTP's raw requests, answered as {mnesia_locker, Node, Reply} (MIM1H5).
 -module(clause_mnesia_locker).
 -behaviour(gen_server).
 -export([start_link/0, held_locks/0, lock_queue/0, release_tid/1, release_tid_sync/1]).
+-export([remote_request/2, mnesia_down/1]).
 -export([rlock/3, rlock_table/3, wlock/3, wlock_table/3, wlock_no_exist/4, load_lock_table/3, rwlock/3]).
 -export([sticky_wlock/3, sticky_wlock_table/3, sticky_rwlock/3, global_lock/5]).
--export([init/1, handle_call/3, handle_cast/2]).
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2]).
 
 -include("clause_mnesia.hrl").
 
@@ -38,6 +40,23 @@ release_tid(Tid) ->
 
 release_tid_sync(Tid) ->
     gen_server:call(mnesia_locker, {release_tid, Tid}, infinity).
+
+% A lock request to another node's lock manager, in OTP's raw form (MIM1H5): granted, or {not_granted, Reason} also
+% when that node's mnesia is not running.
+remote_request(Node, Request) ->
+    Ref = erlang:monitor(process, {mnesia_locker, Node}),
+    {mnesia_locker, Node} ! {self(), Request},
+    receive
+        {mnesia_locker, Node, Reply} ->
+            erlang:demonitor(Ref, [flush]),
+            Reply;
+        {'DOWN', Ref, process, _, _} ->
+            {not_granted, {node_not_running, Node}}
+    end.
+
+% The locks of the transactions of a node whose mnesia went down go (MIM1H5).
+mnesia_down(Node) ->
+    gen_server:cast(mnesia_locker, {mnesia_down, Node}).
 
 %% Client side: the locks of a transaction, each asked for once and remembered in its store as {{locks, Tab, Key}, Lock}.
 
@@ -224,7 +243,30 @@ handle_call(lock_queue, _From, #state{queue = Queue} = State) ->
 handle_cast({release_tid, Tid}, State) ->
     {noreply, release(Tid, State)};
 handle_cast({stick, Tab}, #state{sticky = Sticky} = State) ->
-    {noreply, State#state{sticky = [Tab | lists:delete(Tab, Sticky)]}}.
+    {noreply, State#state{sticky = [Tab | lists:delete(Tab, Sticky)]}};
+handle_cast({mnesia_down, Node}, State) ->
+    Tids = lists:usort([Tid || {{#tid{pid = Pid} = Tid, _, _}} <- ets:tab2list(mnesia_tid_locks), node(Pid) =:= Node]),
+    {noreply, lists:foldl(fun release/2, State, Tids)}.
+
+% Another node's transaction asks for a lock, or ends, with OTP's raw messages (MIM1H5).
+handle_info({Pid, {Op, Tid, Oid}}, State) when
+    is_pid(Pid), (Op =:= read orelse Op =:= write orelse Op =:= read_write)
+->
+    case try_lock(Tid, Op, Oid, {Pid, remote}, State) of
+        {reply, Reply, State2} ->
+            reply({Pid, remote}, Reply),
+            {noreply, State2};
+        NoReply ->
+            NoReply
+    end;
+handle_info({release_tid, Tid}, State) ->
+    {noreply, release(Tid, State)};
+handle_info(_, State) ->
+    {noreply, State}.
+
+% An answer to a local transaction's call, or to another node's raw request (MIM1H5).
+reply({Pid, remote}, Reply) -> Pid ! {mnesia_locker, node(), Reply};
+reply(From, Reply) -> gen_server:reply(From, Reply).
 
 % A request is granted, queued behind a younger holder, or refused.
 try_lock(Tid, Op, Oid, From, #state{queue = Queue} = State) ->
@@ -362,13 +404,13 @@ try_waiter(#queue{oid = Oid, tid = Tid, op = Op, from = From} = Waiter, #state{q
         yes ->
             dequeue(Waiter),
             set_lock(Tid, Oid, Lock),
-            gen_server:reply(From, granted),
+            reply(From, granted),
             {locked, State#state{queue = lists:delete(Waiter, Queue)}};
         {queue, _} ->
             {queued, State};
         {no, Lucky} ->
             dequeue(Waiter),
-            gen_server:reply(From, {not_granted, cyclic(Oid, Op, Lock, Lucky)}),
+            reply(From, {not_granted, cyclic(Oid, Op, Lock, Lucky)}),
             {removed, State#state{queue = lists:delete(Waiter, Queue)}}
     end.
 

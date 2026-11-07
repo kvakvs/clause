@@ -10,11 +10,25 @@
 -export([start/2, stop/1, init/1, start_supervisor/1, start_event/0, kill/0]).
 
 start(normal, []) ->
-    supervisor:start_link({local, mnesia_sup}, ?MODULE, mnesia_sup);
+    case supervisor:start_link({local, mnesia_sup}, ?MODULE, mnesia_sup) of
+        {ok, Pid} ->
+            merge_extra_db_nodes(),
+            {ok, Pid};
+        Error ->
+            Error
+    end;
 start(Type, Args) ->
     {error, {badarg, Type, Args}}.
 
 stop(_State) ->
+    ok.
+
+% The schema merged at start with the extra_db_nodes that run mnesia (MIM1H5); a failed merge leaves this node's own.
+merge_extra_db_nodes() ->
+    case clause_mnesia_monitor:get_env(extra_db_nodes) of
+        [] -> ok;
+        Nodes -> _ = clause_mnesia_merge:connect_nodes(Nodes)
+    end,
     ok.
 
 start_supervisor(Name) ->

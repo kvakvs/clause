@@ -555,13 +555,15 @@ force_load_table(Tab) ->
 loaded_by_force(ok) -> yes;
 loaded_by_force(Other) -> Other.
 
-% extra_db_nodes connects the nodes that run mnesia, after a schema merge; dc_dump_limit takes effect at once.
+% extra_db_nodes merges the schemas of the nodes that run mnesia with this node's (MIM1H5); dc_dump_limit takes
+% effect at once.
 change_config(extra_db_nodes, Nodes) when is_list(Nodes) ->
     case clause_mnesia_monitor:is_running() of
         yes ->
-            case clause_mnesia_monitor:schema_transaction(merge_schema) of
-                {atomic, _} -> connected(Nodes);
-                Aborted -> {error, Aborted}
+            case clause_mnesia_merge:connect_nodes(Nodes) of
+                ok -> connected(Nodes);
+                {aborted, {throw, Message}} -> {error, {merge_schema_failed, Message}};
+                {aborted, Reason} -> {error, Reason}
             end;
         _ ->
             {error, {node_not_running, node()}}

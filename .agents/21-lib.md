@@ -209,12 +209,14 @@ dependencies, non-test sources.
     partition detection. Left for later steps: decision records in `{decisions, ...}` are not merged (H8), OTP's
     `early_connects` (reject before mnesia_tm runs) and `busy` while a down is processed are not reproduced (Clause
     processes a down at once), `{mnesia_down, ...}` records are not written to DECISION_TAB.LOG (H10).
-  - **MIM1H5 Schema merge:** `mnesia_controller`'s merge: `get_cstructs`, the `merge_schema` schema transaction
-    with `announce_im_running`, `im_running`, `adopt_orphans`, `i_have_tab`, `schema_is_merged`; `extra_db_nodes`
-    at start and through `change_config/2`; `db_nodes`, `running_db_nodes`, tables held elsewhere becoming known
-    (`where_to_read` the other node); `{merge_schema_failed, ...}` and cookie clashes as OTP reports them.
-    - Golden `mnesia_merge`: RAM-schema nodes, each with its own tables, join both ways; table information on both
-      sides; one node stops and starts again.
+  - **MIM1H5 done** (`21-finished.md`): `change_config(extra_db_nodes)` and the start's `extra_db_nodes` merge
+    schemas with OTP's transaction (raw remote schema locks, `get_remote_cstructs`, `announce_im_running` and
+    `merge_schema` ops committed with asym_trans `ask_commit`/`vote_yes`/`pre_commit`/`committed`), `im_running`,
+    `adopt_orphans`, `i_have_tab`, `schema_is_merged`, `disc_load_intents`, `log_mnesia_up`; active replicas drive
+    where_to_read/write/commit; cookie clashes fail as OTP's. Left for later steps: participants vote no on any other
+    schema op and schema changes after a merge stay local (H8); a table held only elsewhere is not read and its writes
+    reach no node (H6, H8); a replica loaded elsewhere starts empty at a restart (H9); a disc schema's merge logs ops
+    but no disc-node rules (H10); the merge asks only the first node to merge for its definitions per transaction.
   - **MIM1H6 Remote reads and dirty writes:** reads of a table held only on the other node (`dirty_rpc` through
     `mnesia_rpc`, `remote_dirty_select`, `table_info/2` there), and dirty writes sent to the holder as OTP's
     `{async_dirty, Tid, Commit, Tab}` and `{sync_dirty, Tid, Commit, Tab}` messages with `#commit{}` records,
@@ -316,7 +318,7 @@ dependencies, non-test sources.
 
 ### Order
 
-1. MIM9's record wildcard fix, MIM6, MIM7 (MIM1A-MIM1G, MIM1H1-H4 done 2026-11-02/07; MIM1H5-H12 optional, in order)
+1. MIM9's record wildcard fix, MIM6, MIM7 (MIM1A-MIM1G, MIM1H1-H5 done 2026-11-02/07; MIM1H6-H12 optional, in order)
    (small), MIM3, MIM4, MIM2, MIM5; MIM8 after a user decision.
 2. LIB81D3c, LIB81D4b and LIB81E on request.
 3. LIB82, LIB83 last (test support).

@@ -36,7 +36,8 @@ Clause's `mnesia` application (plan 21, MIM1) exports the OTP 29 interface of `m
   the [same files](#disc-storage) as OTP's in mnesia's directory, so that OTP and Clause nodes take turns on one
   directory. MIM1H2, done: [schema transactions](#transaction-log) logged as OTP's operations. MIM1H3, done: OTP's
   [process names](#processes) and the [queries other nodes make](#queries-from-other-nodes). MIM1H4, done:
-  [connecting nodes](#connecting-nodes). What OTP writes and sends is recorded in
+  [connecting nodes](#connecting-nodes). MIM1H5, done: [merging schemas](#merging-schemas). What OTP writes and sends
+  is recorded in
   [mnesia's files and protocol](mnesia-protocol.md).
 
 Every other documented function works. See the [function inventory](../../library/mnesia/mnesia.terms) and
@@ -72,15 +73,15 @@ The design keeps OTP's formats, so that a later step (MIM1H) can add more nodes.
     - `mnesia_subscr`, which keeps the [event subscriptions](#events)
       ([clause_mnesia_subscr](../../library/mnesia/clause_mnesia_subscr.erl));
     - `mnesia_locker`, the lock manager ([clause_mnesia_locker](../../library/mnesia/clause_mnesia_locker.erl));
-    - `mnesia_recover` ([clause_mnesia_recover](../../library/mnesia/clause_mnesia_recover.erl)), where other nodes
-      will exchange transaction decisions (MIM1H4);
+    - `mnesia_recover` ([clause_mnesia_recover](../../library/mnesia/clause_mnesia_recover.erl)), which connects to
+      other nodes' mnesia (see [connecting nodes](#connecting-nodes));
     - `mnesia_tm`, the transaction manager ([clause_mnesia_tm](../../library/mnesia/clause_mnesia_tm.erl));
     - `mnesia_rpc`, which runs other nodes' calls ([mnesia_rpc](../../library/mnesia/mnesia_rpc.erl), see
       [queries from other nodes](#queries-from-other-nodes));
     - `mnesia_checkpoint_sup`, with a process for each [checkpoint](#checkpoints);
     - `mnesia_controller` and `mnesia_late_loader`
       ([clause_mnesia_controller](../../library/mnesia/clause_mnesia_controller.erl)): the controller answers the table
-      definitions other nodes fetch.
+      definitions other nodes fetch, and learns after a [merge](#merging-schemas) which tables they hold.
 
 Each child has OTP's name, order and modules, as `supervisor:which_children/1` shows them.
 
@@ -128,8 +129,29 @@ Clause's mnesia connects to other nodes' mnesia, OTP's or Clause's, as OTP's doe
 - **Partitions:** two running nodes that recorded each other down report `{inconsistent_database,
   running_partitioned_network, Node}` when they meet again, and `starting_partitioned_network` when they connect.
 
-Merging schemas (MIM1H5) and deciding transactions together (MIM1H8) come later: a decision another node sends is not
-taken yet.
+Deciding transactions together (MIM1H8) comes later: a decision another node sends is not taken yet.
+
+### Merging schemas
+
+`change_config(extra_db_nodes, Nodes)`, and a start with the `extra_db_nodes` parameter, merge this node's schema with
+those of the nodes that run mnesia, OTP's or Clause's, as OTP's does (plan 21 step MIM1H5,
+[mnesia's files and protocol](mnesia-protocol.md#schema-merge-mim1h5)):
+
+- **The merge:** after [connecting](#connecting-nodes), a schema transaction locks the schema on every node, takes the
+  other node's table definitions and commits the merged ones on both sides with OTP's two-phase schema commit
+  ([clause_mnesia_merge](../../library/mnesia/clause_mnesia_merge.erl),
+  [clause_mnesia_commit](../../library/mnesia/clause_mnesia_commit.erl)). The lock manager and the transaction manager
+  answer other nodes' requests in OTP's raw form.
+- **After it:** both nodes list each other in `db_nodes` and `running_db_nodes`; each node's tables are read and
+  written on the node that holds them, and the controllers report `{mnesia_up, Node}`. A table defined on both nodes
+  with another cookie fails the merge with `{error, {merge_schema_failed, Message}}`, OTP's message.
+- **A node going down:** its tables stay defined but are read nowhere until it comes back; a node starting again with
+  `extra_db_nodes` takes the running nodes' definitions, and a RAM table of its own comes back empty.
+- **Not yet:**
+  - schema changes after a merge stay on the node that makes them, and a node asked to commit another node's schema
+    change votes no (MIM1H8);
+  - a replica held on another node too is not copied when a node starts: it starts empty (MIM1H9);
+  - a table held only on another node cannot be read here, and writes to it reach no node (MIM1H6, MIM1H8).
 
 ### Global variables
 
@@ -236,7 +258,8 @@ checks of `create_table/2` for the changed definition. Each change gives the def
     as OTP's does.
   - `change_config/2`:
     - `dc_dump_limit` takes effect at once;
-    - `extra_db_nodes` runs OTP's schema merge transaction and returns the given nodes that run mnesia with this one.
+    - `extra_db_nodes` [merges the schemas](#merging-schemas) and returns the given nodes that run mnesia with this
+      one.
   - `set_debug_level/1` sets the `debug` parameter and returns the previous level. While mnesia runs it also
     changes the event handler's subscriptions (see [events](#events)).
 
@@ -650,6 +673,10 @@ index of its rows by SNMP row index, as OTP's `mnesia_snmp_hook` does
   connected again, and a partition between the running nodes is reported on both when they meet. Each step shows both
   nodes' system events, protocol and recovery variables, monitor links, `mnesia_down` records and transaction numbers.
   Its runs pair Clause nodes with OTP nodes both ways.
+- **`mnesia_merge` golden:** generated from OTP ([fixture](../../tests/fixtures/executables/mnesia_merge/mnesia_merge.erl)).
+  Node a merges with node b, first failing on a table both define with other cookies, then after b deletes it; b
+  stops, and starts again merging with a. Each step shows both nodes' db nodes and each table's readers, writers,
+  replicas, storage, cookie and version. Its runs pair Clause nodes with OTP nodes both ways.
 - **What `mnesia_dirty` covers:** answers before starting, system information, every `create_table` option and error, table
   properties, dirty access of each table type, indexes, counters, argument errors, schema changes, `schema/1`'s
   printout, error descriptions, and stopping and restarting.
