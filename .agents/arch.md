@@ -201,6 +201,8 @@ behavior (`docs/differences.md` lists gaps).
   MIM1H5: schema merges (`clause_mnesia_merge`) lock the schema on every node through the lockers' raw requests and
   commit OTP's merge ops with OTP's asym_trans messages (`clause_mnesia_commit`: coordinator in the transaction,
   participant spawned by `mnesia_tm`); `{Tab, active_replicas}` drives where_to_read/write/commit, controllers adopt
-  each other's tables; SNMP row index per table kept by updates).
+  each other's tables; MIM1H6: dirty reads of a table held elsewhere are `mnesia:dirty_rpc` applies through the
+  holder's `mnesia_rpc`, dirty writes OTP's `sync_dirty`/`async_dirty` commits to its `mnesia_tm` (alias replies);
+  SNMP row index per table kept by updates).
   Distribution and tracing
   answer as a non-alive node.

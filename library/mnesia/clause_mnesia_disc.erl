@@ -8,7 +8,7 @@
 -export([use_dir/0, fallback_activated/0, create_schema/2, delete_schema/1, read_schema/0, purge_local/0]).
 -export([start/0, stop/0, to_disc_schema/0, to_ram_schema/0, save_schema/1, open_dat/1, load/2, created/2]).
 -export([deleted/1, ets2dcd/1, dump_exists/1, index_file/2, log/3, log_schema/3, dump_log/1, sync_log/0]).
--export([item_update/1]).
+-export([item/3, item_update/1]).
 -export([dumped_records/1, set_master_nodes/2, log_node/1]).
 
 -include("clause_mnesia.hrl").

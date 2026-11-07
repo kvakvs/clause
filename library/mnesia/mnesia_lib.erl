@@ -5,6 +5,7 @@
 -export([is_running/0, is_running_remote/0, running_nodes/1, get_node_number/0]).
 -export([db_get/2, db_get/3, db_first/1, db_first/2, db_last/1, db_last/2]).
 -export([db_next_key/2, db_next_key/3, db_prev_key/2, db_prev_key/3]).
+-export([db_slot/2, db_slot/3, db_select_init/4, db_select_rev_init/4, db_select_cont/3]).
 %% OTP 29 exports implemented natively or not yet: catalog builtins, whose clause_builtin_placeholder body the runtime's
 %% builtin replaces, and stubs raising error({not_implemented, F, A}) (docs/libraries/library.md#runtime-module-replacements).
 -export([
@@ -42,13 +43,8 @@
     db_put/3,
     db_select/2,
     db_select/3,
-    db_select_cont/3,
-    db_select_init/4,
     db_select_rev/2,
     db_select_rev/3,
-    db_select_rev_init/4,
-    db_slot/2,
-    db_slot/3,
     db_update_counter/3,
     db_update_counter/4,
     dbg_out/2,
@@ -188,6 +184,25 @@ db_prev_key(ram_copies, Tab, Key) -> ets:prev(Tab, Key);
 db_prev_key(disc_copies, Tab, Key) -> ets:prev(Tab, Key);
 db_prev_key(disc_only_copies, Tab, Key) -> dets:next(Tab, Key).
 
+db_slot(Tab, Slot) -> db_slot(storage_type(Tab), Tab, Slot).
+
+db_slot(ram_copies, Tab, Slot) -> ets:slot(Tab, Slot);
+db_slot(disc_copies, Tab, Slot) -> ets:slot(Tab, Slot);
+db_slot(disc_only_copies, Tab, Slot) -> dets:slot(Tab, Slot).
+
+% The first chunk of a peer's select/4 on this node's replica, of the storage the peer knows it by (MIM1H6).
+db_select_init(disc_only_copies, Tab, Spec, N) -> dets:select(Tab, Spec, N);
+db_select_init(_, Tab, Spec, N) -> ets:select(Tab, Spec, N).
+
+db_select_rev_init(disc_only_copies, Tab, Spec, N) -> dets:select(Tab, Spec, N);
+db_select_rev_init(_, Tab, Spec, N) -> ets:select_reverse(Tab, Spec, N).
+
+% The next chunk of a continuation db_select_init/4 or db_select_rev_init/4 gave; an ets continuation that went to
+% another node and back gets its compiled Spec again.
+db_select_cont(_, '$end_of_table', _) -> '$end_of_table';
+db_select_cont(disc_only_copies, Cont, _Spec) -> dets:select(Cont);
+db_select_cont(_, Cont, Spec) -> ets:select(ets:repair_continuation(Cont, Spec)).
+
 % Where this node keeps the table; aborts with no_exists, or node_not_running when mnesia is not running.
 storage_type(Tab) ->
     clause_mnesia_monitor:val({Tab, storage_type}).
@@ -226,13 +241,8 @@ db_put(_, _) -> erlang:error({not_implemented, db_put, 2}).
 db_put(_, _, _) -> erlang:error({not_implemented, db_put, 3}).
 db_select(_, _) -> erlang:error({not_implemented, db_select, 2}).
 db_select(_, _, _) -> erlang:error({not_implemented, db_select, 3}).
-db_select_cont(_, _, _) -> erlang:error({not_implemented, db_select_cont, 3}).
-db_select_init(_, _, _, _) -> erlang:error({not_implemented, db_select_init, 4}).
 db_select_rev(_, _) -> erlang:error({not_implemented, db_select_rev, 2}).
 db_select_rev(_, _, _) -> erlang:error({not_implemented, db_select_rev, 3}).
-db_select_rev_init(_, _, _, _) -> erlang:error({not_implemented, db_select_rev_init, 4}).
-db_slot(_, _) -> erlang:error({not_implemented, db_slot, 2}).
-db_slot(_, _, _) -> erlang:error({not_implemented, db_slot, 3}).
 db_update_counter(_, _, _) -> erlang:error({not_implemented, db_update_counter, 3}).
 db_update_counter(_, _, _, _) -> erlang:error({not_implemented, db_update_counter, 4}).
 dbg_out(_, _) -> erlang:error({not_implemented, dbg_out, 2}).

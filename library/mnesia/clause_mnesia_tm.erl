@@ -2,10 +2,11 @@
 %% docs/libraries/mnesia.md#transactions). The server gives each transaction its {tid, Counter, Pid} id and the ets
 %% stores of its locks and writes, and releases the locks of a transaction whose process exits. Transactions run in
 %% the caller with the client functions here: nesting, restarts after refused locks, aborts and the commit. Other
-%% nodes' coordinators send it OTP's raw commit requests (MIM1H5, clause_mnesia_commit).
+%% nodes' coordinators send it OTP's raw commit requests (MIM1H5, clause_mnesia_commit), and other nodes' dirty
+%% writes come to it as OTP's commits (MIM1H6).
 -module(clause_mnesia_tm).
 -behaviour(gen_server).
--export([start_link/0, transaction/6, non_transaction/5, transactions/0]).
+-export([start_link/0, transaction/6, non_transaction/5, transactions/0, send_dirty/5, dirty_results/1]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2]).
 
 -include("clause_mnesia.hrl").
@@ -197,7 +198,21 @@ table_update({{Tab, Key}, Val, write}) -> {Tab, Key, {write, Val}};
 table_update({{Tab, Key}, _, delete}) -> {Tab, Key, delete};
 table_update({{Tab, Key}, Val, delete_object}) -> {Tab, Key, {delete_object, Val}};
 table_update({{Tab, Key}, Pattern, clear_table}) -> {Tab, Key, {clear_table, Pattern}};
+table_update({{Tab, Key}, {RecordName, Incr}, update_counter}) -> {Tab, Key, {update_counter, RecordName, Incr}};
 table_update(_) -> none.
+
+% A dirty commit's updates of this node's replicas, logged first; the last update's result, ok when none succeeds.
+apply_dirty(Tid, #commit{ram_copies = Ram, disc_copies = Disc, disc_only_copies = DiscOnly}, Kind) ->
+    Updates = [U || Item <- Ram ++ Disc ++ DiscOnly, U <- [table_update(Item)], U =/= none],
+    safe(fun() -> clause_mnesia_disc:log(Updates, Kind, presume_commit) end),
+    lists:foldl(fun(Update, Result) -> dirty_update(Tid, Update, Result) end, ok, Updates).
+
+dirty_update(Tid, {Tab, Key, Update}, Result) ->
+    try
+        clause_mnesia_access:update(Tid, Tab, Key, Update)
+    catch
+        _:_ -> Result
+    end.
 
 % Runs F, ignoring its failure: a table or mnesia itself may have gone meanwhile.
 safe(F) ->
@@ -234,6 +249,44 @@ non_transaction(OldState, Fun, Args, ActivityKind, Mod) ->
             undefined -> erase(mnesia_activity_state);
             _ -> put(mnesia_activity_state, OldState)
         end
+    end.
+
+% A dirty update sent to other nodes' replicas as OTP's commits (MIM1H6): async_dirty ones are only sent, sync_dirty
+% ones are awaited by dirty_results/1, each through a monitor whose alias takes the reply.
+send_dirty(Protocol, Tab, Key, Update, Replicas) ->
+    Tid = {dirty, self()},
+    [
+        send_commit(Protocol, Tid, Tab, Node, dirty_commit(Node, Storage, Tab, Key, Update))
+     || {Node, Storage} <- Replicas
+    ].
+
+send_commit(async_dirty, Tid, Tab, Node, Commit) ->
+    {mnesia_tm, Node} ! {self(), {async_dirty, Tid, Commit, Tab}},
+    sent;
+send_commit(sync_dirty, Tid, Tab, Node, Commit) ->
+    Ref = erlang:monitor(process, {mnesia_tm, Node}, [{alias, reply_demonitor}]),
+    {mnesia_tm, Node} ! {Ref, {sync_dirty, Tid, Commit, Tab}},
+    {Node, Ref}.
+
+% A commit of one update on Node, its item in the field of the replica's storage there.
+dirty_commit(Node, Storage, Tab, Key, Update) ->
+    Commit = #commit{node = Node, decision = presume_commit},
+    Item = clause_mnesia_disc:item(Tab, Key, Update),
+    case Storage of
+        ram_copies -> Commit#commit{ram_copies = [Item]};
+        disc_copies -> Commit#commit{disc_copies = [Item]};
+        disc_only_copies -> Commit#commit{disc_only_copies = [Item]}
+    end.
+
+% The results of the sync_dirty commits sent; a node that goes meanwhile gives OTP's {'EXIT', {aborted, Reason}}
+% result, not an abort.
+dirty_results(Sent) ->
+    [dirty_result(Node, Ref) || {Node, Ref} <- Sent].
+
+dirty_result(Node, Ref) ->
+    receive
+        {mnesia_tm, Node, {dirty_res, Result}} -> Result;
+        {'DOWN', Ref, process, _, _} -> {'EXIT', {aborted, {node_not_running, Node}}}
     end.
 
 request(Request) ->
@@ -298,6 +351,14 @@ handle_info({From, {ask_commit, Protocol, #tid{counter = Counter} = Tid, Commit,
 handle_info({#tid{counter = Counter} = Tid, simple_commit}, State) ->
     clause_mnesia_recover:sync_serial(Counter),
     clause_mnesia_locker:release_tid(Tid),
+    {noreply, State};
+% Another node's dirty write of this node's replicas (MIM1H6): applied and logged here, the result answered to a
+% sync_dirty one.
+handle_info({From, {sync_dirty, Tid, Commit, _Tab}}, State) ->
+    From ! {mnesia_tm, node(), {dirty_res, apply_dirty(Tid, Commit, sync)}},
+    {noreply, State};
+handle_info({_From, {async_dirty, Tid, Commit, _Tab}}, State) ->
+    _ = apply_dirty(Tid, Commit, async),
     {noreply, State};
 handle_info(_, State) ->
     {noreply, State}.

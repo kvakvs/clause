@@ -36,8 +36,8 @@ Clause's `mnesia` application (plan 21, MIM1) exports the OTP 29 interface of `m
   the [same files](#disc-storage) as OTP's in mnesia's directory, so that OTP and Clause nodes take turns on one
   directory. MIM1H2, done: [schema transactions](#transaction-log) logged as OTP's operations. MIM1H3, done: OTP's
   [process names](#processes) and the [queries other nodes make](#queries-from-other-nodes). MIM1H4, done:
-  [connecting nodes](#connecting-nodes). MIM1H5, done: [merging schemas](#merging-schemas). What OTP writes and sends
-  is recorded in
+  [connecting nodes](#connecting-nodes). MIM1H5, done: [merging schemas](#merging-schemas). MIM1H6, done:
+  [dirty access](#dirty-access) to tables held on another node. What OTP writes and sends is recorded in
   [mnesia's files and protocol](mnesia-protocol.md).
 
 Every other documented function works. See the [function inventory](../../library/mnesia/mnesia.terms) and
@@ -106,7 +106,10 @@ provides those modules, with the functions other nodes call and OTP's answers
 ([mnesia's files and protocol](mnesia-protocol.md#remote-queries-mim1h3)); their other functions are declined:
 
 - [mnesia_lib](../../library/mnesia/mnesia_lib.erl): `is_running/0`, `is_running_remote/0`, `get_node_number/0`, and the
-  record reads `db_get`, `db_first`, `db_last`, `db_next_key` and `db_prev_key`;
+  record reads `db_get`, `db_first`, `db_last`, `db_next_key`, `db_prev_key`, `db_slot`, and the select chunks
+  `db_select_init`, `db_select_rev_init` and `db_select_cont` (MIM1H6);
+- [mnesia_index](../../library/mnesia/mnesia_index.erl): the index reads `dirty_read2/3` and `dirty_match_object/3`
+  (MIM1H6);
 - [mnesia_schema](../../library/mnesia/mnesia_schema.erl): `remote_read_schema/0`, where a start would take the schema
   from, and `delete_schema2/0`;
 - [mnesia_controller](../../library/mnesia/mnesia_controller.erl): `get_remote_cstructs/0`, the table definitions;
@@ -151,7 +154,8 @@ those of the nodes that run mnesia, OTP's or Clause's, as OTP's does (plan 21 st
   - schema changes after a merge stay on the node that makes them, and a node asked to commit another node's schema
     change votes no (MIM1H8);
   - a replica held on another node too is not copied when a node starts: it starts empty (MIM1H9);
-  - a table held only on another node cannot be read here, and writes to it reach no node (MIM1H6, MIM1H8).
+  - a transaction cannot read or write a table held only on another node (MIM1H7, MIM1H8); [dirty access](#dirty-access)
+    to it works (MIM1H6).
 
 ### Global variables
 
@@ -353,8 +357,8 @@ A `disc_only_copies` table works on its `dets` table, as OTP's:
 The dirty functions run in the calling process and work on the table's `ets` table:
 
 - **Reads** (`dirty_read`, `dirty_match_object`, `dirty_select`, `dirty_select_reverse`, `dirty_all_keys`, the walk
-  functions, `dirty_index_read`, `dirty_index_match_object`) go to this node's replica. Without a replica they abort
-  with `{no_exists, Args}`, and a failing read gives `{badarg, Args}`.
+  functions, `dirty_index_read`, `dirty_index_match_object`) go to the replica `where_to_read` names, this node's when
+  it has one. Without a replica they abort with `{no_exists, Args}`, and a failing read gives `{badarg, Args}`.
 - **Writes** (`dirty_write`, `dirty_delete`, `dirty_delete_object`, `dirty_update_counter`) first check the record
   against the table's record name and arity. They then update the replica and its indexes.
 - **Counters:** `dirty_update_counter` follows OTP's rules:
@@ -364,6 +368,14 @@ The dirty functions run in the calling process and work on the table's `ets` tab
 - **Index use:** a match or one-clause select whose pattern leaves the key unbound but binds an indexed position
   uses that index. It returns the records in OTP's order: last key first for matches, the table's order for
   `ordered_set` selects.
+- **Tables held on another node** (plan 21 step MIM1H6, [mnesia's files and
+  protocol](mnesia-protocol.md#remote-reads-and-dirty-writes-mim1h6)): a read runs as OTP's call of `mnesia_lib`,
+  `mnesia` or `mnesia_index` on the node `where_to_read` names, through that node's
+  [mnesia_rpc](#queries-from-other-nodes), so the holder may be an OTP node. A write goes to each other replica's
+  `mnesia_tm` as OTP's commit: synchronously, waiting for the holder's result, in a `sync_dirty` activity and whenever
+  this node holds no replica, else without an answer. The holder applies it and reports its table events with the
+  writer's activity id. A write whose holder goes while it waits returns `{'EXIT', {aborted, {node_not_running,
+  Node}}}`, as OTP's; `select/4` chunks in dirty activities are read on the holder too.
 
 ## Transactions
 
@@ -677,6 +689,12 @@ index of its rows by SNMP row index, as OTP's `mnesia_snmp_hook` does
   Node a merges with node b, first failing on a table both define with other cookies, then after b deletes it; b
   stops, and starts again merging with a. Each step shows both nodes' db nodes and each table's readers, writers,
   replicas, storage, cookie and version. Its runs pair Clause nodes with OTP nodes both ways.
+- **`mnesia_remote_dirty` golden:** generated from OTP
+  ([fixture](../../tests/fixtures/executables/mnesia_remote_dirty/mnesia_remote_dirty.erl)). After a merge, each node
+  dirty-writes and reads the other node's table and counter table with every dirty function, and the holder reports
+  the table events; then chunked selects, folds and writes in dirty activities, failing reads and refused writes, a
+  write whose holder goes while it waits, and reads once the holder is gone. Its runs pair Clause nodes with OTP nodes
+  both ways.
 - **What `mnesia_dirty` covers:** answers before starting, system information, every `create_table` option and error, table
   properties, dirty access of each table type, indexes, counters, argument errors, schema changes, `schema/1`'s
   printout, error descriptions, and stopping and restarting.

@@ -178,3 +178,43 @@ merging node starts: it locks the schema on every node and commits the merged de
   transaction, which merges nothing.
 - **Serials:** a node asked to commit another node's transaction, or to end it (`ask_commit`, `simple_commit`), takes
   its serial as when [connecting](#connecting-mim1h4).
+
+## Remote reads and dirty writes (MIM1H6)
+
+How a node reads and dirty-writes a table that only another node holds, observed after a [merge](#schema-merge-mim1h5)
+of two RAM schemas. In the tables, a reads and writes, b holds the table.
+
+| Message or call | From, to | Answer or effect |
+| --- | --- | --- |
+| `{apply, M, F, Args}` | a's caller, to b's `mnesia_rpc` by `gen_server:call` ([remote queries](#remote-queries-mim1h3)) | `M:F(Args)` on b's replica; a read that fails there answers `{badrpc, {'EXIT', Reason}}` |
+| `{Ref, {sync_dirty, {dirty, Pid}, #commit{}, Tab}}` | a's caller, to b's `mnesia_tm` | b's `mnesia_tm` applies the commit, reports its table events with the activity id `{dirty, Pid}` and sends `{mnesia_tm, b, {dirty_res, Result}}` to `Ref`, an alias of the caller |
+| `{Pid, {async_dirty, {dirty, Pid}, #commit{}, Tab}}` | a's caller, to b's `mnesia_tm` | b applies the commit and answers nothing |
+
+- **Reads:** each dirty read is one `apply` on the node `where_to_read` names, the same call that a node holding the
+  table makes locally:
+
+  | Read | `M:F(Args)` |
+  | --- | --- |
+  | `dirty_read/2` | `mnesia_lib:db_get(Tab, Key)` |
+  | `dirty_first/1`, `dirty_last/1`, `dirty_next/2`, `dirty_prev/2` | `mnesia_lib:db_first(Tab)`, `db_last(Tab)`, `db_next_key(Tab, Key)`, `db_prev_key(Tab, Key)` |
+  | `dirty_slot/2` | `mnesia_lib:db_slot(Tab, Slot)` |
+  | `dirty_match_object/2` | `mnesia:remote_dirty_match_object(Tab, Pattern)` |
+  | `dirty_select/2`, `dirty_select_reverse/2`, `dirty_all_keys/1` | `mnesia:remote_dirty_select(Tab, Spec)`, `remote_dirty_select_reverse(Tab, Spec)`; `dirty_all_keys/1` selects the keys |
+  | `dirty_index_read/3` | `mnesia_index:dirty_read2(Tab, Value, Pos)` |
+  | `dirty_index_match_object/3` with the key unbound | `mnesia_index:dirty_match_object(Tab, Pattern, Pos)` |
+  | `select/4`, `select_reverse/4` in a dirty activity | `mnesia_lib:db_select_init(Storage, Tab, Spec, N)` or `db_select_rev_init(...)`, then `db_select_cont(Storage, Cont, Spec)` per chunk; `Storage` is the replica's storage on b, and b repairs the `ets` continuation with `Spec` |
+
+  Folds and `all_keys/1` in a dirty activity are built from these reads.
+- **Failures:** a read that fails on b (`{badrpc, {'EXIT', _}}`) aborts with `{badarg, Args}`, `Args` the apply's
+  arguments, once a has checked that b still holds the table; a table that nobody holds aborts with
+  `{no_exists, Args}`. `table_info/2` answers from a's own variables: `size` and `memory` are 0, `storage_type`
+  `unknown`. An `ets` activity reads a's own `ets` tables and fails with `badarg`.
+- **Writes:** `dirty_write`, `dirty_delete`, `dirty_delete_object` and `dirty_update_counter` check the record on a,
+  then send b a `presume_commit` commit whose one item, as in [the log](#directory-files-mim1h1), is in the field of
+  the table's storage on b (`{{Tab, Key}, {RecordName, Incr}, update_counter}` for a counter). The commit goes
+  `sync_dirty` in a `sync_dirty` activity and whenever a holds no replica of the table, even in an `async_dirty`
+  activity; only a node that holds a replica itself sends the other replicas `async_dirty` commits in an
+  `async_dirty` activity. A write's result is b's `dirty_res`: `ok`, or a counter's new value.
+- **The holder going:** when b goes while a waits for its `dirty_res`, the write returns
+  `{'EXIT', {aborted, {node_not_running, b}}}` instead of failing. Once a recorded b's `mnesia_down`, the table is
+  read `nowhere`: reads abort with `{no_exists, Args}`, writes with `{no_exists, Tab}`.

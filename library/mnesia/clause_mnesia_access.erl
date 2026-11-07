@@ -352,20 +352,32 @@ fun_select(Tid, Ts, Tab, Spec, Kind, TabPat, Init, N, Node, Storage, Dir) ->
 dirty_sel_init(Node, Tab, Spec, N, Storage) ->
     sel_init(Node, Tab, Spec, N, Storage, forward).
 
-% The first chunk read where the table is.
-sel_init(Node, Tab, Spec, N, _Storage, Dir) ->
-    dirty_rpc(Tab, Node, [Tab, Spec, N], fun() -> table_chunk(Tab, Spec, N, Dir) end).
+% The first chunk read where the table is: here, or through that node's mnesia_rpc (MIM1H6).
+sel_init(Node, Tab, Spec, N, Storage, Dir) ->
+    Init =
+        case Dir of
+            forward -> db_select_init;
+            reverse -> db_select_rev_init
+        end,
+    Local = fun() -> table_chunk(Tab, Spec, N, Dir) end,
+    read_on(Node, [Tab, Spec, N], Local, {mnesia_lib, Init, [Storage, Tab, Spec, N]}).
 
 table_chunk(Tab, Spec, N, Dir) -> clause_mnesia_db:select(Tab, Spec, N, Dir).
 
-dirty_rpc(_, nowhere, Args, _) ->
+% A read on Node: Local on this node, M:F(A) through another node's mnesia_rpc; Args name the read in its errors.
+read_on(nowhere, Args, _, _) ->
     abort({no_exists, Args});
-dirty_rpc(_, _, Args, Read) ->
+read_on(Node, Args, Local, _) when Node =:= node() ->
     try
-        Read()
+        Local()
     catch
         throw:Result -> Result;
         _:_ -> abort({badarg, Args})
+    end;
+read_on(Node, Args, _, {M, F, A}) ->
+    case mnesia_rpc:call(Node, M, F, A) of
+        {badrpc, _} -> abort({badarg, Args});
+        Result -> Result
     end.
 
 % The storage of a table's replica on a node; unknown without one.
@@ -397,8 +409,9 @@ select_cont(_, _, Cont) ->
 
 next_chunk(#mnesia_select{cont = '$end_of_table'}) ->
     '$end_of_table';
-next_chunk(#mnesia_select{node = Node, tab = Tab, storage = Storage, cont = Cont, orig = Spec}) ->
-    dirty_rpc(Tab, Node, [Storage, Cont, Spec], fun() -> clause_mnesia_db:select(Cont) end).
+next_chunk(#mnesia_select{node = Node, storage = Storage, cont = Cont, orig = Spec}) ->
+    Args = [Storage, Cont, Spec],
+    read_on(Node, Args, fun() -> clause_mnesia_db:select(Cont) end, {mnesia_lib, db_select_cont, Args}).
 
 % A chunk with the store's operations merged; the last chunk takes the operations left.
 trans_select('$end_of_table', #mnesia_select{written = Written, spec = Compiled, type = ordered_set, dir = Dir}) ->

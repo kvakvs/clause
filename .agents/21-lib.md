@@ -215,13 +215,14 @@ dependencies, non-test sources.
     `adopt_orphans`, `i_have_tab`, `schema_is_merged`, `disc_load_intents`, `log_mnesia_up`; active replicas drive
     where_to_read/write/commit; cookie clashes fail as OTP's. Left for later steps: participants vote no on any other
     schema op and schema changes after a merge stay local (H8); a table held only elsewhere is not read and its writes
-    reach no node (H6, H8); a replica loaded elsewhere starts empty at a restart (H9); a disc schema's merge logs ops
+    reach no node (H6 done, H8); a replica loaded elsewhere starts empty at a restart (H9); a disc schema's merge logs ops
     but no disc-node rules (H10); the merge asks only the first node to merge for its definitions per transaction.
-  - **MIM1H6 Remote reads and dirty writes:** reads of a table held only on the other node (`dirty_rpc` through
-    `mnesia_rpc`, `remote_dirty_select`, `table_info/2` there), and dirty writes sent to the holder as OTP's
-    `{async_dirty, Tid, Commit, Tab}` and `{sync_dirty, Tid, Commit, Tab}` messages with `#commit{}` records,
-    answered as OTP's.
-    - Golden `mnesia_remote_dirty`: each node reads and dirty-writes the other's tables.
+  - **MIM1H6 done** (`21-finished.md`): dirty reads of a table held elsewhere through the holder's `mnesia_rpc`
+    (OTP's `mnesia_lib`, `mnesia` and `mnesia_index` applies, chunk continuations repaired on the holder), dirty
+    writes as `sync_dirty`/`async_dirty` commits to its `mnesia_tm`. Left for later steps: transactions on such tables
+    (H7, H8); replicated tables (both nodes holding one) are not created over nodes yet (H8, H9), so `async_dirty`
+    commits to other replicas are sent and received but not tested; snmp reads (`mnesia:dirty_rpc` of
+    `clause_mnesia_snmp`) reach only Clause holders (H12).
   - **MIM1H7 Remote locks:** `mnesia_locker`'s protocol between nodes: `{From, {write | read | read_write |
     ix_read | sync_release_tid | test_set_sticky | is_locked, ...}}` requests, `{mnesia_locker, Node, Reply}`
     replies (`granted`, `{not_granted, #cyclic{}}`, `{switch, ...}`), `release_tid` and sticky `stick`/`unstick`
@@ -318,7 +319,7 @@ dependencies, non-test sources.
 
 ### Order
 
-1. MIM9's record wildcard fix, MIM6, MIM7 (MIM1A-MIM1G, MIM1H1-H5 done 2026-11-02/07; MIM1H6-H12 optional, in order)
+1. MIM9's record wildcard fix, MIM6, MIM7 (MIM1A-MIM1G, MIM1H1-H6 done 2026-11-02/07; MIM1H7-H12 optional, in order)
    (small), MIM3, MIM4, MIM2, MIM5; MIM8 after a user decision.
 2. LIB81D3c, LIB81D4b and LIB81E on request.
 3. LIB82, LIB83 last (test support).

@@ -1,0 +1,25 @@
+%% OTP 29 mnesia_index exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
+{add_index, 6, internal, declined}.
+{clear_index, 4, internal, declined}.
+{db_get, 2, internal, declined}.
+{db_match_erase, 2, internal, declined}.
+{db_put, 2, internal, declined}.
+{del_index_table, 3, internal, declined}.
+{del_object_index, 5, internal, declined}.
+{del_transient, 2, internal, declined}.
+{del_transient, 3, internal, declined}.
+{delete_index, 4, internal, declined}.
+{dirty_match_object, 3, remote, implemented}.
+{dirty_read, 3, internal, declined}.
+{dirty_read2, 3, remote, implemented}.
+{dirty_select, 3, internal, declined}.
+{ext_index_instances, 1, internal, declined}.
+{get_index_table, 2, internal, declined}.
+{get_index_table, 3, internal, declined}.
+{index_info, 2, internal, declined}.
+{index_vals_f, 3, internal, declined}.
+{init_indecies, 3, internal, declined}.
+{init_index, 2, internal, declined}.
+{read, 5, internal, declined}.
+{tab2filename, 2, internal, declined}.

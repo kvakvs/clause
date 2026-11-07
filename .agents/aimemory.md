@@ -961,3 +961,9 @@ gotchas and user directions not recorded elsewhere.
   on Windows give CRLF unless newline='' (erlfmt keeps it): count CR bytes before committing. scratch/mim1h4/
   all.sh's diff filter dropped indented lines: scratch/mim1h5/cmp.py strips only report blocks. Golden matched on the
   first BEAM run.
+- MIM1H6 mnesia (2026-11-07): an ets select continuation that crossed nodes needs ets:repair_continuation(Cont, Spec)
+  on the holder (OTP sends Spec with db_select_cont for this). erlang:suspend_process done inside an rpc:call is undone
+  when the rpc process ends: suspend from a long-lived spawned process. OTP's dirty write whose holder dies while it
+  waits RETURNS {'EXIT', {aborted, {node_not_running, N}}}. scratch/mim1h6 (obs.erl tracer probes, all.sh/cmp.py) runs
+  the fixture on the BEAM in all pairings; the golden matched OTP after those two fixes. BEAM runs hide unlinked
+  modules: a new OTP-named module reached only by apply(M, F, A) needs a `fun M:F/A` in clause_mnesia_app's list.

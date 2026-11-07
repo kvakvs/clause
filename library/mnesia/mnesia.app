@@ -32,6 +32,7 @@
         mnesia_controller,
         mnesia_frag,
         mnesia_frag_hash,
+        mnesia_index,
         mnesia_lib,
         mnesia_monitor,
         mnesia_recover,

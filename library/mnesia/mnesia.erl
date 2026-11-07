@@ -1380,8 +1380,9 @@ dirty_update_counter(Tab, Key, Incr) when is_atom(Tab), Tab =/= schema, is_integ
 dirty_update_counter(Tab, _, Incr) ->
     abort({bad_type, Tab, Incr}).
 
-% An update applied where the table is committed on this node, logged first for a disc table (MIM1D), synchronously
-% in a sync_dirty activity (MIM1H1); none without writable replicas.
+% An update applied where the table is committed: on this node's replica, logged first for a disc table (MIM1D),
+% and sent to the other nodes' replicas (MIM1H6); synchronously in a sync_dirty activity (MIM1H1); none without
+% writable replicas. The result is this node's update's, or the first other node's without a replica here.
 commit(Tab, Key, Update) ->
     case val({Tab, where_to_commit}) of
         [] ->
@@ -1389,22 +1390,32 @@ commit(Tab, Key, Update) ->
         Replicas ->
             val({Tab, where_to_read}) =:= nowhere andalso abort({no_exists, Tab}),
             clause_mnesia_snmp:check(Tab, Key),
-            clause_mnesia_disc:log([{Tab, Key, Update}], log_kind(get(mnesia_activity_state)), presume_commit),
-            lists:foldl(fun(Replica, Result) -> replica_update(Replica, Tab, Key, Update, Result) end, ok, Replicas)
+            {Local, Remote} = lists:partition(fun({Node, _}) -> Node =:= node() end, Replicas),
+            Kind = log_kind(get(mnesia_activity_state)),
+            Sent = clause_mnesia_tm:send_dirty(dirty_protocol(Kind, Local), Tab, Key, Update, Remote),
+            clause_mnesia_disc:log([{Tab, Key, Update}], Kind, presume_commit),
+            Result = lists:foldl(fun(Replica, R) -> replica_update(Replica, Tab, Key, Update, R) end, ok, Local),
+            Results = clause_mnesia_tm:dirty_results(Sent),
+            case {Local, Results} of
+                {[], [First | _]} -> First;
+                _ -> Result
+            end
     end.
 
 log_kind({_, {sync_dirty, _}, _}) -> sync;
 log_kind(_) -> async.
 
+% Other nodes' replicas are written synchronously in a sync_dirty activity or without a replica here, as OTP's.
+dirty_protocol(async, [_ | _]) -> async_dirty;
+dirty_protocol(_, _) -> sync_dirty.
+
 % An update of this node's replica; a failed one leaves the result as it was, as OTP's commit does.
-replica_update({Node, _Storage}, Tab, Key, Update, Result) when Node =:= node() ->
+replica_update({_Node, _Storage}, Tab, Key, Update, Result) ->
     try
         clause_mnesia_access:update({dirty, self()}, Tab, Key, Update)
     catch
         _:_ -> Result
-    end;
-replica_update(_, _, _, _, Result) ->
-    Result.
+    end.
 
 %% Dirty reads, each run on the replica this node reads.
 
@@ -1412,7 +1423,7 @@ dirty_read({Tab, Key}) -> dirty_read(Tab, Key);
 dirty_read(Oid) -> abort({bad_type, Oid}).
 
 dirty_read(Tab, Key) when is_atom(Tab), Tab =/= schema ->
-    local(Tab, [Tab, Key], fun() -> clause_mnesia_db:lookup(Tab, Key) end);
+    dirty_rpc(Tab, mnesia_lib, db_get, [Tab, Key]);
 dirty_read(Tab, _) ->
     abort({bad_type, Tab}).
 
@@ -1420,7 +1431,7 @@ dirty_match_object(Pat) when is_tuple(Pat), tuple_size(Pat) > 2 -> dirty_match_o
 dirty_match_object(Pat) -> abort({bad_type, Pat}).
 
 dirty_match_object(Tab, Pat) when is_atom(Tab), Tab =/= schema, is_tuple(Pat), tuple_size(Pat) > 2 ->
-    local(Tab, [Tab, Pat], fun() -> remote_dirty_match_object(Tab, Pat) end);
+    dirty_rpc(Tab, ?MODULE, remote_dirty_match_object, [Tab, Pat]);
 dirty_match_object(Tab, Pat) ->
     abort({bad_type, Tab, Pat}).
 
@@ -1442,12 +1453,12 @@ indexed_match(Tab, Pat, _) ->
     abort({bad_type, Tab, Pat}).
 
 dirty_select(Tab, Spec) when is_atom(Tab), Tab =/= schema, is_list(Spec) ->
-    local(Tab, [Tab, Spec], fun() -> remote_dirty_select(Tab, Spec) end);
+    dirty_rpc(Tab, ?MODULE, remote_dirty_select, [Tab, Spec]);
 dirty_select(Tab, Spec) ->
     abort({bad_type, Tab, Spec}).
 
 dirty_select_reverse(Tab, Spec) when is_atom(Tab), Tab =/= schema, is_list(Spec) ->
-    local(Tab, [Tab, Spec], fun() -> remote_dirty_select_reverse(Tab, Spec) end);
+    dirty_rpc(Tab, ?MODULE, remote_dirty_select_reverse, [Tab, Spec]);
 dirty_select_reverse(Tab, Spec) ->
     abort({bad_type, Tab, Spec}).
 
@@ -1520,14 +1531,14 @@ dirty_index_match_object(Tab, Pat, _) ->
 index_match(Tab, Pat, Attribute, Pos) ->
     case {has_var(element(2, Pat)), has_var(element(Pos, Pat))} of
         {false, _} -> dirty_match_object(Tab, Pat);
-        {true, false} -> local(Tab, [Tab, Pat, Pos], fun() -> clause_mnesia_index:match_object(Tab, Pat, Pos) end);
+        {true, false} -> dirty_rpc(Tab, mnesia_index, dirty_match_object, [Tab, Pat, Pos]);
         {true, true} -> abort({bad_type, Tab, Attribute, element(Pos, Pat)})
     end.
 
 dirty_index_read(Tab, Key, Attribute) when is_atom(Tab), Tab =/= schema ->
     Pos = table_position(Tab, Attribute),
     case has_var(Key) of
-        false -> local(Tab, [Tab, Key, Pos], fun() -> clause_mnesia_index:read(Tab, Key, Pos) end);
+        false -> dirty_rpc(Tab, mnesia_index, dirty_read2, [Tab, Key, Pos]);
         true -> abort({bad_type, Tab, Attribute, Key})
     end;
 dirty_index_read(Tab, _, _) ->
@@ -1538,45 +1549,54 @@ table_position(_, Pos) when is_integer(Pos) -> Pos;
 table_position(Tab, Attribute) -> clause_mnesia_schema:attribute_position(Attribute, val({Tab, attributes})).
 
 dirty_slot(Tab, Slot) when is_atom(Tab), Tab =/= schema, is_integer(Slot) ->
-    local(Tab, [Tab, Slot], fun() -> clause_mnesia_db:slot(Tab, Slot) end);
+    dirty_rpc(Tab, mnesia_lib, db_slot, [Tab, Slot]);
 dirty_slot(Tab, Slot) ->
     abort({bad_type, Tab, Slot}).
 
-dirty_first(Tab) when is_atom(Tab), Tab =/= schema -> local(Tab, [Tab], fun() -> clause_mnesia_db:first(Tab) end);
+dirty_first(Tab) when is_atom(Tab), Tab =/= schema -> dirty_rpc(Tab, mnesia_lib, db_first, [Tab]);
 dirty_first(Tab) -> abort({bad_type, Tab}).
 
-dirty_last(Tab) when is_atom(Tab), Tab =/= schema -> local(Tab, [Tab], fun() -> clause_mnesia_db:last(Tab) end);
+dirty_last(Tab) when is_atom(Tab), Tab =/= schema -> dirty_rpc(Tab, mnesia_lib, db_last, [Tab]);
 dirty_last(Tab) -> abort({bad_type, Tab}).
 
 dirty_next(Tab, Key) when is_atom(Tab), Tab =/= schema ->
-    local(Tab, [Tab, Key], fun() -> clause_mnesia_db:next(Tab, Key) end);
+    dirty_rpc(Tab, mnesia_lib, db_next_key, [Tab, Key]);
 dirty_next(Tab, _) ->
     abort({bad_type, Tab}).
 
 dirty_prev(Tab, Key) when is_atom(Tab), Tab =/= schema ->
-    local(Tab, [Tab, Key], fun() -> clause_mnesia_db:prev(Tab, Key) end);
+    dirty_rpc(Tab, mnesia_lib, db_prev_key, [Tab, Key]);
 dirty_prev(Tab, _) ->
     abort({bad_type, Tab}).
 
-% M:F(Args) where the table's replica is read.
+% M:F(Args) where the table's replica is read: on this node, or through another node's mnesia_rpc (MIM1H6). A read
+% fails with no_exists without a replica, with badarg when it fails where the table is still read.
 dirty_rpc(Tab, M, F, Args) ->
-    local(Tab, Args, fun() -> apply(M, F, Args) end).
-
-% A read on the replica of this node: no_exists without a replica, badarg for a failed read.
-local(Tab, Args, Read) ->
-    Node = node(),
+    Here = node(),
     case val({Tab, where_to_read}) of
         nowhere ->
             abort({no_exists, Args});
-        Node ->
+        Here ->
             try
-                Read()
+                apply(M, F, Args)
             catch
                 throw:Result -> Result;
                 _:_ -> abort({badarg, Args})
             end;
-        Other ->
-            abort({node_not_running, Other})
+        Node ->
+            remote_read(Node, Tab, M, F, Args)
+    end.
+
+% A failed read on another node is read again where the table is read now, unless that is still the same node.
+remote_read(Node, Tab, M, F, Args) ->
+    case mnesia_rpc:call(Node, M, F, Args) of
+        {badrpc, _} ->
+            case val({Tab, where_to_read}) of
+                Node -> abort({badarg, Args});
+                _ -> dirty_rpc(Tab, M, F, Args)
+            end;
+        Result ->
+            Result
     end.
 
 val(Name) -> clause_mnesia_monitor:val(Name).

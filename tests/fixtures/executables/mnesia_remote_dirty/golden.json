@@ -1,0 +1,110 @@
+{
+  "schema": 1,
+  "entry": "mnesia_remote_dirty",
+  "host_otp": true,
+  "runs": [
+    {
+      "nodes": [
+        {
+          "name": "a",
+          "args": [
+            "a"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname mrda@localhost --setcookie mrd"
+          },
+          "otp_flags": "-sname mrda@localhost -setcookie mrd",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "merge: {ok,[mrdb@localhost]}\na_on_tb: [{write,ok},\n          {sync_write,ok},\n          {async_write,ok},\n          {read,[{tb,2,a}]},\n          {delete,ok},\n          {delete_object,ok},\n          {counter,[3,2,0]},\n          {not_a_counter,1},\n          {counted,[{tb,2,1}]},\n          {write_more,[ok,ok]},\n          {match,[{tb,7,a},{tb,6,a}]},\n          {match_key,[{tb,1,mrdb@localhost}]},\n          {index_read,[{tb,6,a},{tb,7,a}]},\n          {index_match,[{tb,7,a},{tb,6,a}]},\n          {select,[1,2,6,7]},\n          {select_reverse,[{tb,7,a},{tb,6,a},{tb,2,1},{tb,1,mrdb@localhost}]},\n          {all_keys,[1,2,6,7]},\n          {walk,[1,7,6,1]},\n          {slot,[{tb,1,mrdb@localhost}]},\n          {info,[{size,0},\n                 {memory,0},\n                 {type,ordered_set},\n                 {storage_type,unknown},\n                 {arity,3}]},\n          {where,[{where_to_read,mrdb@localhost},\n                  {where_to_write,[mrdb@localhost]},\n                  {where_to_commit,[{mrdb@localhost,ram_copies}]}]}]\nb_heard: [{write,tb,{tb,2,a},[],{dirty,mrda@localhost}},\n          {write,tb,{tb,3,a},[],{dirty,mrda@localhost}},\n          {write,tb,{tb,4,b},[],{dirty,mrda@localhost}},\n          {delete,tb,{tb,3},[{tb,3,a}],{dirty,mrda@localhost}},\n          {delete,tb,{tb,4,b},[{tb,4,b}],{dirty,mrda@localhost}},\n          {write,tb,{tb,2,1},[],{dirty,mrda@localhost}},\n          {write,tb,{tb,6,a},[],{dirty,mrda@localhost}},\n          {write,tb,{tb,7,a},[],{dirty,mrda@localhost}}]\nb_on_ta: [{write,ok},\n          {sync_write,ok},\n          {async_write,ok},\n          {read,[{ta,2,a}]},\n          {delete,ok},\n          {delete_object,ok},\n          {counter,[3,2,0]},\n          {not_a_counter,1},\n          {counted,[{ta,2,1}]},\n          {write_more,[ok,ok]},\n          {match,[{ta,7,a},{ta,6,a}]},\n          {match_key,[{ta,1,mrda@localhost}]},\n          {index_read,[{ta,6,a},{ta,7,a}]},\n          {index_match,[{ta,7,a},{ta,6,a}]},\n          {select,[1,2,6,7]},\n          {select_reverse,[{ta,7,a},{ta,6,a},{ta,2,1},{ta,1,mrda@localhost}]},\n          {all_keys,[1,2,6,7]},\n          {walk,[1,7,6,1]},\n          {slot,[{ta,1,mrda@localhost}]},\n          {info,[{size,0},\n                 {memory,0},\n                 {type,ordered_set},\n                 {storage_type,unknown},\n                 {arity,3}]},\n          {where,[{where_to_read,mrda@localhost},\n                  {where_to_write,[mrda@localhost]},\n                  {where_to_commit,[{mrda@localhost,ram_copies}]}]}]\na_heard: [{write,ta,{ta,2,a},[],{dirty,mrdb@localhost}},\n          {write,ta,{ta,3,a},[],{dirty,mrdb@localhost}},\n          {write,ta,{ta,4,b},[],{dirty,mrdb@localhost}},\n          {delete,ta,{ta,3},[{ta,3,a}],{dirty,mrdb@localhost}},\n          {delete,ta,{ta,4,b},[{ta,4,b}],{dirty,mrdb@localhost}},\n          {write,ta,{ta,2,1},[],{dirty,mrdb@localhost}},\n          {write,ta,{ta,6,a},[],{dirty,mrdb@localhost}},\n          {write,ta,{ta,7,a},[],{dirty,mrdb@localhost}}]\na_activity: [{async,[{chunks,[[{tb,1,mrdb@localhost},{tb,2,1}],\n                              [{tb,6,a},{tb,7,a}]]},\n                     {reverse,[[{tb,7,a},{tb,6,a}],\n                               [{tb,2,1},{tb,1,mrdb@localhost}]]},\n                     {foldl,[7,6,2,1]},\n                     {all_keys,[1,2,6,7]},\n                     {read,[{tb,1,mrdb@localhost}]}]},\n             {sync,{ok,[{tb,8,c}]}}]\nb_activity: [{async,[{chunks,[[{ta,1,mrda@localhost},{ta,2,1}],\n                              [{ta,6,a},{ta,7,a}]]},\n                     {reverse,[[{ta,7,a},{ta,6,a}],\n                               [{ta,2,1},{ta,1,mrda@localhost}]]},\n                     {foldl,[7,6,2,1]},\n                     {all_keys,[1,2,6,7]},\n                     {read,[{ta,1,mrda@localhost}]}]},\n             {sync,{ok,[{ta,8,c}]}}]\nactivity_heard: [{a,[{write,ta,{ta,8,c},[],{dirty,mrdb@localhost}}]},\n                 {b,[{write,tb,{tb,8,c},[],{dirty,mrda@localhost}}]}]\na_failures: [{bad_record,{aborted,{bad_type,{tb,1}}}},\n             {bad_arity,{aborted,{bad_type,{tb,1,2,3}}}},\n             {bad_slot,{aborted,{badarg,[tb,-1]}}},\n             {bad_select,{aborted,{badarg,[tb,[bad]]}}},\n             {bad_counter,{aborted,{bad_type,tb,a}}},\n             {ets,{exit,badarg}}]\nb_failures: [{bad_record,{aborted,{bad_type,{ta,1}}}},\n             {bad_arity,{aborted,{bad_type,{ta,1,2,3}}}},\n             {bad_slot,{aborted,{badarg,[ta,-1]}}},\n             {bad_select,{aborted,{badarg,[ta,[bad]]}}},\n             {bad_counter,{aborted,{bad_type,ta,a}}},\n             {ets,{exit,badarg}}]\nb_hold: ok\nb_finish: {badrpc,nodedown}\nwritten: {'EXIT',{aborted,{node_not_running,mrdb@localhost}}}\ngone: [{read,{aborted,{no_exists,[tb,1]}}},\n       {write,{aborted,{no_exists,tb}}},\n       {size,0},\n       {select,{aborted,{no_exists,[tb,[{'_',[],['$_']}]]}}}]\nmnesia_remote_dirty: ok\n"
+        },
+        {
+          "name": "b",
+          "args": [
+            "b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname mrdb@localhost --setcookie mrd"
+          },
+          "otp_flags": "-sname mrdb@localhost -setcookie mrd",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "mnesia_remote_dirty: ok\n"
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "name": "a",
+          "kind": "otp",
+          "args": [
+            "a"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname mrda@localhost --setcookie mrd"
+          },
+          "otp_flags": "-sname mrda@localhost -setcookie mrd",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "merge: {ok,[mrdb@localhost]}\na_on_tb: [{write,ok},\n          {sync_write,ok},\n          {async_write,ok},\n          {read,[{tb,2,a}]},\n          {delete,ok},\n          {delete_object,ok},\n          {counter,[3,2,0]},\n          {not_a_counter,1},\n          {counted,[{tb,2,1}]},\n          {write_more,[ok,ok]},\n          {match,[{tb,7,a},{tb,6,a}]},\n          {match_key,[{tb,1,mrdb@localhost}]},\n          {index_read,[{tb,6,a},{tb,7,a}]},\n          {index_match,[{tb,7,a},{tb,6,a}]},\n          {select,[1,2,6,7]},\n          {select_reverse,[{tb,7,a},{tb,6,a},{tb,2,1},{tb,1,mrdb@localhost}]},\n          {all_keys,[1,2,6,7]},\n          {walk,[1,7,6,1]},\n          {slot,[{tb,1,mrdb@localhost}]},\n          {info,[{size,0},\n                 {memory,0},\n                 {type,ordered_set},\n                 {storage_type,unknown},\n                 {arity,3}]},\n          {where,[{where_to_read,mrdb@localhost},\n                  {where_to_write,[mrdb@localhost]},\n                  {where_to_commit,[{mrdb@localhost,ram_copies}]}]}]\nb_heard: [{write,tb,{tb,2,a},[],{dirty,mrda@localhost}},\n          {write,tb,{tb,3,a},[],{dirty,mrda@localhost}},\n          {write,tb,{tb,4,b},[],{dirty,mrda@localhost}},\n          {delete,tb,{tb,3},[{tb,3,a}],{dirty,mrda@localhost}},\n          {delete,tb,{tb,4,b},[{tb,4,b}],{dirty,mrda@localhost}},\n          {write,tb,{tb,2,1},[],{dirty,mrda@localhost}},\n          {write,tb,{tb,6,a},[],{dirty,mrda@localhost}},\n          {write,tb,{tb,7,a},[],{dirty,mrda@localhost}}]\nb_on_ta: [{write,ok},\n          {sync_write,ok},\n          {async_write,ok},\n          {read,[{ta,2,a}]},\n          {delete,ok},\n          {delete_object,ok},\n          {counter,[3,2,0]},\n          {not_a_counter,1},\n          {counted,[{ta,2,1}]},\n          {write_more,[ok,ok]},\n          {match,[{ta,7,a},{ta,6,a}]},\n          {match_key,[{ta,1,mrda@localhost}]},\n          {index_read,[{ta,6,a},{ta,7,a}]},\n          {index_match,[{ta,7,a},{ta,6,a}]},\n          {select,[1,2,6,7]},\n          {select_reverse,[{ta,7,a},{ta,6,a},{ta,2,1},{ta,1,mrda@localhost}]},\n          {all_keys,[1,2,6,7]},\n          {walk,[1,7,6,1]},\n          {slot,[{ta,1,mrda@localhost}]},\n          {info,[{size,0},\n                 {memory,0},\n                 {type,ordered_set},\n                 {storage_type,unknown},\n                 {arity,3}]},\n          {where,[{where_to_read,mrda@localhost},\n                  {where_to_write,[mrda@localhost]},\n                  {where_to_commit,[{mrda@localhost,ram_copies}]}]}]\na_heard: [{write,ta,{ta,2,a},[],{dirty,mrdb@localhost}},\n          {write,ta,{ta,3,a},[],{dirty,mrdb@localhost}},\n          {write,ta,{ta,4,b},[],{dirty,mrdb@localhost}},\n          {delete,ta,{ta,3},[{ta,3,a}],{dirty,mrdb@localhost}},\n          {delete,ta,{ta,4,b},[{ta,4,b}],{dirty,mrdb@localhost}},\n          {write,ta,{ta,2,1},[],{dirty,mrdb@localhost}},\n          {write,ta,{ta,6,a},[],{dirty,mrdb@localhost}},\n          {write,ta,{ta,7,a},[],{dirty,mrdb@localhost}}]\na_activity: [{async,[{chunks,[[{tb,1,mrdb@localhost},{tb,2,1}],\n                              [{tb,6,a},{tb,7,a}]]},\n                     {reverse,[[{tb,7,a},{tb,6,a}],\n                               [{tb,2,1},{tb,1,mrdb@localhost}]]},\n                     {foldl,[7,6,2,1]},\n                     {all_keys,[1,2,6,7]},\n                     {read,[{tb,1,mrdb@localhost}]}]},\n             {sync,{ok,[{tb,8,c}]}}]\nb_activity: [{async,[{chunks,[[{ta,1,mrda@localhost},{ta,2,1}],\n                              [{ta,6,a},{ta,7,a}]]},\n                     {reverse,[[{ta,7,a},{ta,6,a}],\n                               [{ta,2,1},{ta,1,mrda@localhost}]]},\n                     {foldl,[7,6,2,1]},\n                     {all_keys,[1,2,6,7]},\n                     {read,[{ta,1,mrda@localhost}]}]},\n             {sync,{ok,[{ta,8,c}]}}]\nactivity_heard: [{a,[{write,ta,{ta,8,c},[],{dirty,mrdb@localhost}}]},\n                 {b,[{write,tb,{tb,8,c},[],{dirty,mrda@localhost}}]}]\na_failures: [{bad_record,{aborted,{bad_type,{tb,1}}}},\n             {bad_arity,{aborted,{bad_type,{tb,1,2,3}}}},\n             {bad_slot,{aborted,{badarg,[tb,-1]}}},\n             {bad_select,{aborted,{badarg,[tb,[bad]]}}},\n             {bad_counter,{aborted,{bad_type,tb,a}}},\n             {ets,{exit,badarg}}]\nb_failures: [{bad_record,{aborted,{bad_type,{ta,1}}}},\n             {bad_arity,{aborted,{bad_type,{ta,1,2,3}}}},\n             {bad_slot,{aborted,{badarg,[ta,-1]}}},\n             {bad_select,{aborted,{badarg,[ta,[bad]]}}},\n             {bad_counter,{aborted,{bad_type,ta,a}}},\n             {ets,{exit,badarg}}]\nb_hold: ok\nb_finish: {badrpc,nodedown}\nwritten: {'EXIT',{aborted,{node_not_running,mrdb@localhost}}}\ngone: [{read,{aborted,{no_exists,[tb,1]}}},\n       {write,{aborted,{no_exists,tb}}},\n       {size,0},\n       {select,{aborted,{no_exists,[tb,[{'_',[],['$_']}]]}}}]\nmnesia_remote_dirty: ok\n"
+        },
+        {
+          "name": "b",
+          "args": [
+            "b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname mrdb@localhost --setcookie mrd"
+          },
+          "otp_flags": "-sname mrdb@localhost -setcookie mrd",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "mnesia_remote_dirty: ok\n"
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "name": "a",
+          "args": [
+            "a"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname mrda@localhost --setcookie mrd"
+          },
+          "otp_flags": "-sname mrda@localhost -setcookie mrd",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "merge: {ok,[mrdb@localhost]}\na_on_tb: [{write,ok},\n          {sync_write,ok},\n          {async_write,ok},\n          {read,[{tb,2,a}]},\n          {delete,ok},\n          {delete_object,ok},\n          {counter,[3,2,0]},\n          {not_a_counter,1},\n          {counted,[{tb,2,1}]},\n          {write_more,[ok,ok]},\n          {match,[{tb,7,a},{tb,6,a}]},\n          {match_key,[{tb,1,mrdb@localhost}]},\n          {index_read,[{tb,6,a},{tb,7,a}]},\n          {index_match,[{tb,7,a},{tb,6,a}]},\n          {select,[1,2,6,7]},\n          {select_reverse,[{tb,7,a},{tb,6,a},{tb,2,1},{tb,1,mrdb@localhost}]},\n          {all_keys,[1,2,6,7]},\n          {walk,[1,7,6,1]},\n          {slot,[{tb,1,mrdb@localhost}]},\n          {info,[{size,0},\n                 {memory,0},\n                 {type,ordered_set},\n                 {storage_type,unknown},\n                 {arity,3}]},\n          {where,[{where_to_read,mrdb@localhost},\n                  {where_to_write,[mrdb@localhost]},\n                  {where_to_commit,[{mrdb@localhost,ram_copies}]}]}]\nb_heard: [{write,tb,{tb,2,a},[],{dirty,mrda@localhost}},\n          {write,tb,{tb,3,a},[],{dirty,mrda@localhost}},\n          {write,tb,{tb,4,b},[],{dirty,mrda@localhost}},\n          {delete,tb,{tb,3},[{tb,3,a}],{dirty,mrda@localhost}},\n          {delete,tb,{tb,4,b},[{tb,4,b}],{dirty,mrda@localhost}},\n          {write,tb,{tb,2,1},[],{dirty,mrda@localhost}},\n          {write,tb,{tb,6,a},[],{dirty,mrda@localhost}},\n          {write,tb,{tb,7,a},[],{dirty,mrda@localhost}}]\nb_on_ta: [{write,ok},\n          {sync_write,ok},\n          {async_write,ok},\n          {read,[{ta,2,a}]},\n          {delete,ok},\n          {delete_object,ok},\n          {counter,[3,2,0]},\n          {not_a_counter,1},\n          {counted,[{ta,2,1}]},\n          {write_more,[ok,ok]},\n          {match,[{ta,7,a},{ta,6,a}]},\n          {match_key,[{ta,1,mrda@localhost}]},\n          {index_read,[{ta,6,a},{ta,7,a}]},\n          {index_match,[{ta,7,a},{ta,6,a}]},\n          {select,[1,2,6,7]},\n          {select_reverse,[{ta,7,a},{ta,6,a},{ta,2,1},{ta,1,mrda@localhost}]},\n          {all_keys,[1,2,6,7]},\n          {walk,[1,7,6,1]},\n          {slot,[{ta,1,mrda@localhost}]},\n          {info,[{size,0},\n                 {memory,0},\n                 {type,ordered_set},\n                 {storage_type,unknown},\n                 {arity,3}]},\n          {where,[{where_to_read,mrda@localhost},\n                  {where_to_write,[mrda@localhost]},\n                  {where_to_commit,[{mrda@localhost,ram_copies}]}]}]\na_heard: [{write,ta,{ta,2,a},[],{dirty,mrdb@localhost}},\n          {write,ta,{ta,3,a},[],{dirty,mrdb@localhost}},\n          {write,ta,{ta,4,b},[],{dirty,mrdb@localhost}},\n          {delete,ta,{ta,3},[{ta,3,a}],{dirty,mrdb@localhost}},\n          {delete,ta,{ta,4,b},[{ta,4,b}],{dirty,mrdb@localhost}},\n          {write,ta,{ta,2,1},[],{dirty,mrdb@localhost}},\n          {write,ta,{ta,6,a},[],{dirty,mrdb@localhost}},\n          {write,ta,{ta,7,a},[],{dirty,mrdb@localhost}}]\na_activity: [{async,[{chunks,[[{tb,1,mrdb@localhost},{tb,2,1}],\n                              [{tb,6,a},{tb,7,a}]]},\n                     {reverse,[[{tb,7,a},{tb,6,a}],\n                               [{tb,2,1},{tb,1,mrdb@localhost}]]},\n                     {foldl,[7,6,2,1]},\n                     {all_keys,[1,2,6,7]},\n                     {read,[{tb,1,mrdb@localhost}]}]},\n             {sync,{ok,[{tb,8,c}]}}]\nb_activity: [{async,[{chunks,[[{ta,1,mrda@localhost},{ta,2,1}],\n                              [{ta,6,a},{ta,7,a}]]},\n                     {reverse,[[{ta,7,a},{ta,6,a}],\n                               [{ta,2,1},{ta,1,mrda@localhost}]]},\n                     {foldl,[7,6,2,1]},\n                     {all_keys,[1,2,6,7]},\n                     {read,[{ta,1,mrda@localhost}]}]},\n             {sync,{ok,[{ta,8,c}]}}]\nactivity_heard: [{a,[{write,ta,{ta,8,c},[],{dirty,mrdb@localhost}}]},\n                 {b,[{write,tb,{tb,8,c},[],{dirty,mrda@localhost}}]}]\na_failures: [{bad_record,{aborted,{bad_type,{tb,1}}}},\n             {bad_arity,{aborted,{bad_type,{tb,1,2,3}}}},\n             {bad_slot,{aborted,{badarg,[tb,-1]}}},\n             {bad_select,{aborted,{badarg,[tb,[bad]]}}},\n             {bad_counter,{aborted,{bad_type,tb,a}}},\n             {ets,{exit,badarg}}]\nb_failures: [{bad_record,{aborted,{bad_type,{ta,1}}}},\n             {bad_arity,{aborted,{bad_type,{ta,1,2,3}}}},\n             {bad_slot,{aborted,{badarg,[ta,-1]}}},\n             {bad_select,{aborted,{badarg,[ta,[bad]]}}},\n             {bad_counter,{aborted,{bad_type,ta,a}}},\n             {ets,{exit,badarg}}]\nb_hold: ok\nb_finish: {badrpc,nodedown}\nwritten: {'EXIT',{aborted,{node_not_running,mrdb@localhost}}}\ngone: [{read,{aborted,{no_exists,[tb,1]}}},\n       {write,{aborted,{no_exists,tb}}},\n       {size,0},\n       {select,{aborted,{no_exists,[tb,[{'_',[],['$_']}]]}}}]\nmnesia_remote_dirty: ok\n"
+        },
+        {
+          "name": "b",
+          "kind": "otp",
+          "args": [
+            "b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname mrdb@localhost --setcookie mrd"
+          },
+          "otp_flags": "-sname mrdb@localhost -setcookie mrd",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "mnesia_remote_dirty: ok\n"
+        }
+      ]
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
+  },
+  "inputs": {
+    "mnesia_remote_dirty.erl": "d013a5644a2a965a58fd6a3fd03eb2274c98d1c0354ebc7b8d9dd4c970d3929c"
+  }
+}

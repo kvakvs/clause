@@ -304,3 +304,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   controllers' `im_running`/`adopt_orphans`/`i_have_tab`/`schema_is_merged`/`disc_load_intents`, `log_mnesia_up`;
   active replicas drive where_to_read/write/commit and go with `mnesia_down`; `mnesia_merge` golden identical to
   OTP both ways — `008629b4`
+- **MIM1H6** mnesia remote dirty access: dirty reads of a table held on another node run OTP's applies
+  (`mnesia_lib:db_get`/`db_first`/.../`db_slot`/`db_select_init`/`db_select_rev_init`/`db_select_cont`,
+  `mnesia:remote_dirty_match_object`/`remote_dirty_select`, new OTP-named `mnesia_index:dirty_read2`/`dirty_match_object`)
+  through the holder's `mnesia_rpc`, retried or failed as OTP's; dirty writes send OTP's `presume_commit` commits
+  (`sync_dirty` with an alias-monitor reply, `async_dirty` only with a local replica in an async activity) that the
+  holder's `mnesia_tm` applies with table events; a holder going returns `{'EXIT', {aborted, {node_not_running, N}}}`;
+  `mnesia_remote_dirty` golden identical to OTP both ways — `HASH`
