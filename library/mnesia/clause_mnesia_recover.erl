@@ -16,7 +16,8 @@
 -define(GENERATION_SIZE, 1000).
 
 %% The server's state: transaction outcomes as {Tid, Outcome} in two ets generations, the newest first (MIM1H8); per
-%% commit over disc nodes, the nodes not yet certain once committed here, or those certain before (MIM1H10a).
+%% commit over disc nodes, the nodes not yet certain once committed here, or those certain before (MIM1H10a), tagged
+%% announced once this node told the others it is certain (MIM1H10b).
 -record(state, {latest, previous, certain = #{}}).
 
 start_link() ->
@@ -62,6 +63,14 @@ init([]) ->
 
 decisions() -> ets:new(mnesia_transient_decision, [set, private]).
 
+% A commit's coordinator is certain once it sent committed, a participant once it heard it (MIM1H10b): the other disc
+% nodes hear it at once, as from OTP's, before the log follows.
+handle_call({certain, #decision{tid = Tid, disc_nodes = Disc} = Decision}, _From, #state{certain = Certain} = State) ->
+    Known = known(maps:get(Tid, Certain, [])),
+    Others = lists:delete(node(), Disc),
+    Told = Decision#decision{outcome = committed, disc_nodes = Others -- Known, ram_nodes = []},
+    gen_server:abcast(Others, mnesia_recover, {im_certain, node(), Told}),
+    {reply, ok, State#state{certain = Certain#{Tid => {announced, Known}}}};
 handle_call({connect_nodes, Nodes}, _From, State) ->
     Connected = val(recover_nodes),
     case clause_mnesia_monitor:negotiate_protocol(lists:delete(node(), Nodes) -- Connected) of
@@ -112,13 +121,14 @@ handle_cast({what_decision, Node, #decision{tid = Tid} = Asked}, State) ->
 handle_cast({note_decision, Tid, Outcome}, State) ->
     {noreply, noted(Tid, Outcome, State)};
 % A commit over several nodes was logged here (MIM1H10a): its decision names the disc nodes not yet certain, and the
-% other disc nodes hear that this one is.
+% other disc nodes hear that this one is, unless its coordinator told them already (MIM1H10b).
 handle_cast({committed, #decision{tid = Tid, disc_nodes = Disc} = Decision}, #state{certain = Certain} = State) ->
     Others = lists:delete(node(), Disc),
-    Remaining = Others -- maps:get(Tid, Certain, []),
+    Kept = maps:get(Tid, Certain, []),
+    Remaining = Others -- known(Kept),
     Logged = Decision#decision{outcome = committed, disc_nodes = Remaining, ram_nodes = []},
     clause_mnesia_disc:log_decision(Logged),
-    gen_server:abcast(Others, mnesia_recover, {im_certain, node(), Logged}),
+    is_tuple(Kept) orelse gen_server:abcast(Others, mnesia_recover, {im_certain, node(), Logged}),
     {noreply, State#state{certain = still_unsure(Tid, {committed, Remaining}, Certain)}};
 % Node is certain of a commit: logged again without it, or kept for when this node commits.
 handle_cast({im_certain, Node, #decision{tid = Tid} = Decision}, #state{certain = Certain} = State) ->
@@ -129,7 +139,7 @@ handle_cast({im_certain, Node, #decision{tid = Tid} = Decision}, #state{certain 
             {noreply, State#state{certain = still_unsure(Tid, {committed, Left}, Certain)}};
         Known ->
             clause_mnesia_disc:log_decision(Decision#decision{outcome = committed, disc_nodes = [], ram_nodes = []}),
-            {noreply, State#state{certain = Certain#{Tid => [Node | Known]}}}
+            {noreply, State#state{certain = Certain#{Tid => with_known(Node, Known)}}}
     end;
 handle_cast({mnesia_down, Node}, State) ->
     del(recover_nodes, Node),
@@ -146,6 +156,13 @@ handle_cast(_Request, State) ->
 
 handle_info(_Message, State) ->
     {noreply, State}.
+
+% The nodes certain of a commit before this node logged it, announced or not.
+known({announced, Known}) -> Known;
+known(Known) -> Known.
+
+with_known(Node, {announced, Known}) -> {announced, [Node | Known]};
+with_known(Node, Known) -> [Node | Known].
 
 still_unsure(Tid, {committed, []}, Certain) -> maps:remove(Tid, Certain);
 still_unsure(Tid, Unsure, Certain) -> Certain#{Tid => Unsure}.

@@ -346,3 +346,12 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   the process asking for more); commits over disc nodes logged under their `#decision{}` with `im_certain`;
   `mnesia_up`/`mnesia_down` records in the log and `DECISION_TAB.LOG`; index changes refused while a disc node holding
   the table is down; `mnesia_disc_nodes` golden identical to OTP both ways — `b855926b`
+- **MIM1H10b** mnesia master nodes, majority and copies between disc nodes: master nodes decide loads at start
+  (`local_master` when this node is one, else only from an active master, else wait), `set_master_nodes/1,2` while
+  stopped check `schema.DAT` and append to `LATEST.LOG`; `force_load_table/1` loads a waiting replica from disc
+  (`forced_by_user`); write locks on majority tables abort with `{no_majority, Tab}`; `add_table_copy/3` and
+  `move_table_copy/3` of disc_only replicas to another node (the receiver's dets opened for the transfer), another
+  node's `change_table_copy_type/3` applied by its participant, schema decisions naming the schema's new disc nodes,
+  no `simple_commit` to schema participants, `im_certain` sent right after `committed` (coordinator) and on hearing
+  it (participant) so OTP peers dump no unsure decisions; replicas loaded from files by masters or force no longer
+  get an empty DCD; `mnesia_disc_masters` golden identical to OTP both ways — `HASH`

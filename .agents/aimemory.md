@@ -999,3 +999,9 @@ gotchas and user directions not recorded elsewhere.
   Multi-node goldens share one work dir across runs: a disc fixture deletes the schemas first. Debug Clause's
   library on the BEAM from a scratch copy compiled over scratch/mnesia/erlc (scratch/mim1h10/dbg): python
   open()/write without newline='' turns sources CRLF on Windows.
+- MIM1H10b mnesia (2026-11-08): timing between nodes shows up in files: an OTP peer that dumps (copy type changes
+  dump at once) before the other node's im_certain arrives keeps the decision in DECISION_TAB.LOG, so send
+  im_certain as early as OTP does (trace both nodes' mnesia_recover/mnesia_tm sends with erlang:trace on their
+  pids). Never make mnesia_monitor call mnesia_recover: recover's connect_nodes calls the monitor (deadlock). Two
+  nodes started at once race for RAM-only tables (who loads ram_only); start them in turn in goldens. A schema
+  decision's disc nodes come from the new schema (OTP's RAM participant ignores a change it is told it is RAM for).

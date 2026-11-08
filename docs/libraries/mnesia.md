@@ -39,8 +39,8 @@ Clause's `mnesia` application (plan 21, MIM1) exports the OTP 29 interface of `m
   [connecting nodes](#connecting-nodes). MIM1H5, done: [merging schemas](#merging-schemas). MIM1H6, done:
   [dirty access](#dirty-access) to tables held on another node. MIM1H7, done: [locks](#locks) on other nodes. MIM1H8,
   done: [commits](#transactions) over several nodes. MIM1H9, done: [table copies](#schema-changes) and loads over
-  several nodes. MIM1H10a, done: [disc nodes](#disc-nodes) created and started together. What OTP writes and sends is
-  recorded in
+  several nodes. MIM1H10a, done: [disc nodes](#disc-nodes) created and started together. MIM1H10b, done: master
+  nodes, majority and copies between disc nodes. What OTP writes and sends is recorded in
   [mnesia's files and protocol](mnesia-protocol.md).
 
 Every other documented function works. See the [function inventory](../../library/mnesia/mnesia.terms) and
@@ -159,8 +159,8 @@ those of the nodes that run mnesia, OTP's or Clause's, as OTP's does (plan 21 st
   `extra_db_nodes` takes the running nodes' definitions and loads each replica that a running node holds too from it
   ([table copies](#schema-changes), MIM1H9), while a RAM table of its own comes back empty.
 - **Schema changes after it** reach every running node's schema ([transactions](#transactions), MIM1H8).
-- **Not yet:** a node asked to commit another node's `change_table_copy_type/3`, restore, fragment change or SNMP
-  change votes no (MIM1H10b, MIM1H11, MIM1H12).
+- **Not yet:** a node asked to commit another node's restore, fragment change or SNMP change votes no (MIM1H11,
+  MIM1H12).
 
 ### Disc nodes
 
@@ -184,9 +184,17 @@ Nodes whose schemas are on disc, OTP's or Clause's, are created and start togeth
   `DECISION_TAB.LOG`, which the next start reads to decide its loads.
 - **Schema changes** that need a table's replicas on disc nodes, as `delete_table/1` and index changes, abort while
   one of those nodes is down, with OTP's `not_active` reason.
-- **Not yet:** master nodes deciding loads, `force_load_table/1`, majority over nodes, copies moved between disc nodes
-  and `change_table_copy_type/3` on another node (MIM1H10b); a waiting replica is not adopted when the other node comes
-  up without loading it (OTP's `{adopt_orphan, Node}` load); partitions of disc nodes (MIM1H10c).
+- **Master nodes** decide the loads at start (plan 21 step MIM1H10b,
+  [protocol](mnesia-protocol.md#master-nodes-majority-and-copies-mim1h10b)): a table loads only from its master nodes,
+  from this node's files when it is one of them (`local_master`), and otherwise waits for one.
+  `force_load_table/1` loads a waiting replica from this node's files (`forced_by_user`).
+- **Majority:** a write lock on a `majority` table aborts with `{no_majority, Tab}` unless more than half of its
+  replicas are active.
+- **Copies between disc nodes:** `add_table_copy/3`, `move_table_copy/3` and `change_table_copy_type/3` work for
+  another node's disc replicas, and `del_table_copy(schema, Node)` removes a stopped disc node, whose files
+  `delete_schema/1` then removes.
+- **Not yet:** a waiting replica is not adopted when the other node comes up without loading it (OTP's
+  `{adopt_orphan, Node}` load); partitions of disc nodes (MIM1H10c).
 
 ### Global variables
 
@@ -293,9 +301,11 @@ checks of `create_table/2` for the changed definition. Each change gives the def
   - `change_table_access_mode/2`, `change_table_load_order/2` and `change_table_majority/2` change their fields.
     `read_only` writes the table nowhere, so writes abort with `{no_exists, Tab}`.
 - **Not schema transactions:**
-  - `set_master_nodes/1,2` keep the master nodes that hold a replica. They return `ok` without a running mnesia.
-  - `force_load_table/1` answers `yes` for a table loaded here. For a table without a replica here, it waits for one,
-    as OTP's does.
+  - `set_master_nodes/1,2` keep the master nodes that hold a replica. With mnesia stopped they check and log them
+    against `schema.DAT`, return `{error, "No schema file exists"}` with only a fallback, and `ok` without a
+    directory ([disc nodes](#disc-nodes)).
+  - `force_load_table/1` answers `yes` for a table loaded here, and loads a replica that waits for another node from
+    this node's files. For a table without a replica here, it waits for one, as OTP's does.
   - `change_config/2`:
     - `dc_dump_limit` takes effect at once;
     - `extra_db_nodes` [merges the schemas](#merging-schemas) and returns the given nodes that run mnesia with this
@@ -775,6 +785,11 @@ index of its rows by SNMP row index, as OTP's `mnesia_snmp_hook` does
   it is down; b starts again and loads from a; then a starts alone after b stopped last, loads what only it holds on
   disc and waits for the rest, which it loads from b once b is back. Each step shows both nodes' readers, writers,
   load nodes and reasons, and what each node's files hold. Its runs pair Clause nodes with OTP nodes both ways.
+- **`mnesia_disc_masters` golden:** generated from OTP
+  ([fixture](../../tests/fixtures/executables/mnesia_disc_masters/mnesia_disc_masters.erl)). Two disc nodes set master
+  nodes while running and while stopped, refuse majority writes with one node down, start alone and force their
+  loads; then replicas are added, moved and changed between the nodes, b leaves the schema while stopped, its files
+  go, and it joins again as a RAM node made a disc node. Its runs pair Clause nodes with OTP nodes both ways.
 - **What `mnesia_dirty` covers:** answers before starting, system information, every `create_table` option and error, table
   properties, dirty access of each table type, indexes, counters, argument errors, schema changes, `schema/1`'s
   printout, error descriptions, and stopping and restarting.

@@ -77,6 +77,11 @@ change({op, add_table_copy, Storage, Node, List}, Tid) ->
     [{add_copy, Cs, clause_mnesia_loader:copy(Tab, Node, Storage, Tid)}];
 change({op, del_table_copy, _, _, List}, _) ->
     [{redefine, cs(List)}];
+% Another node's change of this node's replica storage is checked here first, as this node's own change is (MIM1H10b).
+change({op, change_table_copy_type, Node, From, To, List}, _) ->
+    #cstruct{name = Tab} = Cs = cs(List),
+    Node =:= node() andalso clause_mnesia_change:local_copy_type(Tab, From, To),
+    [{redefine, Cs}];
 change({op, sync_trans}, #tid{pid = Coordinator}) ->
     sync_trans(Coordinator),
     [];

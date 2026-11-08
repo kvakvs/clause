@@ -38,9 +38,11 @@ voted({Ref, Coordinator, Tid, #commit{schema_ops = Ops}, _, _} = Part) ->
             ended(Tid, aborted)
     end.
 
-pre_committed({Ref, Coordinator, Tid, #commit{schema_ops = Ops}, _, Nodes} = Part) ->
+pre_committed({Ref, Coordinator, Tid, #commit{schema_ops = Ops, decision = Decision}, _, Nodes} = Part) ->
     receive
         {Tid, committed} ->
+            % The other disc nodes hear at once that this one is certain, before it applies the commit (MIM1H10b).
+            clause_mnesia_disc:announce_certain(Decision),
             apply_commit(Part),
             confirms(Ops) andalso answer(Coordinator, {schema_commit, Tid, self()}),
             ended(Tid, committed);

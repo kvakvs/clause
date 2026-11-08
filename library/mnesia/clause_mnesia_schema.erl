@@ -19,7 +19,7 @@
     del_active/2,
     check_storage/1,
     add_writer/2,
-    replica_table/1,
+    replica_table/2,
     replica_loaded/3,
     await_load/1,
     load_local/2,
@@ -483,6 +483,8 @@ converted(#cstruct{name = Tab} = Cs, Old, New) when Old =:= disc_only_copies; Ne
     make_storage(Cs, New, {dumper, change_table_copy_type}),
     clause_mnesia_db:insert(Tab, Records),
     New =:= disc_copies andalso clause_mnesia_disc:ets2dcd(Tab),
+    % Records loaded from a dets file into ets name the change as their load, as OTP's (MIM1H10b).
+    Old =:= disc_only_copies andalso set({Tab, load_reason}, {dumper, change_table_copy_type}),
     [clause_mnesia_index:add(Tab, P) || P <- Positions];
 converted(#cstruct{name = Tab}, ram_copies, disc_copies) ->
     clause_mnesia_disc:ets2dcd(Tab);
@@ -567,9 +569,13 @@ make_storage(#cstruct{name = Tab, type = Type, storage_properties = Properties},
             files(Tab, Storage, Reason)
     end.
 
-% A replica's records from its files when it loads from this node's disc (MIM1H10a), else its new files.
-files(Tab, Storage, Reason) when Reason =:= local_only; Reason =:= initial -> clause_mnesia_disc:load(Tab, Storage);
-files(Tab, Storage, _) -> clause_mnesia_disc:created(Tab, Storage).
+% A replica's records from its files when it loads from this node's disc (MIM1H10a), as master nodes or the user
+% decide too (MIM1H10b), else its new files.
+files(Tab, Storage, Reason) ->
+    case lists:member(Reason, [local_only, initial, local_master, forced_by_user]) of
+        true -> clause_mnesia_disc:load(Tab, Storage);
+        false -> clause_mnesia_disc:created(Tab, Storage)
+    end.
 
 % A node's storage of a table: ram_copies, disc_copies, disc_only_copies or unknown.
 storage(Cs) ->
@@ -709,11 +715,11 @@ add_writer(Tab, Node) ->
             set({Tab, where_to_wlock}, {Writers, Cs#cstruct.majority})
     end.
 
-% The ets table of a replica that a transfer fills, owned by mnesia_monitor: made, or emptied when an earlier transfer
-% left it without a commit (MIM1H9).
-replica_table(Tab) ->
+% The ets or dets table of a replica with Storage that a transfer fills, owned by mnesia_monitor: made, or emptied
+% when an earlier transfer left it without a commit (MIM1H9); a new copy's storage is not in the definition yet.
+replica_table(Tab, Storage) ->
     #cstruct{type = Type, storage_properties = Properties} = Cs = val({Tab, cstruct}),
-    case {storage(Cs), ets:info(Tab, owner) =:= self()} of
+    case {Storage, ets:info(Tab, owner) =:= self()} of
         {disc_only_copies, _} ->
             % A disc_only_copies replica is its dets file, emptied (MIM1H10a).
             dets:info(Tab, type) =/= undefined orelse clause_mnesia_disc:open_dat(Cs),

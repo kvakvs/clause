@@ -88,7 +88,7 @@ merged(Tid, Running, [Node | _]) ->
                 ok = gen_server:call(mnesia_monitor, {schema, Changes, Ops, Tid, Decision}, infinity)
             end,
             Nodes = [node() | lists:delete(node(), Running) ++ RemoteRunning],
-            ok = clause_mnesia_commit:schema(Tid, Nodes, Ops, Local),
+            _ = clause_mnesia_commit:schema(Tid, Nodes, Ops, Local),
             {merged, Running, RemoteRunning};
         Other ->
             mnesia:abort({merge_schema_failed, Node, Other})

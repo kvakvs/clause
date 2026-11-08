@@ -419,3 +419,50 @@ queries](#remote-queries-mim1h3)), then a process of a installs the same fallbac
 | `create_table/2` with a copy on b | `{aborted, {not_active, Tab, b}}` |
 | `create_table/2` of a RAM table on b only | commits; b gets it at its next start ([merge](#schema-merge-mim1h5)) |
 | `delete_table/1`, `add_table_index/2`, `del_table_index/2` of a table with a replica on b | `{aborted, {not_active, "All replicas on diskfull nodes are not active yet", Tab, [b]}}` |
+
+## Master nodes, majority and copies (MIM1H10b)
+
+Observed with two disc nodes a and b, as [disc nodes](#disc-nodes-mim1h10a).
+
+### Master nodes
+
+- **Setting them:** `set_master_nodes(Tab, Nodes)` and `set_master_nodes(Nodes)` check the table and the nodes holding
+  it as on one node, and log `{master_nodes, Tab, Nodes}` (`[]` clears them). On a node whose mnesia is stopped they
+  check the definitions of `schema.DAT` and append the entries to `LATEST.LOG`, which the next start reads; with only a
+  fallback in the directory they return `{error, "No schema file exists"}`, and without a directory `ok`.
+- **Loads at start:** a table with master nodes loads only from them. When this node is one of them, its replica
+  loads from its files, or empty for a RAM one, with `load_reason` `local_master`, even when another node's replica
+  is active; otherwise from a running master whose replica is active (`{active_remote, Node}`), else it waits, even
+  for a replica on disc here, until a master loaded it. A table held on this node alone still loads `local_only`.
+- **`force_load_table(Tab)`** of a replica that waits loads it from this node's files (or empty) with `load_reason`
+  `forced_by_user`, and answers `yes`; of a loaded table `yes`; `{error, {no_exists, Tab}}` for an unknown table and
+  `{error, {bad_type, schema}}` for the schema.
+
+### Majority
+
+A write lock on a table with `majority` aborts the transaction with `{aborted, {no_majority, Tab}}` unless more than
+half of the table's replicas are active: with two replicas, one node alone has no majority. Read locks and dirty
+writes are not checked; a read with a write lock (`read(Tab, Key, write)`) is. A schema transaction that locks such a
+table, as `del_table_copy(schema, Node)` locks each table of the node, aborts the same way.
+
+### Copies between disc nodes
+
+- `add_table_copy/3` and `move_table_copy/3` of a disc replica on another node: the receiver gets the records as
+  [table transfers](#replicas-and-loading-mim1h9) do and writes its `DCD` or `dets` file before the commit; its
+  `load_reason` is `{dumper, {add_table_copy, Tid}}`. A node may move a replica to itself.
+- `change_table_copy_type/3` of another node's replica commits `{op, change_table_copy_type, Node, From, To, List}`;
+  that node converts its replica as for its own change, and checks it the same way. A replica converted from
+  `disc_only_copies` to `ram_copies` or `disc_copies` takes `load_reason` `{dumper, change_table_copy_type}`; other
+  conversions keep theirs.
+- A schema transaction's decision names the schema's disc nodes as its operations leave them: changing a RAM node's
+  schema to disc names that node among the disc nodes, and the node then writes its directory.
+- **A node leaving:** `del_table_copy(schema, B)` with b's mnesia stopped removes b from every definition; a table that
+  only b held goes. While b runs it aborts with `{active, "Mnesia is running", B}`. `delete_schema([B])` then removes
+  b's files; b starts on a RAM schema, joins with `change_config(extra_db_nodes, [A])` as a RAM node, and
+  `change_table_copy_type(schema, B, disc_copies)` from a makes it a disc node again.
+
+### Certainty
+
+A coordinator casts `{im_certain, Node, Decision}` to the other disc nodes right after it sends `committed`, before
+its own part of the commit; a participant sends it before its `schema_commit`. A node that dumps its log while a
+decision is not yet certain keeps that decision in `DECISION_TAB.LOG`.

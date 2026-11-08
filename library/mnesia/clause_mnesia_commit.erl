@@ -38,19 +38,31 @@ commit(Tid, Store, Kind, Local) ->
         Remote ->
             Nodes = [N || #commit{node = N} <- Commits],
             case protocol(Updates, Kind) of
-                asym_trans -> asym(Tid, Remote, Nodes, Local, false);
-                Protocol -> sym(Tid, Protocol, Remote, Nodes, Local)
+                asym_trans -> asym(Tid, Remote, split_nodes(Nodes), Local, false);
+                Protocol -> sym(Tid, Protocol, Remote, split_nodes(Nodes), Local)
             end,
             [N || #commit{node = N} <- Remote]
     end.
 
 % A schema transaction's operations committed on this node and on the other nodes of Nodes (asym_trans); Local applies
-% them here under the transaction's decision, which names this node alone when it commits alone (MIM1H10a).
+% them here under the transaction's decision, which names this node alone when it commits alone (MIM1H10a), and the
+% schema's disc nodes as the operations leave them (MIM1H10b). It returns the other nodes, which took part.
 schema(Tid, [_], _, Local) ->
-    Local(#decision{tid = Tid, outcome = presume_abort, disc_nodes = [node()], ram_nodes = []});
+    Local(#decision{tid = Tid, outcome = presume_abort, disc_nodes = [node()], ram_nodes = []}),
+    [];
 schema(Tid, Nodes, Ops, Local) ->
     Remote = [#commit{node = N, schema_ops = Ops} || N <- Nodes, N =/= node()],
-    asym(Tid, Remote, Nodes, Local, lists:member({op, sync_trans}, Ops)).
+    Split = lists:partition(fun(N) -> lists:member(N, schema_disc_nodes(Ops)) end, Nodes),
+    asym(Tid, Remote, Split, Local, lists:member({op, sync_trans}, Ops)),
+    [N || #commit{node = N} <- Remote].
+
+% The schema's disc nodes after the operations: those of the last change of the schema's own definition.
+schema_disc_nodes(Ops) ->
+    Changes = [Op || Op <- Ops, element(2, Op) =/= merge_schema],
+    case [L || Op <- Changes, L <- tuple_to_list(Op), is_list(L), L =/= [], hd(L) =:= {name, schema}] of
+        [] -> val({schema, disc_copies});
+        Lists -> proplists:get_value(disc_copies, lists:last(Lists))
+    end.
 
 % A move's participants each meet the coordinator while they prepare (MIM1H9); a participant gone is left to the votes.
 sync_trans(Monitors) ->
@@ -114,8 +126,8 @@ protocol(Updates, Kind) ->
 
 % sym_trans: the participants' votes, then do_commit to each and this node's part; a sync one waits until each
 % participant committed.
-sym(Tid, Protocol, Remote, Nodes, Local) ->
-    Monitors = ask(Tid, Protocol, Remote, Nodes),
+sym(Tid, Protocol, Remote, Split, Local) ->
+    Monitors = ask(Tid, Protocol, Remote, Split),
     case answers(Tid, vote_yes, Monitors) of
         {ok, _} ->
             [{mnesia_tm, N} ! {Tid, do_commit} || {N, _} <- Monitors],
@@ -132,14 +144,13 @@ sym(Tid, Protocol, Remote, Nodes, Local) ->
 % asym_trans: the participants' votes, the pre-commit, then committed to each and this node's part; participants
 % applying schema operations confirm them. A participant that has not voted hears the abort through its transaction
 % manager.
-asym(Tid, Remote, Nodes, Local, Sync) ->
-    {Disc, Ram} = split_nodes(Nodes),
+asym(Tid, Remote, {Disc, Ram} = Split, Local, Sync) ->
     Decision = #decision{tid = Tid, outcome = presume_abort, disc_nodes = Disc, ram_nodes = Ram},
-    Monitors = ask(Tid, asym_trans, [C#commit{decision = Decision} || C <- Remote], Nodes),
+    Monitors = ask(Tid, asym_trans, [C#commit{decision = Decision} || C <- Remote], Split),
     Sync =:= true andalso sync_trans(Monitors),
     Result =
         case answers(Tid, vote_yes, Monitors) of
-            {ok, Pids} -> pre_commit(Tid, Monitors, Pids, fun() -> Local(Decision) end);
+            {ok, Pids} -> pre_commit(Decision, Monitors, Pids, Local);
             {error, _} = Error -> Error
         end,
     case Result of
@@ -154,14 +165,15 @@ asym(Tid, Remote, Nodes, Local, Sync) ->
 
 % A participant accepting the pre-commit says whether it will confirm the schema operations it applies, which a
 % merge's announcement alone does not need (MIM1H10a).
-pre_commit(Tid, Monitors, Pids, Local) ->
+pre_commit(#decision{tid = Tid} = Decision, Monitors, Pids, Local) ->
     clause_mnesia_recover:note_decision(Tid, unclear),
     [Pid ! {Tid, pre_commit} || Pid <- Pids],
     case replies(Tid, acc_pre_commit, Monitors, []) of
         {ok, Replies} ->
             [Pid ! {Tid, committed} || Pid <- Pids],
             clause_mnesia_recover:note_decision(Tid, committed),
-            Local(),
+            clause_mnesia_disc:announce_certain(Decision),
+            Local(Decision),
             Confirming = [M || {M, {acc_pre_commit, _, _, true}} <- lists:zip(Monitors, Replies)],
             answers(Tid, schema_commit, Confirming),
             ok;
@@ -171,8 +183,7 @@ pre_commit(Tid, Monitors, Pids, Local) ->
     end.
 
 % Each participant's transaction manager asked to commit, watched until the commit ends.
-ask(Tid, Protocol, Remote, Nodes) ->
-    {Disc, Ram} = split_nodes(Nodes),
+ask(Tid, Protocol, Remote, {Disc, Ram}) ->
     [
         begin
             Ref = erlang:monitor(process, {mnesia_tm, N}),

@@ -9,7 +9,8 @@
 -export([start/0, stop/0, to_disc_schema/0, to_ram_schema/0, save_schema/1, open_dat/1, load/2, created/2]).
 -export([deleted/1, ets2dcd/1, dump_exists/1, index_file/2, log/3, log_schema/3, dump_log/1, sync_log/0]).
 -export([item/3, item_update/1]).
--export([dumped_records/1, set_master_nodes/2, log_node/1, log_decision/1, down_at_start/0]).
+-export([dumped_records/1, set_master_nodes/2, stopped_cstructs/0, log_node/1, log_decision/1, down_at_start/0]).
+-export([announce_certain/1]).
 
 -include("clause_mnesia.hrl").
 
@@ -512,6 +513,13 @@ certain(#decision{} = Decision) ->
 certain(_) ->
     true.
 
+% A commit over disc nodes is certain once its coordinator sent committed, before this node logs it (MIM1H10b).
+announce_certain(#decision{} = Decision) ->
+    _ = use_dir() andalso not alone(Decision) andalso clause_mnesia_recover:call({certain, Decision}),
+    ok;
+announce_certain(_) ->
+    ok.
+
 % A decision of a commit over several nodes after its commit (MIM1H10a), from mnesia_recover.
 log_decision(Decision) ->
     _ = use_dir() andalso disk_log:alog(latest_log, Decision),
@@ -563,9 +571,43 @@ log_term(_, Term) -> disk_log:alog(latest_log, Term).
 % A table's master nodes, none for [], logged on a disc schema as OTP's {master_nodes, Tab, Nodes} so that the next
 % start keeps them (MIM1H1).
 set_master_nodes(Tab, Nodes) ->
-    masters(Tab, Nodes),
-    use_dir() andalso disk_log:alog(latest_log, {master_nodes, Tab, Nodes}),
+    case clause_mnesia_monitor:is_running() of
+        yes ->
+            masters(Tab, Nodes),
+            use_dir() andalso disk_log:alog(latest_log, {master_nodes, Tab, Nodes});
+        _ ->
+            % While mnesia is stopped the entry goes to the log at once, as OTP's (MIM1H10b).
+            append_latest({master_nodes, Tab, Nodes})
+    end,
     ok.
+
+append_latest(Entry) ->
+    File = file(?LATEST),
+    case exists(File) of
+        true ->
+            {ok, Log} = disk_log:open([{name, make_ref()}, {file, File}, {repair, true}]),
+            ok = disk_log:log(Log, Entry),
+            ok = disk_log:close(Log);
+        false ->
+            write_log(File, [header(trans_log, "4.3"), Entry])
+    end.
+
+% The table definitions in schema.DAT while mnesia is stopped (MIM1H10b): {ok, Definitions}, ok without a disc schema,
+% or OTP's error when only a fallback holds it.
+stopped_cstructs() ->
+    _ = application:load(mnesia),
+    Dat = tab_file(schema, ".DAT"),
+    case {use_dir(), exists(Dat)} of
+        {false, _} ->
+            ok;
+        {true, false} ->
+            {error, "No schema file exists"};
+        {true, true} ->
+            {ok, Name} = dets:open_file(make_ref(), [{file, Dat}, {keypos, 2}, {access, read}]),
+            Records = dets:match_object(Name, '_'),
+            ok = dets:close(Name),
+            {ok, [clause_mnesia_schema:list2cs(List) || {schema, _, List} <- Records]}
+    end.
 
 % Another node's {mnesia_down, Node, Date, Time} on a disc schema, written at once as OTP's (MIM1H4), or its
 % {mnesia_up, Node, Date, Time} (MIM1H10a).

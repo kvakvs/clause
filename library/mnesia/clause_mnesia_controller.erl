@@ -51,6 +51,9 @@ handle_call({block_table, _Tabs, _Sender}, _From, controller) ->
 handle_call({add_active_replica, [Tab, Node | _], _Sender}, _From, controller) ->
     clause_mnesia_schema:add_active(Tab, Node),
     {reply, true, controller};
+% force_load_table/1 of a replica that waits: it loads from this node's files or starts empty (MIM1H10b).
+handle_call({force_load, Tab}, _From, controller) ->
+    {reply, start_load(Tab, {local, forced_by_user}), controller};
 % Another node loading its tables at start asks which tables this node holds (MIM1H5): those loaded and those it
 % will load from its own disc, which that node then need not load itself (MIM1H10a).
 handle_call(disc_load_intents, _From, controller) ->
@@ -74,7 +77,7 @@ handle_cast({send_table, Tab, Receiver, Storage, Reason}, controller) ->
 % Node loaded its replica of Tab (MIM1H5); this node's replica waiting for it loads from it (MIM1H10a).
 handle_cast({i_have_tab, Tab, Node}, controller) ->
     ets:member(schema, Tab) andalso clause_mnesia_schema:add_active(Tab, Node),
-    start_load(Tab, {remote, Node}),
+    start_load(Tab, clause_mnesia_loader:announced(Tab, Node)),
     {noreply, controller};
 % The replicas a start or a merge left unloaded (MIM1H10a): each from another node, from here, or none yet (wait).
 handle_cast({load_tables, Tabs}, controller) ->

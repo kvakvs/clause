@@ -92,7 +92,7 @@ wlock(Tid, Store, Oid) ->
 wlock(Tid, Store, {Tab, Key} = Oid, Op) ->
     case need_lock(Store, Tab, Key, write) of
         yes ->
-            {Nodes, _Majority} = writers(Tab),
+            {Nodes, _Majority} = majority_writers(Tab),
             ets:insert(Store, {{locks, Tab, Key}, write}),
             [lock_on(Node, Store, {Op, Tid, Oid}) || Node <- Nodes],
             Nodes;
@@ -133,7 +133,7 @@ rwlock(Tid, Store, {Tab, Key} = Oid) ->
     Node = readable(Tab),
     case need_lock(Store, Tab, Key, write) of
         yes ->
-            {Nodes, _Majority} = writers(Tab),
+            {Nodes, _Majority} = majority_writers(Tab),
             Records = lock_on(Node, Store, {read_write, Tid, Oid}),
             [lock_on(N, Store, {write, Tid, Oid}) || N <- Nodes, N =/= Node],
             ets:insert(Store, {{locks, Tab, Key}, write}),
@@ -223,6 +223,18 @@ writers(Tab) ->
     catch
         error:_ -> mnesia:abort({no_exists, Tab})
     end.
+
+% A new write lock's nodes: a majority table's needs more of its replicas written than not, as OTP's (MIM1H10b).
+majority_writers(Tab) ->
+    {Nodes, Majority} = Where = writers(Tab),
+    Majority andalso not have_majority(Tab, Nodes) andalso mnesia:abort({no_majority, Tab}),
+    Where.
+
+have_majority(Tab, Nodes) ->
+    Cs = clause_mnesia_monitor:val({Tab, cstruct}),
+    All = Cs#cstruct.ram_copies ++ Cs#cstruct.disc_copies ++ Cs#cstruct.disc_only_copies,
+    Present = [N || N <- All, lists:member(N, Nodes)],
+    2 * length(Present) > length(All).
 
 % Whether the store has no lock yet that covers the record or table.
 need_lock(Store, Tab, Key, Lock) ->

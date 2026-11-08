@@ -176,7 +176,8 @@ commit(Kind) ->
             check_snmp_keys(Store),
             Locked = clause_mnesia_locker:lock_nodes(Store),
             Local = fun(Decision) -> committed = request({commit, Tid, Kind, Decision}) end,
-            Participants = clause_mnesia_commit:commit(Tid, Store, Kind, Local),
+            Schema = [N || {_, N} <- ets:lookup(Store, schema_participant)],
+            Participants = Schema ++ clause_mnesia_commit:commit(Tid, Store, Kind, Local),
             [{mnesia_tm, Node} ! {Tid, simple_commit} || Node <- Locked -- Participants],
             outer;
         {_, Tid, #tidstore{store = Store, up_stores = [{OldMod, Outer} | Rest], level = Level} = Ts} ->

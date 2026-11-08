@@ -6,7 +6,7 @@
 %% here loads from a node that has it loaded, or from this node's disc when no other node may hold it newer, or waits
 %% for another node to load it (MIM1H10a).
 -module(clause_mnesia_loader).
--export([send/4, receive_table/4, copy/4, load_pending/0, pending/1, source/1, load/2]).
+-export([send/4, receive_table/4, copy/4, load_pending/0, pending/1, source/1, announced/2, load/2]).
 
 -include("clause_mnesia.hrl").
 
@@ -98,7 +98,7 @@ announce(_, _) ->
 
 filled(Tab, Storage, Sender, Kind) ->
     Ref = erlang:monitor(process, Sender),
-    ok = gen_server:call(mnesia_monitor, {replica_table, Tab}, infinity),
+    ok = gen_server:call(mnesia_monitor, {replica_table, Tab, Storage}, infinity),
     Sender ! {self(), more},
     Result = fill(Kind, Tab, Sender, Ref, []),
     erlang:demonitor(Ref, [flush]),
@@ -232,12 +232,39 @@ catch_exit(F) ->
     end.
 
 % Where a table loads from, in the controller: {remote, Node} with the latest running node whose replica is active,
-% {local, Reason}, or wait.
+% {local, Reason}, or wait. A table with master nodes loads from them alone (MIM1H10b).
 source(Tab) ->
     Running = val(recover_nodes),
-    case [N || N <- val({Tab, active_replicas}), N =/= node(), lists:member(N, Running)] of
-        [Node | _] -> {remote, Node};
-        [] -> local_load(val({Tab, cstruct}))
+    Active = [N || N <- val({Tab, active_replicas}), N =/= node(), lists:member(N, Running)],
+    case {masters(Tab), Active} of
+        {[], [Node | _]} -> {remote, Node};
+        {[], []} -> local_load(val({Tab, cstruct}));
+        {Masters, _} -> master_load(val({Tab, cstruct}), Masters, Active)
+    end.
+
+% A table with master nodes loads here when this node is one of them (local_master), unless no other node holds it
+% (local_only); else from an active master; else it waits, even for a replica on disc here (MIM1H10b).
+master_load(Cs, Masters, Active) ->
+    case {local_load(Cs), lists:member(node(), Masters), [N || N <- Active, lists:member(N, Masters)]} of
+        {{local, local_only} = Alone, _, _} -> Alone;
+        {_, true, _} -> {local, local_master};
+        {_, false, [Node | _]} -> {remote, Node};
+        _ -> wait
+    end.
+
+% How a waiting replica loads once Node announced it loaded the table: from Node, unless the table's master nodes
+% leave it out (MIM1H10b).
+announced(Tab, Node) ->
+    Masters = masters(Tab),
+    case Masters =:= [] orelse lists:member(Node, Masters) of
+        true -> {remote, Node};
+        false -> wait
+    end.
+
+masters(Tab) ->
+    case ets:lookup(mnesia_decision, {tab, Tab}) of
+        [{master_nodes, _, Nodes}] -> Nodes;
+        [] -> []
     end.
 
 % A replica no running node has loaded: alone, it loads here (local_only); a RAM replica starts empty unless another

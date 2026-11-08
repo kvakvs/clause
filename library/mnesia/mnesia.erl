@@ -493,34 +493,39 @@ schema_result(Result) -> Result.
 
 % Every table's master nodes: those of the given nodes that hold a replica of it.
 set_master_nodes(Nodes) when is_list(Nodes) ->
-    case clause_mnesia_monitor:is_running() of
-        yes ->
-            Tables = [Cs || {_, Cs} <- ets:match_object(?GVAR, {{'_', cstruct}, '_'})],
-            lists:foreach(fun(Cs) -> masters(Cs#cstruct.name, holders_among(Nodes, Cs)) end, Tables);
-        _ ->
-            ok
+    case master_tables() of
+        {ok, Tables} -> lists:foreach(fun(Cs) -> masters(Cs#cstruct.name, holders_among(Nodes, Cs)) end, Tables);
+        Other -> Other
     end;
 set_master_nodes(Nodes) ->
     {error, {bad_type, Nodes}}.
 
 % A table's master nodes, each of which must hold a replica of it.
 set_master_nodes(Tab, Nodes) when is_list(Nodes) ->
-    case clause_mnesia_monitor:is_running() of
-        yes ->
-            case ets:lookup(?GVAR, {Tab, cstruct}) of
-                [] ->
+    case master_tables() of
+        {ok, Tables} ->
+            case lists:keyfind(Tab, #cstruct.name, Tables) of
+                false ->
                     {error, {no_exists, Tab}};
-                [{_, Cs}] ->
+                Cs ->
                     case Nodes -- holders(Cs) of
                         [] -> masters(Tab, Nodes);
                         Missing -> {error, {no_exists, Tab, Missing}}
                     end
             end;
-        _ ->
-            ok
+        Other ->
+            Other
     end;
 set_master_nodes(Tab, Nodes) ->
     {error, {bad_type, Tab, Nodes}}.
+
+% The definitions master nodes are set for: the running schema's, or the disc schema's while mnesia is stopped, as
+% OTP's (MIM1H10b); ok without a disc schema.
+master_tables() ->
+    case clause_mnesia_monitor:is_running() of
+        yes -> {ok, [Cs || {_, Cs} <- ets:match_object(?GVAR, {{'_', cstruct}, '_'})]};
+        _ -> clause_mnesia_disc:stopped_cstructs()
+    end.
 
 masters(Tab, Nodes) ->
     clause_mnesia_disc:set_master_nodes(Tab, Nodes).
@@ -538,14 +543,19 @@ holders(#cstruct{ram_copies = Ram, disc_copies = Disc, disc_only_copies = DiscOn
 holders_among(Nodes, Cs) ->
     [N || N <- holders(Cs), lists:member(N, Nodes)].
 
-% A table loaded here is loaded; one without a replica here waits for its load, as OTP's does.
+% A table loaded here is loaded; one without a replica here waits for its load, as OTP's does. A replica that waits
+% for another node loads from this node's files or empty (MIM1H10b).
 force_load_table(Tab) when is_atom(Tab), Tab =/= schema ->
     try ets:lookup_element(?GVAR, {Tab, storage_type}, 2) of
-        unknown ->
-            ets:insert(?GVAR, {{Tab, load_by_force}, true}),
-            loaded_by_force(wait_for_tables([Tab], infinity));
-        _ ->
-            yes
+        Storage ->
+            case Storage =:= unknown orelse not clause_mnesia_schema:is_loaded(Tab) of
+                true ->
+                    ets:insert(?GVAR, {{Tab, load_by_force}, true}),
+                    _ = clause_mnesia_controller:call({force_load, Tab}),
+                    loaded_by_force(wait_for_tables([Tab], infinity));
+                false ->
+                    yes
+            end
     catch
         error:_ -> {error, {no_exists, Tab}}
     end;

@@ -54,9 +54,12 @@ applied(Changes, Ops) ->
             {aborted, Reason} -> mnesia:abort(Reason)
         end
     end,
-    _ = clause_mnesia_commit:schema(Tid, [node() | lists:delete(node(), val({schema, active_replicas}))], Ops, Local),
-    % A schema change counts as a write: its transaction completes an activity (MIM1E).
-    true = ets:insert(Store, {op, schema_change}),
+    Remote = clause_mnesia_commit:schema(
+        Tid, [node() | lists:delete(node(), val({schema, active_replicas}))], Ops, Local
+    ),
+    % A schema change counts as a write: its transaction completes an activity (MIM1E). Its other nodes committed it
+    % and need no simple_commit (MIM1H10b).
+    true = ets:insert(Store, [{op, schema_change} | [{schema_participant, N} || N <- Remote]]),
     ok.
 
 % The nodes of Nodes whose monitors agreed on a protocol with this one, linked to it (MIM1H4).
@@ -296,8 +299,8 @@ handle_call({schema, Changes, Ops, Tid, Decision}, _From, State) ->
         end,
     {reply, Result, State};
 % A replica's table that a transfer fills, and a replica loaded from another node at start (MIM1H9).
-handle_call({replica_table, Tab}, _From, State) ->
-    {reply, clause_mnesia_schema:replica_table(Tab), State};
+handle_call({replica_table, Tab, Storage}, _From, State) ->
+    {reply, clause_mnesia_schema:replica_table(Tab, Storage), State};
 handle_call({replica_loaded, Tab, Node, Reason}, _From, State) ->
     {reply, clause_mnesia_schema:replica_loaded(Tab, Node, Reason), State};
 % A replica loads from this node's files or starts empty, as decided after the start (MIM1H10a).

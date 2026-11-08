@@ -253,10 +253,10 @@ dependencies, non-test sources.
       up/down records in the log and `DECISION_TAB.LOG`, index changes refused with a disc node down. Left for later:
       OTP's `{adopt_orphan, Node}` load of a waiting replica when the other node comes up without it; `{decisions,
       ...}` of other nodes still not merged.
-    - **MIM1H10b Master nodes, majority and copies between disc nodes:** `set_master_nodes/1,2` deciding loads,
-      `force_load_table/1`, `majority` checks over nodes (`{no_majority, Tab}`), `move_table_copy/3` and
-      `add_table_copy/3` between disc nodes, `change_table_copy_type/3` on another node, `del_table_copy(schema, Node)`
-      of a disc node, `delete_schema/1` of a stopped remote node. Golden `mnesia_disc_masters`.
+    - **MIM1H10b done** (`21-finished.md`): master nodes deciding loads (also set while stopped),
+      `force_load_table/1`, `{no_majority, Tab}` write locks, disc copies added, moved and converted on another node,
+      a stopped disc node removed and rejoined. Golden `mnesia_disc_masters`. Majority over more than two replicas
+      ("more than half active") is not observed with two nodes.
     - **MIM1H10c Partitions of disc nodes:** `inconsistent_database` with `running_partitioned_network` and
       `starting_partitioned_network` between disc nodes, master nodes resolving a partition at start, adopted orphans.
       Golden `mnesia_partitions`.
@@ -329,7 +329,7 @@ dependencies, non-test sources.
 
 ### Order
 
-1. MIM9's record wildcard fix, MIM6, MIM7 (MIM1A-MIM1G, MIM1H1-H9, MIM1H10a done 2026-11-02/08; MIM1H10b-H12 optional, in order)
+1. MIM9's record wildcard fix, MIM6, MIM7 (MIM1A-MIM1G, MIM1H1-H9, MIM1H10a-b done 2026-11-02/08; MIM1H10c-H12 optional, in order)
    (small), MIM3, MIM4, MIM2, MIM5; MIM8 after a user decision.
 2. LIB81D3c, LIB81D4b and LIB81E on request.
 3. LIB82, LIB83 last (test support).

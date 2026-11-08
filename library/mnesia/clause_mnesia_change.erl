@@ -2,7 +2,9 @@
 %% each change takes OTP's locks and makes OTP's checks in OTP's order inside the transaction, then hands
 %% mnesia_monitor the changes to apply (clause_mnesia_schema:apply_change/1). Transform functions run here too.
 -module(clause_mnesia_change).
--export([prepare/1, check_new_table/1, check_deleted_table/1, check_active/1, lock_table/2, transformed/2]).
+-export([
+    prepare/1, check_new_table/1, check_deleted_table/1, check_active/1, lock_table/2, transformed/2, local_copy_type/3
+]).
 
 -include("clause_mnesia.hrl").
 
