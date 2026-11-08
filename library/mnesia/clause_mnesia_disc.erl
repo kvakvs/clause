@@ -9,7 +9,7 @@
 -export([start/0, stop/0, to_disc_schema/0, to_ram_schema/0, save_schema/1, open_dat/1, load/2, created/2]).
 -export([deleted/1, ets2dcd/1, dump_exists/1, index_file/2, log/3, log_schema/3, dump_log/1, sync_log/0]).
 -export([item/3, item_update/1]).
--export([dumped_records/1, set_master_nodes/2, log_node/1]).
+-export([dumped_records/1, set_master_nodes/2, log_node/1, log_decision/1, down_at_start/0]).
 
 -include("clause_mnesia.hrl").
 
@@ -153,8 +153,13 @@ write_fallback(Nodes, Props) ->
         user_properties = schema_properties(Props)
     },
     List = [P || {Key, _} = P <- clause_mnesia_schema:cs2list(Cs), Key =/= majority, Key =/= storage_properties],
-    File = file(?FALLBACK),
-    write_log(File, [header(backup_log, "1.2"), {schema, schema, List}]).
+    case Nodes of
+        [Node] when Node =:= node() ->
+            write_log(file(?FALLBACK), [header(backup_log, "1.2"), {schema, schema, List}]);
+        _ ->
+            % Each node's fallback comes from a receiver there, as OTP's create_schema/1 installs it (MIM1H10a).
+            clause_mnesia_backup:install_on_nodes(Nodes, [header(backup_log, "1.2"), {schema, schema, List}])
+    end.
 
 % The schema parameter's properties with create_schema/2's over them.
 schema_properties(Props) ->
@@ -232,7 +237,23 @@ start() ->
     [clause_mnesia_schema:load_table(clause_mnesia_schema:list2cs(List)) || {schema, _, List} <- Tables],
     read_decisions(),
     replay_logs(),
+    % The nodes this one saw go down last decide which replicas load from here (MIM1H10a); until then a replica held
+    % elsewhere too is not loaded.
+    ets:insert(
+        ?GVAR, {{loader, down_at_start}, [N || {mnesia_down, {node, N}, _, _} <- ets:tab2list(mnesia_decision)]}
+    ),
+    [clause_mnesia_schema:await_load(T) || T <- val({schema, local_tables}), T =/= schema, shared(T)],
     open_latest().
+
+shared(Tab) -> val({Tab, all_nodes}) =/= [node()].
+
+% The nodes whose mnesia this node logged going down before it started (MIM1H10a).
+down_at_start() ->
+    try
+        ets:lookup_element(?GVAR, {loader, down_at_start}, 2)
+    catch
+        error:badarg -> []
+    end.
 
 % The fallback replaces the directory's database: its schema becomes schema.DAT, and the records of each table held
 % here its files (MIM1F): a disc_only_copies table's DAT, a disc_copies table's DCL after an empty DCD as OTP's, which
@@ -302,6 +323,7 @@ replay_logs() ->
     Replayed = [I || {{T, _}, _, _} = I <- committed_items(Entries), storage(T) =/= ram_copies],
     [item_update(I) || I <- Replayed],
     [masters(Tab, Nodes) || {master_nodes, Tab, Nodes} <- Entries],
+    [node_record(E) || E <- Entries],
     dump_replayed(Replayed, val(dump_disc_copies_at_startup)),
     lists:any(fun(F) -> exists(file(F)) end, [?PREVIOUS, ?LATEST]) andalso write_decisions(),
     Decided = [D || {decision, _, _, _, _} = D <- Entries],
@@ -458,10 +480,12 @@ log_chunks(Name, {Records, Cont}) ->
 
 % A commit's updates of disc tables in LATEST.LOG, before they are applied, synchronously for a sync transaction or
 % sync_dirty activity (MIM1H1); a dump follows each dump_log_write_threshold writes. A transaction on a majority table
-% logs under its decision, Tid, as OTP's, even without disc writes (MIM1H2).
+% logs under its decision, Tid, as OTP's, even without disc writes (MIM1H2), and so does a commit over several nodes,
+% #decision{} (MIM1H10a).
 log(Updates, Kind, Decision) ->
     case use_dir() andalso log_terms(Kind, terms(Decision, stored(Updates), [])) of
         true ->
+            certain(Decision),
             Writes = clause_mnesia_monitor:increment(trans_log_writes),
             Writes rem clause_mnesia_monitor:get_env(dump_log_write_threshold) =:= 0 andalso
                 gen_server:cast(mnesia_monitor, {dump_log, write_threshold}),
@@ -470,20 +494,46 @@ log(Updates, Kind, Decision) ->
             ok
     end.
 
-% A schema transaction's commit (MIM1H2): its operations and the records it wrote, under the decision that the
-% committed one follows, as OTP's; nothing when it changed nothing.
-log_schema(Tid, Ops, Updates) ->
-    _ = use_dir() andalso (Ops =/= [] orelse Updates =/= []) andalso log_terms(sync, terms(Tid, stored(Updates), Ops)),
+% A schema transaction's commit (MIM1H2): its operations and the records it wrote, under its decision, #decision{}, that
+% the committed one follows, as OTP's; nothing when it changed nothing on one node. A merge's announcement of the
+% running nodes is not logged (MIM1H10a).
+log_schema(Decision, Ops, Updates) ->
+    Logged = [Op || Op <- Ops, element(2, Op) =/= announce_im_running],
+    Changed = Logged =/= [] orelse Updates =/= [] orelse not alone(Decision),
+    _ =
+        use_dir() andalso Changed andalso log_terms(sync, terms(Decision, stored(Updates), Logged)) andalso
+            certain(Decision),
     ok.
+
+% A logged commit over several nodes: mnesia_recover logs its committed decision and tells the others (MIM1H10a).
+certain(#decision{} = Decision) ->
+    alone(Decision) orelse gen_server:cast(mnesia_recover, {committed, Decision}),
+    true;
+certain(_) ->
+    true.
+
+% A decision of a commit over several nodes after its commit (MIM1H10a), from mnesia_recover.
+log_decision(Decision) ->
+    _ = use_dir() andalso disk_log:alog(latest_log, Decision),
+    ok.
+
+alone(#decision{disc_nodes = Disc, ram_nodes = Ram}) -> Disc -- [node()] =:= [] andalso Ram -- [node()] =:= [].
 
 stored(Updates) -> [{val({Tab, storage_type}), item(Tab, Key, U)} || {Tab, Key, U} <- Updates].
 
 % The log's terms of a commit: a presume_commit commit of disc writes, or a commit under its decision when it wrote or
-% changed anything, then the committed decision.
+% changed anything, then the committed decision. A commit over several nodes also keeps its RAM writes, and
+% mnesia_recover logs its committed decision once the others hear of it (MIM1H10a).
+terms(#decision{tid = Tid} = Decision, Items, Ops) ->
+    case alone(Decision) of
+        true ->
+            terms(Tid, Items, Ops);
+        false ->
+            Commit = (commit(Items, Ops))#commit{ram_copies = [I || {ram_copies, I} <- Items], decision = Decision},
+            [Commit || Items =/= [] orelse Ops =/= []] ++ [decided]
+    end;
 terms(Decision, Items, Ops) ->
-    Disc = [I || {disc_copies, I} <- Items],
-    DiscOnly = [I || {disc_only_copies, I} <- Items],
-    Commit = #commit{node = node(), disc_copies = Disc, disc_only_copies = DiscOnly, schema_ops = Ops},
+    #commit{disc_copies = Disc, disc_only_copies = DiscOnly} = Commit = commit(Items, Ops),
     case Decision of
         presume_commit when Disc =:= [], DiscOnly =:= [] ->
             [];
@@ -495,11 +545,16 @@ terms(Decision, Items, Ops) ->
             [Commit#commit{decision = {decision, Tid, presume_abort, [node()], []}}, {decision, Tid, committed, [], []}]
     end.
 
-% Whether terms were logged.
+commit(Items, Ops) ->
+    Disc = [I || {disc_copies, I} <- Items],
+    DiscOnly = [I || {disc_only_copies, I} <- Items],
+    #commit{node = node(), disc_copies = Disc, disc_only_copies = DiscOnly, schema_ops = Ops}.
+
+% Whether terms were logged; decided stands for a decision mnesia_recover logs later.
 log_terms(_, []) ->
     false;
 log_terms(Kind, Terms) ->
-    [ok = log_term(Kind, Term) || Term <- Terms],
+    [ok = log_term(Kind, Term) || Term <- Terms, Term =/= decided],
     true.
 
 log_term(sync, Term) -> disk_log:log(latest_log, Term);
@@ -512,7 +567,8 @@ set_master_nodes(Tab, Nodes) ->
     use_dir() andalso disk_log:alog(latest_log, {master_nodes, Tab, Nodes}),
     ok.
 
-% Another node's {mnesia_down, Node, Date, Time} on a disc schema, written at once as OTP's (MIM1H4).
+% Another node's {mnesia_down, Node, Date, Time} on a disc schema, written at once as OTP's (MIM1H4), or its
+% {mnesia_up, Node, Date, Time} (MIM1H10a).
 log_node(Entry) ->
     use_dir() andalso (ok =:= disk_log:log(latest_log, Entry)) andalso disk_log:sync(latest_log),
     ok.
@@ -523,19 +579,28 @@ masters(Tab, Nodes) -> ets:insert(mnesia_decision, {master_nodes, {tab, Tab}, No
 %% The decision log (MIM1H1).
 
 % DECISION_TAB.LOG's transaction serial, which new transactions continue (or the last in the log's decisions), after
-% the start's first one; and master nodes. The decisions of other nodes' transactions come with several nodes.
+% the start's first one; master nodes; the nodes this node saw go down (MIM1H10a). The decisions of other nodes'
+% transactions come with several nodes.
 read_decisions() ->
     [decision(D) || {decision_list, List} <- read_log(file(?DECISION_TAB)), D <- List],
     ok.
 
 decision({trans_tid, serial, N}) -> ets:update_counter(mnesia_decision, serial, {3, N});
 decision({master_nodes, Tab, Nodes}) -> masters(Tab, Nodes);
+decision({mnesia_down, _, _, _} = Down) -> node_record(Down);
 decision(_) -> true.
+
+% Another node's mnesia went down or came up again, as the log or the decisions say (MIM1H10a).
+node_record({mnesia_down, Node, Date, Time}) -> ets:insert(mnesia_decision, {mnesia_down, {node, Node}, Date, Time});
+node_record({mnesia_up, Node, _, _}) -> ets:delete(mnesia_decision, {node, Node});
+node_record(_) -> true.
 
 % DECISION_TAB.LOG anew, as OTP writes it after each dump that found entries in the log.
 write_decisions() ->
-    Masters = [{master_nodes, Tab, Nodes} || {master_nodes, {tab, Tab}, Nodes} <- ets:tab2list(mnesia_decision)],
-    Decisions = {decision_list, ets:lookup(mnesia_decision, serial) ++ Masters},
+    Rows = ets:tab2list(mnesia_decision),
+    Masters = [{master_nodes, Tab, Nodes} || {master_nodes, {tab, Tab}, Nodes} <- Rows],
+    Downs = [{mnesia_down, Node, Date, Time} || {mnesia_down, {node, Node}, Date, Time} <- Rows],
+    Decisions = {decision_list, ets:lookup(mnesia_decision, serial) ++ Masters ++ Downs},
     Tmp = file(?DECISION_TMP),
     write_log(Tmp, [header(decision_tab, "1.0"), Decisions]),
     ok = file:rename(Tmp, file(?DECISION_TAB)).

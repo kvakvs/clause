@@ -175,7 +175,7 @@ commit(Kind) ->
         {_, Tid, #tidstore{store = Store, up_stores = []}} ->
             check_snmp_keys(Store),
             Locked = clause_mnesia_locker:lock_nodes(Store),
-            Local = fun() -> committed = request({commit, Tid, Kind}) end,
+            Local = fun(Decision) -> committed = request({commit, Tid, Kind, Decision}) end,
             Participants = clause_mnesia_commit:commit(Tid, Store, Kind, Local),
             [{mnesia_tm, Node} ! {Tid, simple_commit} || Node <- Locked -- Participants],
             outer;
@@ -192,16 +192,18 @@ check_snmp_keys(Store) ->
     ok.
 
 % Each written record's operations of the tables held here, after the tables it clears; those of disc tables logged
-% first (MIM1D), under the transaction's decision when it wrote a majority table (MIM1H2). A transaction that wrote,
-% or changed the schema, completes an activity (MIM1E).
-apply_writes(Tid, Store, Kind) ->
+% first (MIM1D), under the transaction's decision when it wrote a majority table (MIM1H2) or committed with
+% asym_trans (MIM1H10a). A transaction that wrote, or changed the schema, completes an activity (MIM1E).
+apply_writes(Tid, Store, Kind, Decision) ->
     Updates = [U || {Tab, _, _} = U <- clause_mnesia_commit:updates(Store), held(Tab)],
-    safe(fun() -> clause_mnesia_disc:log(Updates, Kind, decision(Tid, Updates)) end),
+    safe(fun() -> clause_mnesia_disc:log(Updates, Kind, decision(Tid, Updates, Decision)) end),
     [safe(fun() -> clause_mnesia_access:update(Tid, Tab, Key, Update) end) || {Tab, Key, Update} <- Updates],
     (Updates =/= [] orelse ets:member(Store, op)) andalso clause_mnesia_subscr:report_activity(Tid),
     ok.
 
-decision(Tid, Updates) ->
+decision(_, _, #decision{} = Decision) ->
+    Decision;
+decision(Tid, Updates, _) ->
     case lists:any(fun majority/1, lists:usort([Tab || {Tab, _, _} <- Updates])) of
         true -> Tid;
         false -> presume_commit
@@ -217,10 +219,13 @@ held(Tab) ->
     end.
 
 % Another node's commit of a transaction (MIM1H8): its records applied as this node's own commits apply them, with
-% the transaction's table events and its completed activity.
-apply_commit(Tid, #commit{ram_copies = Ram, disc_copies = Disc, disc_only_copies = DiscOnly}, Kind) ->
+% the transaction's table events and its completed activity, logged under its asym_trans decision (MIM1H10a); a commit
+% of schema operations alone is logged in mnesia_monitor.
+apply_commit(Tid, #commit{ram_copies = Ram, disc_copies = Disc, disc_only_copies = DiscOnly} = Commit, Kind) ->
     Updates = [U || Item <- Ram ++ Disc ++ DiscOnly, U <- [clause_mnesia_commit:update(Item)], U =/= none],
-    safe(fun() -> clause_mnesia_disc:log(Updates, Kind, decision(Tid, Updates)) end),
+    Decision = decision(Tid, Updates, Commit#commit.decision),
+    (Updates =/= [] orelse Commit#commit.schema_ops =:= []) andalso
+        safe(fun() -> clause_mnesia_disc:log(Updates, Kind, Decision) end),
     [safe(fun() -> clause_mnesia_access:update(Tid, Tab, Key, Update) end) || {Tab, Key, Update} <- Updates],
     Updates =/= [] andalso clause_mnesia_subscr:report_activity(Tid),
     ok.
@@ -344,9 +349,9 @@ handle_call({restart, Tid, Store}, _From, #state{stores = Stores} = State) ->
     [ets:delete(S) || S <- maps:get(Tid, Stores), S =/= Store],
     ets:delete_all_objects(Store),
     {reply, {restarted, Tid}, State#state{stores = Stores#{Tid := [Store]}}};
-handle_call({commit, #tid{pid = Pid} = Tid, Kind}, _From, #state{stores = Stores} = State) ->
+handle_call({commit, #tid{pid = Pid} = Tid, Kind, Decision}, _From, #state{stores = Stores} = State) ->
     [Store | _] = maps:get(Tid, Stores),
-    apply_writes(Tid, Store, Kind),
+    apply_writes(Tid, Store, Kind, Decision),
     clause_mnesia_locker:release_tid(Tid),
     unlink(Pid),
     {reply, committed, forget(Tid, State)};

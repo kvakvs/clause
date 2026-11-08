@@ -336,3 +336,13 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   `mnesia_controller:call/1` and `mnesia_lib:set/2`; runtime: `ets:select` bound keys of boxed terms (bignums,
   remote pids) no longer fail Debug builds, and socket `setopts/2` keeping the framing keeps a partly read packet
   (bursts of distribution messages stalled the connection, `dist_signals` covers it); `mnesia_replicas` golden identical to OTP both ways — `5e34dc58`
+- **MIM1H10a** mnesia disc nodes: `create_schema/1` over nodes through OTP's fallback receivers (OTP-named
+  `mnesia_bup:fallback_receiver/2`, global schema lock, start/swap/stop, receivers exit `stopped`); disc nodes connect
+  to the schema's nodes at start, merges send only differing definitions (announce-only commits confirmed with
+  `acc_pre_commit` `false`); shared replicas wait after the log replay and load as decided after the merge
+  (`{active_remote, Node}`, `initial` when the other disc holders were logged down, `ram_only`, `local_only`, or
+  waiting for `i_have_tab`), read `nowhere` while loading; `disc_load_intents` answered with loaded and intended
+  tables; disc replica transfers (receiver writes its DCD, dets chunks between `disc_only_copies` replicas, chunks to
+  the process asking for more); commits over disc nodes logged under their `#decision{}` with `im_certain`;
+  `mnesia_up`/`mnesia_down` records in the log and `DECISION_TAB.LOG`; index changes refused while a disc node holding
+  the table is down; `mnesia_disc_nodes` golden identical to OTP both ways — `HASH`

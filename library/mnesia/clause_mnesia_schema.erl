@@ -21,6 +21,9 @@
     add_writer/2,
     replica_table/1,
     replica_loaded/3,
+    await_load/1,
+    load_local/2,
+    is_loaded/1,
     storage/1,
     storage/2,
     properties/1,
@@ -537,7 +540,8 @@ insert(#cstruct{name = Tab} = Cs, Reason) ->
 % A replica loaded on this node: its properties, its place among the local tables and its indexes.
 loaded(#cstruct{name = Tab} = Cs, Storage, Reason) ->
     [set({Tab, Item}, Value) || {Item, Value} <- loaded_properties(Cs, Storage, Reason)],
-    set({schema, local_tables}, [Tab | val({schema, local_tables})]),
+    Local = val({schema, local_tables}),
+    lists:member(Tab, Local) orelse set({schema, local_tables}, [Tab | Local]),
     [clause_mnesia_index:add(Tab, P) || P <- Cs#cstruct.index].
 
 % read_table_property/2's rows: each user property under its key (MIM1C).
@@ -550,16 +554,22 @@ make_storage(#cstruct{name = schema}, _, _) ->
     ok;
 make_storage(#cstruct{name = Tab} = Cs, disc_only_copies, _) ->
     set({Tab, storage_type}, disc_only_copies),
-    clause_mnesia_disc:open_dat(Cs);
+    % A dets table a transfer filled is kept (MIM1H10a).
+    dets:info(Tab, type) =/= undefined orelse clause_mnesia_disc:open_dat(Cs);
 make_storage(#cstruct{name = Tab, type = Type, storage_properties = Properties}, Storage, Reason) ->
     set({Tab, storage_type}, Storage),
-    % A table a transfer filled is kept (MIM1H9).
-    ets:info(Tab, owner) =:= self() orelse
-        ets:new(Tab, [Type, public, named_table, {keypos, 2} | proplists:get_value(ets, Properties, [])]),
-    case Reason of
-        local_only -> clause_mnesia_disc:load(Tab, Storage);
-        _ -> clause_mnesia_disc:created(Tab, Storage)
+    % A table a transfer filled is kept (MIM1H9), with the files its receiver wrote (MIM1H10a).
+    case ets:info(Tab, owner) =:= self() of
+        true ->
+            ok;
+        false ->
+            ets:new(Tab, [Type, public, named_table, {keypos, 2} | proplists:get_value(ets, Properties, [])]),
+            files(Tab, Storage, Reason)
     end.
+
+% A replica's records from its files when it loads from this node's disc (MIM1H10a), else its new files.
+files(Tab, Storage, Reason) when Reason =:= local_only; Reason =:= initial -> clause_mnesia_disc:load(Tab, Storage);
+files(Tab, Storage, _) -> clause_mnesia_disc:created(Tab, Storage).
 
 % A node's storage of a table: ram_copies, disc_copies, disc_only_copies or unknown.
 storage(Cs) ->
@@ -702,12 +712,43 @@ add_writer(Tab, Node) ->
 % The ets table of a replica that a transfer fills, owned by mnesia_monitor: made, or emptied when an earlier transfer
 % left it without a commit (MIM1H9).
 replica_table(Tab) ->
-    #cstruct{type = Type, storage_properties = Properties} = val({Tab, cstruct}),
-    case ets:info(Tab, owner) =:= self() of
-        true -> ets:delete_all_objects(Tab);
-        false -> ets:new(Tab, [Type, public, named_table, {keypos, 2} | proplists:get_value(ets, Properties, [])])
+    #cstruct{type = Type, storage_properties = Properties} = Cs = val({Tab, cstruct}),
+    case {storage(Cs), ets:info(Tab, owner) =:= self()} of
+        {disc_only_copies, _} ->
+            % A disc_only_copies replica is its dets file, emptied (MIM1H10a).
+            dets:info(Tab, type) =/= undefined orelse clause_mnesia_disc:open_dat(Cs),
+            ok = dets:delete_all_objects(Tab);
+        {_, true} ->
+            ets:delete_all_objects(Tab);
+        {_, false} ->
+            ets:new(Tab, [Type, public, named_table, {keypos, 2} | proplists:get_value(ets, Properties, [])])
     end,
     ok.
+
+% A replica of a disc schema's table that another node may hold newer (MIM1H10a): after the start's log replay it is
+% stored nowhere here until a load decides where its records come from; it keeps its storage type and stays a local
+% table, as OTP's.
+await_load(Tab) ->
+    Cs = val({Tab, cstruct}),
+    clause_mnesia_index:drop_all(Tab),
+    close_storage(Tab, storage(Cs)),
+    ets:delete(?GVAR, {Tab, index_info}),
+    Absent = [P || {Item, _} = P <- absent_properties(), Item =/= storage_type],
+    [set({Tab, Item}, Value) || {Item, Value} <- Absent ++ writer_properties(Cs, [])].
+
+% A replica that loads from this node's files or starts empty, as a load decided (MIM1H10a): initial, local_only or
+% ram_only.
+load_local(Tab, Reason) ->
+    Cs = val({Tab, cstruct}),
+    Storage = storage(Cs),
+    make_storage(Cs, Storage, Reason),
+    loaded(Cs, Storage, Reason),
+    clause_mnesia_snmp:sync(Cs, Storage),
+    ok.
+
+% Whether this node's replica of a table it holds has loaded (MIM1H10a).
+is_loaded(Tab) ->
+    val({Tab, load_node}) =/= unknown.
 
 % A replica loaded from Node at start (MIM1H9): stored and active here, with the node and the reason of its load.
 replica_loaded(Tab, Node, Reason) ->
@@ -743,17 +784,21 @@ del_active(Tab, Node) ->
     end.
 
 set_active(Tab, Active) ->
+    Cs = val({Tab, cstruct}),
     set({Tab, active_replicas}, Active),
-    set({Tab, where_to_read}, read_node(Active)),
-    [set({Tab, Item}, Value) || {Item, Value} <- writer_properties(val({Tab, cstruct}), Active)],
+    set({Tab, where_to_read}, read_node(Cs, Active)),
+    [set({Tab, Item}, Value) || {Item, Value} <- writer_properties(Cs, Active)],
     ok.
 
-read_node([]) ->
+% This node when it holds an active replica, else the first active one; nowhere while this node's own replica has not
+% loaded, as OTP's (MIM1H10a), even once its sender made it active.
+read_node(_, []) ->
     nowhere;
-read_node(Active) ->
-    case lists:member(node(), Active) of
-        true -> node();
-        false -> hd(Active)
+read_node(#cstruct{name = Tab} = Cs, Active) ->
+    case {storage(Cs) =/= unknown andalso ets:lookup(?GVAR, {Tab, load_node}), lists:member(node(), Active)} of
+        {[{_, unknown}], _} -> nowhere;
+        {_, true} -> node();
+        {_, false} -> hd(Active)
     end.
 
 % A table's {Item, Value} properties as schema/1 prints them: its mnesia_gvar rows with size, memory and master

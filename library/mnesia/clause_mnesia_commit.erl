@@ -25,14 +25,15 @@ update({{Tab, Key}, Pattern, clear_table}) -> {Tab, Key, {clear_table, Pattern}}
 update({{Tab, Key}, {RecordName, Incr}, update_counter}) -> {Tab, Key, {update_counter, RecordName, Incr}};
 update(_) -> none.
 
-% An outer transaction's commit, from its process: Local applies this node's part. The other nodes that took part, or
-% exit({aborted, Reason}) when one refused or went.
+% An outer transaction's commit, from its process: Local(Decision) applies this node's part, logged under the
+% transaction's decision on disc (presume_commit, or the #decision{} of an asym_trans commit, MIM1H10a). The other
+% nodes that took part, or exit({aborted, Reason}) when one refused or went.
 commit(Tid, Store, Kind, Local) ->
     Updates = updates(Store),
     Commits = records(Updates),
     case [C || #commit{node = N} = C <- Commits, N =/= node()] of
         [] ->
-            Local(),
+            Local(presume_commit),
             [];
         Remote ->
             Nodes = [N || #commit{node = N} <- Commits],
@@ -43,10 +44,10 @@ commit(Tid, Store, Kind, Local) ->
             [N || #commit{node = N} <- Remote]
     end.
 
-% A schema transaction's operations committed on this node and on the other nodes of Nodes (asym_trans); Local
-% applies them here.
-schema(_, [_], _, Local) ->
-    Local();
+% A schema transaction's operations committed on this node and on the other nodes of Nodes (asym_trans); Local applies
+% them here under the transaction's decision, which names this node alone when it commits alone (MIM1H10a).
+schema(Tid, [_], _, Local) ->
+    Local(#decision{tid = Tid, outcome = presume_abort, disc_nodes = [node()], ram_nodes = []});
 schema(Tid, Nodes, Ops, Local) ->
     Remote = [#commit{node = N, schema_ops = Ops} || N <- Nodes, N =/= node()],
     asym(Tid, Remote, Nodes, Local, lists:member({op, sync_trans}, Ops)).
@@ -119,7 +120,7 @@ sym(Tid, Protocol, Remote, Nodes, Local) ->
         {ok, _} ->
             [{mnesia_tm, N} ! {Tid, do_commit} || {N, _} <- Monitors],
             clause_mnesia_recover:note_decision(Tid, committed),
-            Local(),
+            Local(presume_commit),
             Protocol =:= sync_sym_trans andalso answers(Tid, committed, Monitors),
             end_watch(Monitors);
         {error, Reason} ->
@@ -132,14 +133,13 @@ sym(Tid, Protocol, Remote, Nodes, Local) ->
 % applying schema operations confirm them. A participant that has not voted hears the abort through its transaction
 % manager.
 asym(Tid, Remote, Nodes, Local, Sync) ->
-    Schema = [Op || #commit{schema_ops = Ops} <- Remote, Op <- Ops] =/= [],
     {Disc, Ram} = split_nodes(Nodes),
     Decision = #decision{tid = Tid, outcome = presume_abort, disc_nodes = Disc, ram_nodes = Ram},
     Monitors = ask(Tid, asym_trans, [C#commit{decision = Decision} || C <- Remote], Nodes),
     Sync =:= true andalso sync_trans(Monitors),
     Result =
         case answers(Tid, vote_yes, Monitors) of
-            {ok, Pids} -> pre_commit(Tid, Monitors, Pids, Local, Schema);
+            {ok, Pids} -> pre_commit(Tid, Monitors, Pids, fun() -> Local(Decision) end);
             {error, _} = Error -> Error
         end,
     case Result of
@@ -152,15 +152,18 @@ asym(Tid, Remote, Nodes, Local, Sync) ->
             exit({aborted, Reason})
     end.
 
-pre_commit(Tid, Monitors, Pids, Local, Schema) ->
+% A participant accepting the pre-commit says whether it will confirm the schema operations it applies, which a
+% merge's announcement alone does not need (MIM1H10a).
+pre_commit(Tid, Monitors, Pids, Local) ->
     clause_mnesia_recover:note_decision(Tid, unclear),
     [Pid ! {Tid, pre_commit} || Pid <- Pids],
-    case answers(Tid, acc_pre_commit, Monitors) of
-        {ok, _} ->
+    case replies(Tid, acc_pre_commit, Monitors, []) of
+        {ok, Replies} ->
             [Pid ! {Tid, committed} || Pid <- Pids],
             clause_mnesia_recover:note_decision(Tid, committed),
             Local(),
-            Schema andalso answers(Tid, schema_commit, Monitors),
+            Confirming = [M || {M, {acc_pre_commit, _, _, true}} <- lists:zip(Monitors, Replies)],
+            answers(Tid, schema_commit, Confirming),
             ok;
         {error, Reason} = Error ->
             [Pid ! {Tid, {do_abort, Reason}} || Pid <- Pids],
@@ -187,14 +190,18 @@ split_nodes(Nodes) ->
 % manager answers itself. A refusal or a participant gone is an error; a gone participant's monitor message stays for
 % a later phase.
 answers(Tid, Kind, Monitors) ->
-    answers(Tid, Kind, Monitors, []).
+    case replies(Tid, Kind, Monitors, []) of
+        {ok, Replies} -> {ok, [answerer(Node, Reply) || {{Node, _}, Reply} <- lists:zip(Monitors, Replies)]};
+        Error -> Error
+    end.
 
-answers(_, _, [], Answerers) ->
-    {ok, lists:reverse(Answerers)};
-answers(Tid, Kind, [{Node, Ref} | Rest], Answerers) ->
+% Each participant's reply Kind, in the participants' order.
+replies(_, _, [], Replies) ->
+    {ok, lists:reverse(Replies)};
+replies(Tid, Kind, [{Node, Ref} | Rest], Replies) ->
     receive
         {mnesia_tm, Node, Reply} when element(1, Reply) =:= Kind, element(2, Reply) =:= Tid ->
-            answers(Tid, Kind, Rest, [answerer(Node, Reply) | Answerers]);
+            replies(Tid, Kind, Rest, [Reply | Replies]);
         {mnesia_tm, _, {vote_no, Tid, Reason}} ->
             {error, refused(Reason)};
         {'DOWN', Ref, process, _, _} ->

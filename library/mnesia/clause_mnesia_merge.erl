@@ -43,12 +43,13 @@ merge_loop(Merged) ->
     end.
 
 % The schema transaction: the schema locked on this node, the running ones and those to merge; the first node to merge
-% gives its definitions. The other nodes' locks go when it ends: participants release theirs.
+% gives its definitions. The other nodes' locks go when it ends: participants release theirs. The nodes are read once
+% this node's lock is held, so that a merge the other node committed meanwhile is not made again (MIM1H10a).
 merge() ->
     {_, Tid, _} = get(mnesia_activity_state),
+    mnesia:lock({table, schema}, write),
     Running = val({current, db_nodes}),
     ToMerge = val(recover_nodes) -- Running,
-    mnesia:lock({table, schema}, write),
     Locked = lock_remote(Tid, lists:delete(node(), Running ++ ToMerge), []),
     try merged(Tid, Running, ToMerge) of
         not_merged = Result ->
@@ -83,7 +84,9 @@ merged(Tid, Running, [Node | _]) ->
             _ = clause_mnesia_recover:connect_nodes(RemoteRunning),
             Ops = ops(Node, Cstructs, Running, RemoteRunning),
             {ok, Changes} = clause_mnesia_ops:changes(Ops),
-            Local = fun() -> ok = gen_server:call(mnesia_monitor, {schema, Changes, Ops, Tid}, infinity) end,
+            Local = fun(Decision) ->
+                ok = gen_server:call(mnesia_monitor, {schema, Changes, Ops, Tid, Decision}, infinity)
+            end,
             Nodes = [node() | lists:delete(node(), Running) ++ RemoteRunning],
             ok = clause_mnesia_commit:schema(Tid, Nodes, Ops, Local),
             {merged, Running, RemoteRunning};
@@ -91,13 +94,13 @@ merged(Tid, Running, [Node | _]) ->
             mnesia:abort({merge_schema_failed, Node, Other})
     end.
 
-% OTP's operations of a merge: the other side announced running, then each of its definitions merged with this
-% node's, then the definitions only this node has.
+% OTP's operations of a merge: the other side announced running, then each of its definitions that differs from this
+% node's merged with it (MIM1H10a), then the definitions only this node has.
 ops(Node, Cstructs, Running, RemoteRunning) ->
     Remote = lists:keyfind(schema, #cstruct.name, Cstructs),
     Announce = {op, announce_im_running, node(), cs2list(Remote), Running, RemoteRunning},
     Local = [val({Tab, cstruct}) || Tab <- val({schema, tables}), not lists:keymember(Tab, #cstruct.name, Cstructs)],
-    Merged = [merged_cstruct(Cs, Node) || Cs <- Cstructs] ++ Local,
+    Merged = [merged_cstruct(Cs, Node) || Cs <- Cstructs, not same(Cs)] ++ Local,
     [Announce | [{op, merge_schema, cs2list(Cs)} || Cs <- Merged]].
 
 % The schema's definition has the nodes of both and a new major version of this node's; another table known on both
@@ -116,6 +119,10 @@ merged_cstruct(#cstruct{name = Tab, cookie = Cookie} = Remote, Node) ->
                 Local -> throw(bad_cookie(Tab, Local, Node, Remote))
             end
     end.
+
+% Whether this node has the same definition (MIM1H10a).
+same(#cstruct{name = Tab} = Cs) ->
+    ets:member(schema, Tab) andalso val({Tab, cstruct}) =:= Cs.
 
 % Cs with the nodes of both definitions, the other's first.
 nodes_of(Cs, Other) ->

@@ -229,12 +229,13 @@ delete_table(Tab) ->
     ensure_writable(Tab),
     {delete, Tab}.
 
-% add_table_index/2 and del_table_index/2: a position after the checks of the table and the index.
+% add_table_index/2 and del_table_index/2: a position after the checks of the table and the index; its replicas on
+% disc nodes are loaded (MIM1H10a).
 index(Op, Tab, Attribute) ->
     readable(Tab),
     Pos = clause_mnesia_schema:attribute_position(Attribute, val({Tab, attributes})),
     Cs = next_version(val({Tab, cstruct})),
-    active(Tab),
+    ensure_active(Cs),
     case Op of
         add_index ->
             lists:keymember(index_position(Pos), 1, Cs#cstruct.index) andalso abort({already_exists, Tab, Pos}),
@@ -248,9 +249,6 @@ index(Op, Tab, Attribute) ->
 % A table read lock's check: the table has a replica to read.
 readable(Tab) ->
     val({Tab, where_to_read}) =:= nowhere andalso abort({no_exists, Tab}).
-
-active(Tab) ->
-    val({Tab, active_replicas}) =:= [] andalso abort({no_exists, Tab}).
 
 index_position({P, _}) -> P;
 index_position(P) -> P.

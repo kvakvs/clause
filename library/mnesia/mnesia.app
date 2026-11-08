@@ -31,6 +31,7 @@
         clause_mnesia_written,
         mnesia,
         mnesia_backup,
+        mnesia_bup,
         mnesia_controller,
         mnesia_frag,
         mnesia_frag_hash,

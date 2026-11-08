@@ -317,7 +317,7 @@ gets the copy, or a loader process of b at start.
 | `{send_table, Tab, Receiver, Storage, Reason}` | b's receiver, to a's `mnesia_controller` by `gen_server:cast` | a's controller starts a sender; `Reason` is `{add_table_copy, Tid}` for a new copy and `load` at start |
 | `{Sender, {first, Size}}` | the sender, to the receiver | `Size` is the table's size; the receiver makes its replica's table and answers `{Receiver, more}` |
 | `mnesia_controller:call({update_where_to_write, [add, Tab, b], Sender})` | the sender, to b by `rpc`, then to its own controller | the table is written on b from then on (`true`) |
-| `{Sender, {more, Records}}`, or `{Sender, {more_z, zlib:compress(term_to_binary(Records))}}` with `send_compressed` above 0 | the sender, to the receiver | all chunks follow at once, each of about `max_transfer_size` bytes of records, then `{Sender, no_more}`; the receiver acknowledges with `more`, which the sender does not wait for |
+| `{Sender, {more, Records}}`, or `{Sender, {more_z, zlib:compress(term_to_binary(Records))}}` with `send_compressed` above 0 | the sender, to the process that answered `more` | all chunks follow at once, each of about `max_transfer_size` bytes of records, then `{Sender, no_more}`; the receiver acknowledges each with `more`, which the sender of a RAM replica does not wait for |
 | `{block_table, [Tab], Sender}`, `{add_active_replica, [Tab, b, Storage, AccessMode], Sender}` | the sender, to b's `mnesia_controller` by `gen_server:call`, the second also to its own | `ok`, `true`: b's replica is active on both nodes |
 | `{Sender, {no_more, nobin}}` | the sender, to the receiver | the receiver answers `{Pid, no_more}`, `Pid` any process of its loader |
 
@@ -336,3 +336,86 @@ gets the copy, or a loader process of b at start.
 - **At start:** a node starting with `extra_db_nodes` loads each replica that a running node holds too from it, with
   `load_reason` `{active_remote, Node}`; a replica that no running node holds comes back empty, `load_reason`
   `local_only`.
+
+## Disc nodes (MIM1H10a)
+
+How nodes whose schemas are on disc are created, start, load their tables and log their commits, observed with two
+nodes a and b, each with its own directory.
+
+### Creating the schema
+
+`create_schema([A, B])` on a asks each node `mnesia_schema:remote_read_schema/0` ([remote
+queries](#remote-queries-mim1h3)), then a process of a installs the same fallback on every node:
+
+| Message | From, to | Answer or effect |
+| --- | --- | --- |
+| `global:set_lock({{mnesia_table_lock, schema}, Master}, Nodes)` | the master, on all the nodes | held until the end, then `global:del_lock/2` |
+| `spawn_link(Node, mnesia_bup, fallback_receiver, [Master, Args])` | the master, on each node, a included | the receiver registers as `mnesia_fallback`; `Args` is OTP's `#fallback_args{}`: `{fallback_args, Opaque, global, mnesia_backup, true, undefined, undefined, undefined, [], [], keep_tables}`, `Opaque` a file name in the master's directory |
+| `{Master, {start, Header, SchemaItems}}` | the master, to each receiver | the receiver writes the master's backup header and `{schema, schema, CreateList}` items to a temporary file of its directory and answers `{Receiver, ok}` |
+| `{Master, swap}` | the master, to each receiver | the file becomes `FALLBACK.BUP`; `{Receiver, ok}` |
+| `{Master, stop}` | the master, to each receiver | the receiver exits with reason `stopped`; the master, linked and trapping exits, waits for each exit. A receiver that exits otherwise while the master waits fails the installation (`{error, {"Cannot install fallback", {'EXIT', Pid, Reason}}}`) |
+
+### Starting
+
+- **Connecting:** a node starting on a disc schema connects to the schema's other nodes and its `extra_db_nodes` as
+  a [merge](#schema-merge-mim1h5) does. A merge sends `{op, merge_schema, List}` only for the definitions that differ
+  from the merging node's (or that it lacks), so two nodes with the same schema commit `announce_im_running` alone. A
+  participant whose commit holds no other operation answers `{acc_pre_commit, Tid, Participant, false}` and sends no
+  `schema_commit`; with other operations it answers `true` and confirms them.
+- **The late loader:** after the merge, the starting node takes the write lock `{'______GLOBAL_____',
+  mnesia_late_disc_load}` on the running nodes and calls `disc_load_intents` on their controllers. A node answers
+  `{ok, Node, Tabs}`, `Tabs` its loaded tables and those it will load from its own disc; a table it waits for is not
+  among them.
+- **Where each replica loads from:**
+
+  | Replica | `load_reason` |
+  | --- | --- |
+  | active on a running node (its `adopt_orphans` or the sender's `add_active_replica` said so) | `{active_remote, Node}`, transferred from it |
+  | on this node only | `local_only` |
+  | RAM, the table on no other node's disc | `ram_only`: empty |
+  | on disc, no other node holding it on disc, or this node logged each of those down before it started | `initial`: from its files |
+  | RAM with a disc copy elsewhere, or on disc while another disc holder may have seen it last | waits |
+
+  A replica that waits keeps its `storage_type` and stays among `local_tables`; it is read `nowhere`, written on no
+  node, its `size` is `undefined`, and `wait_for_tables/2` times out on it. A node that loaded a table on its own
+  casts `{i_have_tab, Tab, Node}` to the other controllers; a node waiting for the table then loads it from Node. A
+  running node whose own replica waits when the other node comes up loads it from its disc as `{adopt_orphan,
+  Node}` once no other node will.
+- **While a replica loads,** it is read `nowhere` even after the other node's replica is active, until its own load
+  ends; `wait_for_tables/2` waits for it.
+
+### Disc replicas over nodes
+
+- A `disc_copies` replica is sent as records, as a RAM one. The receiver writes them to a new `DCD` file of its
+  directory, with its own header.
+- Between two `disc_only_copies` replicas the records go as dets chunks: `{Sender, {first, Size, {ErtsVersion,
+  Format}}}`, `Format` the table's `bchunk_format`, then `{Sender, {more, Chunks}}` with the chunks of `dets:bchunk/2`
+  (its format first) and `{Sender, no_more}`. Each chunk goes to the process that answered `more`; the receiver
+  answers `more` after each chunk and fills its dets file with `dets:init_table/3` (`{format, bchunk}`). OTP's
+  receiver also takes records after `{Sender, {first, Size}}`.
+
+### Logs on disc nodes
+
+- **Commits over nodes:** an `asym_trans` commit is logged on each disc node as its `#commit{}` under the
+  transaction's `#decision{tid = Tid, outcome = presume_abort, disc_nodes = Disc, ram_nodes = Ram}`, with this node's
+  RAM writes as well as its disc writes, then `{decision, Tid, committed, Unsure, []}`, `Unsure` the other disc nodes
+  not yet certain. Each node casts `{im_certain, Node, {decision, Tid, committed, Unsure, []}}` to the other disc
+  nodes' `mnesia_recover` once it committed; a node hearing it logs the decision again without that node, so that
+  each node logs two decisions per commit of two nodes. A `sym_trans` commit is logged as on one node
+  (`presume_commit`), and a commit of RAM tables only is not logged.
+- **Schema transactions** commit with the same records; a merge's commit holds only its `merge_schema` operations,
+  and a merge that announces the running nodes alone logs only its decisions. A schema transaction while the other
+  node is down names this node alone (`[A]`) and logs one decision.
+- **Nodes up and down:** `{mnesia_up, Node, Date, Time}` is logged when another node's mnesia comes up with this
+  one (its `adopt_orphans`), `{mnesia_down, Node, Date, Time}` when it goes. A dump keeps the down records that no
+  later up record removed in `DECISION_TAB.LOG`'s `decision_list`, as `{mnesia_down, Node, Date, Time}`; the next
+  start reads them back to decide its loads, and `mnesia_decision` keeps them as `{mnesia_down, {node, Node}, Date,
+  Time}`.
+
+### Schema changes with a disc node down
+
+| Change | With b down |
+| --- | --- |
+| `create_table/2` with a copy on b | `{aborted, {not_active, Tab, b}}` |
+| `create_table/2` of a RAM table on b only | commits; b gets it at its next start ([merge](#schema-merge-mim1h5)) |
+| `delete_table/1`, `add_table_index/2`, `del_table_index/2` of a table with a replica on b | `{aborted, {not_active, "All replicas on diskfull nodes are not active yet", Tab, [b]}}` |

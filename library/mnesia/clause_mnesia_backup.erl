@@ -5,6 +5,7 @@
 -module(clause_mnesia_backup).
 -export([backup/2, backup_checkpoint/3, traverse_backup/6, iterate/4, read_schema/2, lookup_schema/2]).
 -export([install_fallback/2, uninstall_fallback/1, backup_module/1, restore_args/2, restore_op/2, restore_tables/3]).
+-export([fallback_receiver/2, install_on_nodes/2]).
 
 -include("clause_mnesia.hrl").
 
@@ -448,6 +449,92 @@ start_copy(#fallback_args{mnesia_dir = Dir, bup = Bup, tmp = Tmp} = FA, Header, 
     {ok, Backup2} = mnesia_backup:write(Backup, [Header]),
     {ok, Backup3} = mnesia_backup:write(Backup2, Schema),
     {copying, FA, Backup3}.
+
+%% Fallbacks over nodes (MIM1H10a).
+
+% create_schema/1 over several nodes: under OTP's global lock of the schema, a fallback receiver on each node, OTP's
+% or Clause's, gets the backup's header and schema items, then swaps them in as its FALLBACK.BUP; ok or {error, Reason}.
+install_on_nodes(Nodes, [Header | Schema]) ->
+    in_process(fun() ->
+        process_flag(trap_exit, true),
+        Lock = {{mnesia_table_lock, schema}, self()},
+        true = global:set_lock(Lock, Nodes),
+        try
+            % OTP's #fallback_args{}: the opaque backup name, scope, module, default dir and table choices.
+            Opaque = filename:join(clause_mnesia_monitor:get_env(dir), lists:concat([node(), erlang:unique_integer()])),
+            Args =
+                {fallback_args, Opaque, global, mnesia_backup, true, undefined, undefined, undefined, [], [],
+                    keep_tables},
+            % The literal fun links this node's receiver into programs, which other nodes spawn by name.
+            _ = fun mnesia_bup:fallback_receiver/2,
+            Receivers = [spawn_link(N, mnesia_bup, fallback_receiver, [self(), Args]) || N <- Nodes],
+            Result = steps(Receivers, [{start, Header, Schema}, swap]),
+            [R ! {self(), stop} || R <- Receivers],
+            [ended(R) || R <- Receivers],
+            Result
+        after
+            global:del_lock(Lock, Nodes)
+        end
+    end).
+
+% Each message to every receiver, which answers it ok before the next one goes.
+steps(_, []) ->
+    ok;
+steps(Receivers, [Message | Rest]) ->
+    [R ! {self(), Message} || R <- Receivers],
+    case [A || R <- Receivers, A <- [answer(R)], A =/= ok] of
+        [] -> steps(Receivers, Rest);
+        [Error | _] -> Error
+    end.
+
+answer(Receiver) ->
+    receive
+        {Receiver, Reply} -> Reply;
+        {'EXIT', Receiver, Reason} -> {error, {'EXIT', Reason}}
+    end.
+
+ended(Receiver) ->
+    receive
+        {'EXIT', Receiver, _} -> ok
+    end.
+
+% A fallback receiver that another node spawns here with OTP's #fallback_args{}: registered as mnesia_fallback, it
+% writes the header and schema items it gets to FALLBACK.TMP in mnesia's directory, renames it FALLBACK.BUP at swap
+% and answers each step {self(), ok}, or {self(), {error, Reason}}. Its master, linked to it, ends it with stop: it
+% exits stopped, which the master waits for, as OTP's receiver does.
+fallback_receiver(Master, _Args) ->
+    _ = application:load(mnesia),
+    receive
+        {Master, {start, Header, Schema}} ->
+            try start_copy(fallback_dir(#fallback_args{}), Header, Schema) of
+                {copying, FA, Backup} ->
+                    Master ! {self(), ok},
+                    swapped(Master, FA, Backup)
+            catch
+                throw:Error ->
+                    Master ! {self(), Error},
+                    receive
+                        {Master, stop} -> ok
+                    end
+            end;
+        {Master, stop} ->
+            ok
+    end,
+    exit(stopped).
+
+swapped(Master, #fallback_args{bup = Bup}, Backup) ->
+    receive
+        {Master, swap} ->
+            {ok, File} = mnesia_backup:commit_write(Backup),
+            ok = file:rename(File, Bup),
+            Master ! {self(), ok},
+            receive
+                {Master, stop} -> ok
+            end;
+        {Master, stop} ->
+            _ = mnesia_backup:abort_write(Backup),
+            ok
+    end.
 
 % FALLBACK.BUP and FALLBACK.TMP in mnesia's directory, or in the directory a local fallback names.
 fallback_dir(FA) ->

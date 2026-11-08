@@ -210,6 +210,10 @@ behavior (`docs/differences.md` lists gaps).
   a participant process in `clause_mnesia_participant`), outcomes kept in `mnesia_recover` for `what_happened`;
   MIM1H9: OTP's table transfer in `clause_mnesia_loader` (controller-started senders, receivers filling a
   monitor-owned ets before the copy commits or at start after a merge), move = add + sync_trans + del;
+  MIM1H10a: disc nodes: create_schema over nodes via OTP's fallback receivers (clause_mnesia_backup, mnesia_bup),
+  shared replicas wait after the start's log replay and the controller loads each as decided after the merge
+  (active elsewhere, own disc by down records, ram_only, or i_have_tab later); asym commits logged under #decision
+  with im_certain bookkeeping in clause_mnesia_recover;
   SNMP row index per table kept by updates).
   Distribution and tracing
   answer as a non-alive node.

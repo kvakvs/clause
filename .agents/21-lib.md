@@ -245,13 +245,21 @@ dependencies, non-test sources.
     elsewhere are not applied (every pending replica loads at once); OTP's table blocks during a transfer are answered
     without blocking; disc replicas (`{no_more, Bin}` of a DCD file) come with H10; Clause's `mnesia_late_loader`
     stays idle.
-  - **MIM1H10 Disc nodes:** `create_schema/1` over several nodes (both ways), disc schemas joined at start,
-    `delete_schema/1` of a remote node, schema changes logged and dumped on each disc node, `master_nodes`
-    (`set_master_nodes/1,2` deciding loads), `majority` checks (`{no_majority, Tab}`), `move_table_copy/3` between
-    disc nodes, partitions: `inconsistent_database` with `running_partitioned_network` and
-    `starting_partitioned_network`.
-    - Golden `mnesia_disc_nodes`: two disc nodes, one OTP and one Clause, created together, restarted in turn,
-      partitioned and rejoined.
+  - **MIM1H10 Disc nodes** (split 2026-11-08 into a, b, c):
+    - **MIM1H10a done** (`21-finished.md`): `create_schema/1` over nodes (OTP's fallback receivers both ways), disc
+      nodes started together and in turn (connecting to the schema's nodes, merges of differing definitions only,
+      loads decided by down records: `initial`, `ram_only`, `local_only`, waiting until `i_have_tab`), disc replica
+      transfers (DCD written, dets chunks), commits over disc nodes logged under their decision with `im_certain`,
+      up/down records in the log and `DECISION_TAB.LOG`, index changes refused with a disc node down. Left for later:
+      OTP's `{adopt_orphan, Node}` load of a waiting replica when the other node comes up without it; `{decisions,
+      ...}` of other nodes still not merged.
+    - **MIM1H10b Master nodes, majority and copies between disc nodes:** `set_master_nodes/1,2` deciding loads,
+      `force_load_table/1`, `majority` checks over nodes (`{no_majority, Tab}`), `move_table_copy/3` and
+      `add_table_copy/3` between disc nodes, `change_table_copy_type/3` on another node, `del_table_copy(schema, Node)`
+      of a disc node, `delete_schema/1` of a stopped remote node. Golden `mnesia_disc_masters`.
+    - **MIM1H10c Partitions of disc nodes:** `inconsistent_database` with `running_partitioned_network` and
+      `starting_partitioned_network` between disc nodes, master nodes resolving a partition at start, adopted orphans.
+      Golden `mnesia_partitions`.
   - **MIM1H11 Checkpoints, backups and fallbacks over nodes:** retainers on other nodes (`max`/`min` redundancy,
     `allow_remote`, `most_local_node`, `tm_prepare`, `collect_pending` and `{activate, Pending}`, retainers moving
     with `add_table_copy`), backups reading remote retainers (`tab_copier`/`tab_receiver`), global fallbacks
@@ -321,7 +329,7 @@ dependencies, non-test sources.
 
 ### Order
 
-1. MIM9's record wildcard fix, MIM6, MIM7 (MIM1A-MIM1G, MIM1H1-H9 done 2026-11-02/08; MIM1H10-H12 optional, in order)
+1. MIM9's record wildcard fix, MIM6, MIM7 (MIM1A-MIM1G, MIM1H1-H9, MIM1H10a done 2026-11-02/08; MIM1H10b-H12 optional, in order)
    (small), MIM3, MIM4, MIM2, MIM5; MIM8 after a user decision.
 2. LIB81D3c, LIB81D4b and LIB81E on request.
 3. LIB82, LIB83 last (test support).

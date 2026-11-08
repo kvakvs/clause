@@ -48,8 +48,8 @@ schema_change(Operation) ->
 % mnesia commit the operations too (MIM1H8).
 applied(Changes, Ops) ->
     {_, Tid, #tidstore{store = Store}} = get(mnesia_activity_state),
-    Local = fun() ->
-        case gen_server:call(mnesia_monitor, {schema, Changes, Ops, Tid}, infinity) of
+    Local = fun(Decision) ->
+        case gen_server:call(mnesia_monitor, {schema, Changes, Ops, Tid, Decision}, infinity) of
             ok -> ok;
             {aborted, Reason} -> mnesia:abort(Reason)
         end
@@ -279,14 +279,14 @@ dump_timer() ->
 % schema.DAT, the transaction's operations and the records it wrote reach the log as OTP's commit, and it counts two
 % log writes, as OTP's (MIM1D, MIM1H2). Around the operations OTP dumps the log after, a table rewritten or deleted,
 % the log is dumped before and after, so that no logged write replays over the table.
-handle_call({schema, Changes, Ops, Tid}, _From, State) ->
+handle_call({schema, Changes, Ops, Tid, Decision}, _From, State) ->
     Result =
         try
             Dumped = clause_mnesia_ops:dumped(Ops),
             Dumped andalso clause_mnesia_disc:dump_log(schema_prepare),
             Results = [clause_mnesia_schema:apply_change(Change, Tid) || Change <- Changes],
             [clause_mnesia_disc:save_schema(Tab) || Tab <- lists:usort([changed_table(C) || C <- Changes])],
-            clause_mnesia_disc:log_schema(Tid, Ops, [U || {logged, Updates} <- Results, U <- Updates]),
+            clause_mnesia_disc:log_schema(Decision, Ops, [U || {logged, Updates} <- Results, U <- Updates]),
             Dumped andalso clause_mnesia_disc:dump_log(schema_commit),
             clause_mnesia_disc:use_dir() andalso [increment(trans_log_writes) || _ <- [prepare, commit]],
             ok
@@ -300,6 +300,9 @@ handle_call({replica_table, Tab}, _From, State) ->
     {reply, clause_mnesia_schema:replica_table(Tab), State};
 handle_call({replica_loaded, Tab, Node, Reason}, _From, State) ->
     {reply, clause_mnesia_schema:replica_loaded(Tab, Node, Reason), State};
+% A replica loads from this node's files or starts empty, as decided after the start (MIM1H10a).
+handle_call({load_local, Tab, Reason}, _From, State) ->
+    {reply, clause_mnesia_schema:load_local(Tab, Reason), State};
 handle_call({dump_log, InitBy}, _From, State) ->
     {reply, clause_mnesia_disc:dump_log(InitBy), State};
 % Another node's monitor asks for a protocol (MIM1H4).

@@ -1,0 +1,26 @@
+%% OTP 29 mnesia_bup exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
+{create_schema, 1, internal, stub}.
+{create_schema, 2, internal, stub}.
+{do_traverse_backup, 7, internal, stub}.
+{fallback_bup, 0, internal, stub}.
+{fallback_exists, 0, internal, stub}.
+{fallback_receiver, 2, remote, implemented}.
+{fallback_to_schema, 0, internal, stub}.
+{install_fallback, 1, internal, stub}.
+{install_fallback, 2, internal, stub}.
+{install_fallback_master, 2, internal, stub}.
+{iterate, 4, internal, stub}.
+{local_uninstall_fallback, 2, internal, stub}.
+{lookup_schema, 2, internal, stub}.
+{make_initial_backup, 3, internal, stub}.
+{read_schema, 2, internal, stub}.
+{refresh_cookie, 2, internal, stub}.
+{schema2bup, 1, internal, stub}.
+{tm_fallback_start, 1, internal, stub}.
+{trav_apply, 5, internal, stub}.
+{traverse_backup, 4, internal, stub}.
+{traverse_backup, 6, internal, stub}.
+{uninstall_fallback, 0, internal, stub}.
+{uninstall_fallback, 1, internal, stub}.
+{uninstall_fallback_master, 2, internal, stub}.

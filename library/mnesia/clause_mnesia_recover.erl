@@ -2,7 +2,8 @@
 %% docs/libraries/mnesia.md#connecting-nodes): it connects this node's mnesia to other nodes', with which it then
 %% exchanges transaction serials and decisions, and it records another node's mnesia going down. The nodes it is
 %% connected to are the recover_nodes variable. It keeps the outcomes of the transactions committed over several nodes
-%% that this node took part in, which other nodes ask about (MIM1H8).
+%% that this node took part in, which other nodes ask about (MIM1H8). On a disc schema it logs a commit's committed
+%% decision until each disc node taking part is certain of it, as their im_certain messages say (MIM1H10a).
 -module(clause_mnesia_recover).
 -behaviour(gen_server).
 -export([start_link/0, call/1, connect_nodes/1, has_mnesia_down/1, mnesia_down/1, log_mnesia_up/1, sync_serial/1]).
@@ -14,8 +15,9 @@
 %% The outcomes kept in the newest generation before the oldest one is dropped (MIM1H8).
 -define(GENERATION_SIZE, 1000).
 
-%% The server's state: transaction outcomes as {Tid, Outcome} in two ets generations, the newest first (MIM1H8).
--record(state, {latest, previous}).
+%% The server's state: transaction outcomes as {Tid, Outcome} in two ets generations, the newest first (MIM1H8); per
+%% commit over disc nodes, the nodes not yet certain once committed here, or those certain before (MIM1H10a).
+-record(state, {latest, previous, certain = #{}}).
 
 start_link() ->
     gen_server:start_link({local, mnesia_recover}, ?MODULE, [], [{timeout, infinity}]).
@@ -68,6 +70,8 @@ handle_call({connect_nodes, Nodes}, _From, State) ->
     end;
 handle_call({log_mnesia_up, Node}, _From, State) ->
     ets:delete(mnesia_decision, {node, Node}),
+    {Date, Time} = erlang:localtime(),
+    Node =:= node() orelse clause_mnesia_disc:log_node({mnesia_up, Node, Date, Time}),
     {reply, ok, State};
 % Another node asks what became of a transaction (MIM1H7): the outcome kept here (MIM1H8), or the asker's default, as
 % OTP's for a transaction it never decided.
@@ -107,6 +111,26 @@ handle_cast({what_decision, Node, #decision{tid = Tid} = Asked}, State) ->
     {noreply, State};
 handle_cast({note_decision, Tid, Outcome}, State) ->
     {noreply, noted(Tid, Outcome, State)};
+% A commit over several nodes was logged here (MIM1H10a): its decision names the disc nodes not yet certain, and the
+% other disc nodes hear that this one is.
+handle_cast({committed, #decision{tid = Tid, disc_nodes = Disc} = Decision}, #state{certain = Certain} = State) ->
+    Others = lists:delete(node(), Disc),
+    Remaining = Others -- maps:get(Tid, Certain, []),
+    Logged = Decision#decision{outcome = committed, disc_nodes = Remaining, ram_nodes = []},
+    clause_mnesia_disc:log_decision(Logged),
+    gen_server:abcast(Others, mnesia_recover, {im_certain, node(), Logged}),
+    {noreply, State#state{certain = still_unsure(Tid, {committed, Remaining}, Certain)}};
+% Node is certain of a commit: logged again without it, or kept for when this node commits.
+handle_cast({im_certain, Node, #decision{tid = Tid} = Decision}, #state{certain = Certain} = State) ->
+    case maps:get(Tid, Certain, []) of
+        {committed, Remaining} ->
+            Left = lists:delete(Node, Remaining),
+            clause_mnesia_disc:log_decision(Decision#decision{outcome = committed, disc_nodes = Left, ram_nodes = []}),
+            {noreply, State#state{certain = still_unsure(Tid, {committed, Left}, Certain)}};
+        Known ->
+            clause_mnesia_disc:log_decision(Decision#decision{outcome = committed, disc_nodes = [], ram_nodes = []}),
+            {noreply, State#state{certain = Certain#{Tid => [Node | Known]}}}
+    end;
 handle_cast({mnesia_down, Node}, State) ->
     del(recover_nodes, Node),
     clause_mnesia_monitor:is_running() =:= yes andalso log_mnesia_down(Node),
@@ -122,6 +146,9 @@ handle_cast(_Request, State) ->
 
 handle_info(_Message, State) ->
     {noreply, State}.
+
+still_unsure(Tid, {committed, []}, Certain) -> maps:remove(Tid, Certain);
+still_unsure(Tid, Unsure, Certain) -> Certain#{Tid => Unsure}.
 
 % A transaction's outcome in the newest generation; a full one becomes the older generation.
 noted(Tid, Outcome, #state{latest = Latest, previous = Previous} = State) ->

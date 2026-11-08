@@ -39,7 +39,8 @@ Clause's `mnesia` application (plan 21, MIM1) exports the OTP 29 interface of `m
   [connecting nodes](#connecting-nodes). MIM1H5, done: [merging schemas](#merging-schemas). MIM1H6, done:
   [dirty access](#dirty-access) to tables held on another node. MIM1H7, done: [locks](#locks) on other nodes. MIM1H8,
   done: [commits](#transactions) over several nodes. MIM1H9, done: [table copies](#schema-changes) and loads over
-  several nodes. What OTP writes and sends is recorded in
+  several nodes. MIM1H10a, done: [disc nodes](#disc-nodes) created and started together. What OTP writes and sends is
+  recorded in
   [mnesia's files and protocol](mnesia-protocol.md).
 
 Every other documented function works. See the [function inventory](../../library/mnesia/mnesia.terms) and
@@ -136,7 +137,9 @@ Clause's mnesia connects to other nodes' mnesia, OTP's or Clause's, as OTP's doe
 - **Partitions:** two running nodes that recorded each other down report `{inconsistent_database,
   running_partitioned_network, Node}` when they meet again, and `starting_partitioned_network` when they connect.
 
-Each node keeps the outcomes of the transactions it took part in ([transactions](#transactions), MIM1H8); a decision another node sends is not taken yet (MIM1H10).
+Each node keeps the outcomes of the transactions it took part in ([transactions](#transactions), MIM1H8), and a disc
+node logs them until each disc node taking part is certain ([disc nodes](#disc-nodes), MIM1H10a); a decision another
+node sends in `{decisions, ...}` is not taken yet.
 
 ### Merging schemas
 
@@ -156,10 +159,34 @@ those of the nodes that run mnesia, OTP's or Clause's, as OTP's does (plan 21 st
   `extra_db_nodes` takes the running nodes' definitions and loads each replica that a running node holds too from it
   ([table copies](#schema-changes), MIM1H9), while a RAM table of its own comes back empty.
 - **Schema changes after it** reach every running node's schema ([transactions](#transactions), MIM1H8).
-- **Not yet:**
-  - a node asked to commit another node's `change_table_copy_type/3`, restore, fragment change or SNMP change votes no
-    (MIM1H10, MIM1H11, MIM1H12);
-  - disc nodes keep no decisions in `DECISION_TAB.LOG` (MIM1H10).
+- **Not yet:** a node asked to commit another node's `change_table_copy_type/3`, restore, fragment change or SNMP
+  change votes no (MIM1H10b, MIM1H11, MIM1H12).
+
+### Disc nodes
+
+Nodes whose schemas are on disc, OTP's or Clause's, are created and start together as OTP's (plan 21 step MIM1H10a,
+[mnesia's files and protocol](mnesia-protocol.md#disc-nodes-mim1h10a)):
+
+- **Creating:** `create_schema/1,2` over several nodes installs the same fallback on each, under the global lock of the
+  schema, through OTP's fallback receiver (`mnesia_bup:fallback_receiver/2`,
+  [clause_mnesia_backup](../../library/mnesia/clause_mnesia_backup.erl)), which Clause nodes run for OTP's
+  `create_schema/1` too.
+- **Starting:** a node connects to the schema's other nodes as a [merge](#merging-schemas) does, which commits only the
+  definitions that differ. A replica that another node holds too then loads from a running node whose replica is
+  active; from its own files when no other node holds the table on disc or this node logged each of them going down
+  before it stopped (`initial`); empty when the table is held in RAM only (`ram_only`); otherwise it waits until
+  another node loaded the table, and loads it from there ([clause_mnesia_loader](../../library/mnesia/clause_mnesia_loader.erl)).
+  Until its load ends it is read nowhere and `wait_for_tables/2` waits for it.
+- **Disc replicas** go over nodes as RAM ones do; a `disc_copies` receiver writes its `DCD` file, and two
+  `disc_only_copies` replicas exchange `dets` chunks.
+- **Logs:** a commit over disc nodes is logged under its decision on each of them, and each node's `mnesia_recover`
+  tells the others once it is certain; the other nodes' mnesia coming up and going down is logged and kept in
+  `DECISION_TAB.LOG`, which the next start reads to decide its loads.
+- **Schema changes** that need a table's replicas on disc nodes, as `delete_table/1` and index changes, abort while
+  one of those nodes is down, with OTP's `not_active` reason.
+- **Not yet:** master nodes deciding loads, `force_load_table/1`, majority over nodes, copies moved between disc nodes
+  and `change_table_copy_type/3` on another node (MIM1H10b); a waiting replica is not adopted when the other node comes
+  up without loading it (OTP's `{adopt_orphan, Node}` load); partitions of disc nodes (MIM1H10c).
 
 ### Global variables
 
@@ -285,9 +312,9 @@ Disc storage keeps OTP's files in mnesia's directory, the `dir` parameter (defau
 | --- | --- |
 | `FALLBACK.BUP` | the backup that `create_schema/1,2` writes, installed at the next start |
 | `schema.DAT` | a `dets` table of the schema's `{schema, Tab, CreateList}` records |
-| `LATEST.LOG` | a `disk_log` of `#commit{}` records with each commit's disc writes, and `{master_nodes, Tab, Nodes}` entries, after a `#log_header{}` |
+| `LATEST.LOG` | a `disk_log` of `#commit{}` records with each commit's disc writes, `{master_nodes, Tab, Nodes}` entries, and the decisions and other nodes' `mnesia_up` and `mnesia_down` records of [disc nodes](#disc-nodes), after a `#log_header{}` |
 | `PREVIOUS.LOG` | the log a dump is moving into the tables' files |
-| `DECISION_TAB.LOG` | the `{decision_list, Decisions}` that each dump finding entries in the log writes: the transaction serial `{trans_tid, serial, N}` and the master nodes |
+| `DECISION_TAB.LOG` | the `{decision_list, Decisions}` that each dump finding entries in the log writes: the transaction serial `{trans_tid, serial, N}`, the master nodes and the other nodes seen going down |
 | `Tab.DCD`, `Tab.DCL` | a `disc_copies` table's records, and its writes since the `DCD` file was written |
 | `Tab.DAT`, `Tab_Pos.DAT` | a `disc_only_copies` table's `dets` table, and the `dets` table of its index at `Pos` |
 
@@ -301,7 +328,8 @@ Disc storage keeps OTP's files in mnesia's directory, the `dir` parameter (defau
   holds a fallback or a schema, `ram` never. `system_info(fallback_activated)` is `true` while a fallback waits.
 - **Starting:** the fallback, if any, becomes `schema.DAT`. Each table then gets its records: a `disc_copies` table
   from its `DCD` and `DCL` files, a `disc_only_copies` table from its `dets` file, a RAM table from a dump by
-  `dump_tables/1`. Their `load_reason` is `local_only`, the schema's `initial`. The decision log's master nodes are
+  `dump_tables/1`. Their `load_reason` is `local_only`, the schema's `initial`; a table that other nodes hold too loads
+  once the start connected to them ([disc nodes](#disc-nodes), MIM1H10a). The decision log's master nodes are
   set, and transactions continue its serial. The log since the last dump is applied again: its committed writes, also
   those of OTP's schema transactions, and its master nodes. Then, with `dump_disc_copies_at_startup` (the default), the
   `disc_copies` tables the log touched or that have a `DCL` file get new `DCD` files; without it, the log's writes go
@@ -741,6 +769,12 @@ index of its rows by SNMP row index, as OTP's `mnesia_snmp_hook` does
   errors; then b starts again and loads its replica of a replicated table from a. Each step shows both nodes' readers,
   writers, active replicas, load node and reason, and whether they hold the same records. Its runs pair Clause nodes
   with OTP nodes both ways.
+- **`mnesia_disc_nodes` golden:** generated from OTP
+  ([fixture](../../tests/fixtures/executables/mnesia_disc_nodes/mnesia_disc_nodes.erl)). a creates the schema on both
+  nodes, which start together; tables of each placement are written in transactions; schema changes wait for b while
+  it is down; b starts again and loads from a; then a starts alone after b stopped last, loads what only it holds on
+  disc and waits for the rest, which it loads from b once b is back. Each step shows both nodes' readers, writers,
+  load nodes and reasons, and what each node's files hold. Its runs pair Clause nodes with OTP nodes both ways.
 - **What `mnesia_dirty` covers:** answers before starting, system information, every `create_table` option and error, table
   properties, dirty access of each table type, indexes, counters, argument errors, schema changes, `schema/1`'s
   printout, error descriptions, and stopping and restarting.

@@ -2,40 +2,44 @@
 %% docs/libraries/mnesia-protocol.md#replicas-and-loading-mim1h9): a node that gets a replica asks a node holding one
 %% by casting send_table to its controller, whose sender process streams the records; the receiver fills its replica,
 %% owned by mnesia_monitor, and gets the table events of commits made meanwhile. The sender then makes the new replica
-%% active on both nodes. Senders and receivers may be OTP's or Clause's.
+%% active on both nodes. Senders and receivers may be OTP's or Clause's. After a start or a merge, each replica held
+%% here loads from a node that has it loaded, or from this node's disc when no other node may hold it newer, or waits
+%% for another node to load it (MIM1H10a).
 -module(clause_mnesia_loader).
--export([send/4, receive_table/4, copy/4, load_pending/0]).
+-export([send/4, receive_table/4, copy/4, load_pending/0, pending/1, source/1, load/2]).
 
 -include("clause_mnesia.hrl").
 
 %% Sending.
 
 % Tab's records to Receiver, from a process the controller starts: the receiver hears the table's events while the
-% records go, the table is written on its node from then on, and its replica is active on both nodes at the end.
+% records go, the table is written on its node from then on, and its replica is active on both nodes at the end. The
+% records go to the process that asks for more, which OTP's receiver of a disc replica starts (MIM1H10a).
 send(Tab, Receiver, Storage, _Reason) ->
     Node = node(Receiver),
     Ref = erlang:monitor(process, Receiver),
     Receiver ! {self(), {first, clause_mnesia_db:info(Tab, size)}},
     _ = clause_mnesia_subscr:subscribe(Receiver, {table, Tab, simple}),
     try
-        ok = acked(Ref, more),
+        {ok, Filler} = acked(Ref, more),
         Write = {update_where_to_write, [add, Tab, Node], self()},
         _ = rpc:call(Node, mnesia_controller, call, [Write]),
         _ = clause_mnesia_controller:call(Write),
-        [Receiver ! {self(), Chunk} || Chunk <- chunks(clause_mnesia_db:match_object(Tab, '_'))],
-        Receiver ! {self(), no_more},
+        [Filler ! {self(), Chunk} || Chunk <- chunks(clause_mnesia_db:match_object(Tab, '_'))],
+        Filler ! {self(), no_more},
         activate(Tab, Node, Storage),
         Receiver ! {self(), {no_more, nobin}},
-        ok = acked(Ref, no_more)
+        {ok, _} = acked(Ref, no_more)
     after
         erlang:demonitor(Ref, [flush]),
         _ = clause_mnesia_subscr:unsubscribe(Receiver, {table, Tab, simple})
     end.
 
-% The receiver's answer Kind; its other answers are dropped, and any process of its node may answer.
+% The receiver's answer Kind and the process that gave it; its other answers are dropped, and any process of its node
+% may answer.
 acked(Ref, Kind) ->
     receive
-        {Pid, Kind} when is_pid(Pid) -> ok;
+        {Pid, Kind} when is_pid(Pid) -> {ok, Pid};
         {'DOWN', Ref, process, _, Reason} -> {receiver_down, Reason}
     end.
 
@@ -76,7 +80,11 @@ receive_table(Tab, Storage, Node, Reason) ->
     receive
         {Sender, {first, _}} when is_pid(Sender) ->
             erlang:demonitor(Ref, [flush]),
-            filled(Tab, Sender);
+            filled(Tab, Storage, Sender, kind(Storage));
+        {Sender, {first, _, {_Version, _Format}}} when is_pid(Sender) ->
+            % A disc_only_copies replica comes as dets chunks from another one (MIM1H10a).
+            erlang:demonitor(Ref, [flush]),
+            filled(Tab, Storage, Sender, bchunk);
         {'DOWN', Ref, process, _, _} ->
             {error, {node_not_running, Node}}
     end.
@@ -88,40 +96,84 @@ announce(Node, {add_table_copy, Tid}) ->
 announce(_, _) ->
     ok.
 
-filled(Tab, Sender) ->
+filled(Tab, Storage, Sender, Kind) ->
     Ref = erlang:monitor(process, Sender),
     ok = gen_server:call(mnesia_monitor, {replica_table, Tab}, infinity),
     Sender ! {self(), more},
-    Result = fill(Tab, Sender, Ref, []),
+    Result = fill(Kind, Tab, Sender, Ref, []),
     erlang:demonitor(Ref, [flush]),
+    Result =:= ok andalso on_disc(Tab, Storage),
     Result.
 
-% The chunks, then the table events of commits made meanwhile, in their order.
-fill(Tab, Sender, Ref, Events) ->
+kind(disc_only_copies) -> dets;
+kind(_) -> ets.
+
+% A disc replica's files hold the records it received (MIM1H10a): a new DCD file, or its synced dets file.
+on_disc(Tab, disc_copies) -> clause_mnesia_disc:ets2dcd(Tab);
+on_disc(Tab, disc_only_copies) -> dets:sync(Tab);
+on_disc(_, _) -> ok.
+
+% The chunks, then the table events of commits made meanwhile, in their order, into the ets or dets table (Kind). Each
+% chunk asks for more, as OTP's receiver does, whose sender may wait for it (MIM1H10a). Dets chunks (bchunk) fill the
+% dets table at the end.
+fill(bchunk, Tab, Sender, Ref, Events) ->
+    fill_dets(Tab, Sender, Ref, [], Events);
+fill(Kind, Tab, Sender, Ref, Events) ->
     receive
         {Sender, {more, Records}} ->
-            ets:insert(Tab, Records),
-            fill(Tab, Sender, Ref, Events);
+            ok = put_records(Kind, Tab, Records),
+            Sender ! {self(), more},
+            fill(Kind, Tab, Sender, Ref, Events);
         {Sender, {more_z, Compressed}} ->
-            ets:insert(Tab, binary_to_term(zlib:uncompress(Compressed))),
-            fill(Tab, Sender, Ref, Events);
+            ok = put_records(Kind, Tab, binary_to_term(zlib:uncompress(Compressed))),
+            Sender ! {self(), more},
+            fill(Kind, Tab, Sender, Ref, Events);
         {Sender, no_more} ->
-            fill(Tab, Sender, Ref, Events);
+            fill(Kind, Tab, Sender, Ref, Events);
         {Sender, {no_more, _}} ->
-            [event(Tab, E) || E <- lists:reverse(Events)],
+            [event(Kind, Tab, E) || E <- lists:reverse(Events)],
             Sender ! {self(), no_more},
             ok;
         {mnesia_table_event, Event} ->
-            fill(Tab, Sender, Ref, [Event | Events]);
+            fill(Kind, Tab, Sender, Ref, [Event | Events]);
         {'DOWN', Ref, process, _, Reason} ->
             {error, {sender_down, Reason}}
     end.
 
+fill_dets(Tab, Sender, Ref, Chunks, Events) ->
+    receive
+        {Sender, {more, More}} ->
+            Sender ! {self(), more},
+            fill_dets(Tab, Sender, Ref, [More | Chunks], Events);
+        {Sender, no_more} ->
+            fill_dets(Tab, Sender, Ref, Chunks, Events);
+        {Sender, {no_more, _}} ->
+            All = lists:append(lists:reverse(Chunks)),
+            ok = dets:init_table(Tab, fun(read) -> {All, fun(_) -> end_of_input end} end, [{format, bchunk}]),
+            [event(dets, Tab, E) || E <- lists:reverse(Events)],
+            Sender ! {self(), no_more},
+            ok;
+        {mnesia_table_event, Event} ->
+            fill_dets(Tab, Sender, Ref, Chunks, [Event | Events]);
+        {'DOWN', Ref, process, _, Reason} ->
+            {error, {sender_down, Reason}}
+    end.
+
+put_records(ets, Tab, Records) ->
+    true = ets:insert(Tab, Records),
+    ok;
+put_records(dets, Tab, Records) ->
+    dets:insert(Tab, Records).
+
 % A simple table event names the table in place of the record name.
-event(Tab, {write, Record, _}) when element(1, Record) =:= Tab -> ets:insert(Tab, stored(Tab, Record));
-event(Tab, {delete, {Tab, Key}, _}) -> ets:delete(Tab, Key);
-event(Tab, {delete_object, Record, _}) when element(1, Record) =:= Tab -> ets:delete_object(Tab, stored(Tab, Record));
-event(_, _) -> ok.
+event(Kind, Tab, {write, Record, _}) when element(1, Record) =:= Tab ->
+    put_records(Kind, Tab, [stored(Tab, Record)]);
+event(Kind, Tab, {delete, {Tab, Key}, _}) ->
+    Kind:delete(Tab, Key);
+event(Kind, Tab, {delete_object, Record, _}) when element(1, Record) =:= Tab ->
+    Kind:delete_object(Tab, stored(Tab, Record));
+event(_, _, _) ->
+    ok.
 
 stored(Tab, Record) -> setelement(1, Record, clause_mnesia_monitor:val({Tab, record_name})).
 
@@ -143,30 +195,77 @@ copy(Tab, Node, Storage, Tid) when Node =:= node() ->
 copy(_, _, _, _) ->
     none.
 
-% Each table with a replica here that a merge left unloaded is loaded from a running node holding one, by a process of
-% its own, as OTP's controller loads them at start.
+% The replicas held here and not loaded, after a start or a merge (MIM1H9, MIM1H10a): the controller loads each, as
+% OTP's controller does, from a running node whose replica is active, or here when none is; the others wait. The
+% running nodes' disc load intents are asked first, as OTP's late loader does: their answers come after the tables
+% they announced loaded (adopt_orphans).
 load_pending() ->
-    Running = clause_mnesia_monitor:val(recover_nodes),
-    [
-        spawn(fun() -> load(Tab, Source) end)
-     || Tab <- clause_mnesia_monitor:val({schema, tables}),
-        clause_mnesia_monitor:val({Tab, storage_type}) =:= unknown,
-        Source <- [source(clause_mnesia_monitor:val({Tab, cstruct}), Running)],
-        Source =/= none
-    ],
-    ok.
-
-% The first other running node holding a table that has a replica here.
-source(#cstruct{ram_copies = Ram, disc_copies = Disc, disc_only_copies = DiscOnly} = Cs, Running) ->
-    Holders = Ram ++ Disc ++ DiscOnly,
-    case clause_mnesia_schema:storage(Cs) =/= unknown andalso [N || N <- Holders, lists:member(N, Running)] of
-        [Source | _] -> Source;
-        _ -> none
+    case [T || T <- val({schema, tables}), pending(T)] of
+        [] ->
+            ok;
+        Pending ->
+            ok = intents(lists:delete(node(), val(recover_nodes))),
+            gen_server:cast(mnesia_controller, {load_tables, Pending})
     end.
 
-load(Tab, Source) ->
-    Storage = clause_mnesia_schema:storage(clause_mnesia_monitor:val({Tab, cstruct})),
+% Whether a table has a replica here that has not loaded (MIM1H10a).
+pending(Tab) ->
+    ets:member(schema, Tab) andalso clause_mnesia_schema:storage(val({Tab, cstruct})) =/= unknown andalso
+        not clause_mnesia_schema:is_loaded(Tab).
+
+% The running nodes' disc load intents, asked under OTP's lock of late disc loads; their answers are not needed.
+intents([]) ->
+    ok;
+intents(Nodes) ->
+    {atomic, ok} = mnesia:transaction(fun() ->
+        mnesia:lock({global, mnesia_late_disc_load, [node() | Nodes]}, write),
+        [catch_exit(fun() -> gen_server:call({mnesia_controller, N}, disc_load_intents) end) || N <- Nodes],
+        ok
+    end),
+    ok.
+
+catch_exit(F) ->
+    try
+        F()
+    catch
+        exit:_ -> ok
+    end.
+
+% Where a table loads from, in the controller: {remote, Node} with the latest running node whose replica is active,
+% {local, Reason}, or wait.
+source(Tab) ->
+    Running = val(recover_nodes),
+    case [N || N <- val({Tab, active_replicas}), N =/= node(), lists:member(N, Running)] of
+        [Node | _] -> {remote, Node};
+        [] -> local_load(val({Tab, cstruct}))
+    end.
+
+% A replica no running node has loaded: alone, it loads here (local_only); a RAM replica starts empty unless another
+% node holds the table on disc (ram_only); a disc replica loads from its files unless another node holding it on disc
+% may have seen it after this one did, that is unless this node logged that node going down before it started
+% (initial); otherwise it waits.
+local_load(#cstruct{ram_copies = Ram, disc_copies = Disc, disc_only_copies = DiscOnly} = Cs) ->
+    Others = (Ram ++ Disc ++ DiscOnly) -- [node()],
+    OnDisc = (Disc ++ DiscOnly) -- [node()],
+    case {clause_mnesia_schema:storage(Cs), Others, OnDisc -- clause_mnesia_disc:down_at_start()} of
+        {_, [], _} -> {local, local_only};
+        {ram_copies, _, _} when OnDisc =:= [] -> {local, ram_only};
+        {ram_copies, _, _} -> wait;
+        {_, _, []} -> {local, initial};
+        _ -> wait
+    end.
+
+% A replica loaded from Node or here, from the controller's process for the load; a replica loaded here is announced
+% to the running nodes, as OTP's i_have_tab.
+load(Tab, {remote, Source}) ->
+    Storage = clause_mnesia_schema:storage(val({Tab, cstruct})),
     case receive_table(Tab, Storage, Source, load) of
         ok -> gen_server:call(mnesia_monitor, {replica_loaded, Tab, Source, {active_remote, Source}}, infinity);
         {error, _} -> ok
-    end.
+    end;
+load(Tab, {local, Reason}) ->
+    ok = gen_server:call(mnesia_monitor, {load_local, Tab, Reason}, infinity),
+    gen_server:abcast(lists:delete(node(), val(recover_nodes)), mnesia_controller, {i_have_tab, Tab, node()}),
+    ok.
+
+val(Name) -> clause_mnesia_monitor:val(Name).

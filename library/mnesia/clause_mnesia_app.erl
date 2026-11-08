@@ -9,6 +9,8 @@
 -behaviour(supervisor).
 -export([start/2, stop/1, init/1, start_supervisor/1, start_event/0, kill/0]).
 
+-include("clause_mnesia.hrl").
+
 start(normal, []) ->
     case supervisor:start_link({local, mnesia_sup}, ?MODULE, mnesia_sup) of
         {ok, Pid} ->
@@ -23,9 +25,12 @@ start(Type, Args) ->
 stop(_State) ->
     ok.
 
-% The schema merged at start with the extra_db_nodes that run mnesia (MIM1H5); a failed merge leaves this node's own.
+% The schema merged at start with the extra_db_nodes that run mnesia (MIM1H5) and the other nodes of a disc schema
+% (MIM1H10a); a failed merge leaves this node's own.
 merge_extra_db_nodes() ->
-    case clause_mnesia_monitor:get_env(extra_db_nodes) of
+    Schema = clause_mnesia_monitor:val({schema, cstruct}),
+    Known = (Schema#cstruct.disc_copies ++ Schema#cstruct.ram_copies) -- [node()],
+    case Known ++ (clause_mnesia_monitor:get_env(extra_db_nodes) -- Known) of
         [] -> ok;
         Nodes -> _ = clause_mnesia_merge:connect_nodes(Nodes)
     end,
@@ -68,7 +73,8 @@ init(mnesia_kernel_sup) ->
         fun mnesia_index:dirty_match_object/3,
         fun mnesia_tm:fixtable/3,
         fun mnesia_controller:call/1,
-        fun mnesia_lib:set/2
+        fun mnesia_lib:set/2,
+        fun mnesia_bup:fallback_receiver/2
     ],
     {ok, {#{strategy => one_for_all, intensity => 0, period => 86400000}, kernel_children()}};
 % Each checkpoint's process (MIM1F), never restarted.

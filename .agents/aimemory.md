@@ -991,3 +991,11 @@ gotchas and user directions not recorded elsewhere.
   {active, once} setopts reset the socket's packet decoder, dropping a partly read packet (scratch/mim1h9/big).
   Multi-node fixtures: whatever a node learns asynchronously after an rpc returns (a restarted peer's replicas
   becoming active, local_tables at the end of a load) races under suite load; poll for it in the fixture.
+- MIM1H10a mnesia (2026-11-08): read an OTP peer's reply shapes, not just its sends: tracing the master's 'receive'
+  showed OTP's fallback receiver exits `stopped` (Clause's exiting `normal` broke OTP's master, waiting forever hung
+  it). OTP's names mislead: `disc_load_intents` lists tables a node WILL load from disc, not loaded ones; the OTP
+  sender sends chunks to whichever pid answered `more` (a disc receiver's helper) and dets bchunks between
+  disc_only replicas (`{first, Size, {ErtsVsn, Format}}`). `acc_pre_commit` false = no schema_commit follows.
+  Multi-node goldens share one work dir across runs: a disc fixture deletes the schemas first. Debug Clause's
+  library on the BEAM from a scratch copy compiled over scratch/mnesia/erlc (scratch/mim1h10/dbg): python
+  open()/write without newline='' turns sources CRLF on Windows.

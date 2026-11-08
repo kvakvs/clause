@@ -30,7 +30,7 @@ participate(Coordinator, Tid, #commit{schema_ops = Ops} = Commit, Nodes) ->
 voted({Ref, Coordinator, Tid, #commit{schema_ops = Ops}, _, _} = Part) ->
     receive
         {Tid, pre_commit} ->
-            answer(Coordinator, {acc_pre_commit, Tid, self(), Ops =/= []}),
+            answer(Coordinator, {acc_pre_commit, Tid, self(), confirms(Ops)}),
             pre_committed(Part);
         {Tid, {do_abort, _}} ->
             ended(Tid, aborted);
@@ -42,7 +42,7 @@ pre_committed({Ref, Coordinator, Tid, #commit{schema_ops = Ops}, _, Nodes} = Par
     receive
         {Tid, committed} ->
             apply_commit(Part),
-            Ops =:= [] orelse answer(Coordinator, {schema_commit, Tid, self()}),
+            confirms(Ops) andalso answer(Coordinator, {schema_commit, Tid, self()}),
             ended(Tid, committed);
         {Tid, {do_abort, _}} ->
             ended(Tid, aborted);
@@ -57,10 +57,15 @@ pre_committed({Ref, Coordinator, Tid, #commit{schema_ops = Ops}, _, Nodes} = Par
     end.
 
 % The commit's records applied here as this node's own commits apply them, its schema operations in mnesia_monitor.
-apply_commit({_, _, Tid, #commit{schema_ops = Ops} = Commit, Changes, _}) ->
+apply_commit({_, _, Tid, #commit{schema_ops = Ops, decision = Decision} = Commit, Changes, _}) ->
     ok = clause_mnesia_tm:apply_commit(Tid, Commit, async),
-    Ops =:= [] orelse gen_server:call(mnesia_monitor, {schema, Changes, Ops, Tid}, infinity),
+    Ops =:= [] orelse gen_server:call(mnesia_monitor, {schema, Changes, Ops, Tid, Decision}, infinity),
     ok.
+
+% Whether the coordinator waits for this node's schema_commit: not for a merge's announcement alone, as OTP's
+% (MIM1H10a).
+confirms(Ops) ->
+    [Op || Op <- Ops, element(2, Op) =/= announce_im_running] =/= [].
 
 answer(Coordinator, Reply) ->
     Coordinator ! {mnesia_tm, node(), Reply}.
