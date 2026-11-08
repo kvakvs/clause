@@ -335,4 +335,4 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   from a running node (`{active_remote, Node}`), a dropped copy keeping its load node and reason; OTP-named
   `mnesia_controller:call/1` and `mnesia_lib:set/2`; runtime: `ets:select` bound keys of boxed terms (bignums,
   remote pids) no longer fail Debug builds, and socket `setopts/2` keeping the framing keeps a partly read packet
-  (bursts of distribution messages stalled the connection, `dist_signals` covers it); `mnesia_replicas` golden identical to OTP both ways — `HASH`
+  (bursts of distribution messages stalled the connection, `dist_signals` covers it); `mnesia_replicas` golden identical to OTP both ways — `5e34dc58`
