@@ -295,6 +295,11 @@ handle_call({schema, Changes, Ops, Tid}, _From, State) ->
             _:Reason:Stack -> {aborted, {Reason, Stack}}
         end,
     {reply, Result, State};
+% A replica's table that a transfer fills, and a replica loaded from another node at start (MIM1H9).
+handle_call({replica_table, Tab}, _From, State) ->
+    {reply, clause_mnesia_schema:replica_table(Tab), State};
+handle_call({replica_loaded, Tab, Node, Reason}, _From, State) ->
+    {reply, clause_mnesia_schema:replica_loaded(Tab, Node, Reason), State};
 handle_call({dump_log, InitBy}, _From, State) ->
     {reply, clause_mnesia_disc:dump_log(InitBy), State};
 % Another node's monitor asks for a protocol (MIM1H4).

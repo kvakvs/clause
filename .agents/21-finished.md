@@ -327,3 +327,12 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   `mnesia_recover` for `what_happened`; new tables' replica order, `read_only` reversing `active_replicas` and changed
   definitions moving to the front of `system_info(tables)` as OTP's; `mnesia_two_phase` golden identical to OTP both
   ways — `bfb83352`
+- **MIM1H9** mnesia replicas and loading: OTP's table transfer both ways (`clause_mnesia_loader`: controller-started
+  senders for `send_table`, `{first, Size}`, chunks of `max_transfer_size` and `more_z`, `no_more`, events during the
+  transfer, `update_where_to_write`/`block_table`/`add_active_replica`; receivers filling a monitor-owned table),
+  `add_table_copy/3`, `del_table_copy/2` and `move_table_copy/3` over nodes (the new copy loaded before the vote or
+  the coordinator's commit, move as `add_table_copy` + `sync_trans` + `del_table_copy`), replicas loaded at start
+  from a running node (`{active_remote, Node}`), a dropped copy keeping its load node and reason; OTP-named
+  `mnesia_controller:call/1` and `mnesia_lib:set/2`; runtime: `ets:select` bound keys of boxed terms (bignums,
+  remote pids) no longer fail Debug builds, and socket `setopts/2` keeping the framing keeps a partly read packet
+  (bursts of distribution messages stalled the connection, `dist_signals` covers it); `mnesia_replicas` golden identical to OTP both ways — `HASH`

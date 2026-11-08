@@ -15,7 +15,7 @@ start(Coordinator, Tid, Commit, Nodes) ->
 participate(Coordinator, Tid, #commit{schema_ops = Ops} = Commit, Nodes) ->
     Ref = erlang:monitor(process, Coordinator),
     _ = clause_mnesia_recover:connect_nodes(Nodes),
-    case clause_mnesia_ops:changes(Ops) of
+    case clause_mnesia_ops:changes(Ops, Tid) of
         {ok, Changes} ->
             clause_mnesia_recover:note_decision(Tid, unclear),
             answer(Coordinator, {vote_yes, Tid, self()}),

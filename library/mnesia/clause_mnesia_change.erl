@@ -311,7 +311,8 @@ record_change(New, Old, RecordName, Key, Arity, {Written, Deleted}) ->
 
 %% Table copies (MIM1C).
 
-% add_table_copy/3: a replica on another node of the schema, or on this node for a table held elsewhere.
+% add_table_copy/3: a replica on another node of the schema, or on this node for a table held elsewhere; a copy here
+% of a table read on another node is loaded from it before the commit (MIM1H9).
 add_copy(Tab, Node, Storage) ->
     ensure_writable(schema),
     Cs = next_version(val({Tab, cstruct})),
@@ -326,7 +327,7 @@ add_copy(Tab, Node, Storage) ->
     end,
     case Tab of
         schema -> {redefine, Cs2};
-        _ -> {add_copy, Cs2}
+        _ -> {add_copy, Cs2, clause_mnesia_loader:copy(Tab, Node, Storage, tid())}
     end.
 
 % del_table_copy/2: a replica goes; the last one deletes the table, and the schema's takes the node's tables along.
@@ -378,7 +379,8 @@ table_without_node(Tab, Node) ->
             end
     end.
 
-% move_table_copy/3: the replica of a running node moves to another running node.
+% move_table_copy/3: the replica of a running node moves to another running node, as a copy added there, loaded
+% before the commit when it is this node, then the old one deleted (MIM1H9).
 move_copy(Tab, From, To) ->
     ensure_writable(schema),
     Cs = next_version(val({Tab, cstruct})),
@@ -388,7 +390,9 @@ move_copy(Tab, From, To) ->
     ensure_active(Cs),
     Storage = clause_mnesia_schema:storage(From, Cs),
     lists:member(To, val({current, db_nodes})) orelse abort({not_active, schema, To}),
-    [{redefine, verify(without_copy(with_copy(Cs, To, Storage), From, Storage))}].
+    Both = verify(with_copy(Cs, To, Storage)),
+    Load = clause_mnesia_loader:copy(Tab, To, Storage, tid()),
+    [{add_copy, Both, Load}, {redefine, verify(without_copy(Both, From, Storage))}].
 
 % change_table_copy_type/3: a node's replica gets another storage; unknown deletes it.
 copy_type(Tab, Node, unknown) ->
@@ -523,5 +527,9 @@ lock_absent(Tab) ->
     clause_mnesia_locker:wlock_no_exist(Tid, Store, Tab, val({Tab, active_replicas})).
 
 val(Name) -> clause_mnesia_monitor:val(Name).
+
+tid() ->
+    {_, Tid, _} = get(mnesia_activity_state),
+    Tid.
 
 abort(Reason) -> mnesia:abort(Reason).

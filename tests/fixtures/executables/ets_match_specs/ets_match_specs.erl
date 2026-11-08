@@ -526,6 +526,9 @@ bound_keys() ->
         begin
             T = filled(Type),
             ets:insert(T, {{tuple, key}, 0, odd}),
+            % Boxed bound keys, hashed from the compiled specification (plan 21 step MIM1H9).
+            Ref = make_ref(),
+            ets:insert(T, [{1 bsl 70, 0, big}, {#{k => v}, 0, map}, {Ref, 0, ref}, {{Ref}, 0, in_tuple}]),
             R = [
                 sorted(ets:select(T, [{{3, '$1', '_'}, [], ['$1']}])),
                 sorted(ets:select(T, [{{3, '$1', '_'}, [], ['$1']}, {{7, '$1', '_'}, [], ['$1']}])),
@@ -536,7 +539,13 @@ bound_keys() ->
                 sorted(ets:select(T, [{{{tuple, '_'}, '$1', '_'}, [], ['$1']}])),
                 sorted(ets:select(T, [{x, [], [x]}, {{2, '$1', '_'}, [], ['$1']}])),
                 ets:select_count(T, [{{3, '_', '_'}, [], [true]}]),
-                sorted(ets:match_object(T, {3, '_', '_'}))
+                sorted(ets:match_object(T, {3, '_', '_'})),
+                ets:select(T, [{{1 bsl 70, '_', '$1'}, [], ['$1']}]),
+                ets:select(T, [{{#{k => v}, '_', '$1'}, [], ['$1']}]),
+                sorted(ets:select(T, [{{Ref, '_', '$1'}, [], ['$1']}, {{{Ref}, '_', '$1'}, [], ['$1']}])),
+                ets:select_delete(T, [{{1 bsl 70, '_', '_'}, [], [true]}]),
+                ets:match_delete(T, {#{k => v}, '_', '_'}),
+                ets:select_count(T, [{{'_', '_', '$1'}, [{is_atom, '$1'}], [true]}])
             ],
             ets:delete(T),
             R

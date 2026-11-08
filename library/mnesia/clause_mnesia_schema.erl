@@ -18,6 +18,9 @@
     add_active/2,
     del_active/2,
     check_storage/1,
+    add_writer/2,
+    replica_table/1,
+    replica_loaded/3,
     storage/1,
     storage/2,
     properties/1,
@@ -312,6 +315,16 @@ load_table(Cs) ->
 % A schema transaction's change, applied in mnesia_monitor, which owns the tables (MIM1C), with the schema table's
 % events of transaction Tid as OTP reports them (MIM1E): the record of a new table or a new copy written twice, before
 % and after it is stored, a deleted table's record deleted, and any other change's record written once.
+% A copy loaded from another node keeps that node and the transfer's reason (MIM1H9).
+apply_change({add_copy, #cstruct{name = Tab} = Cs, Load}, Tid) ->
+    apply_change({add_copy, Cs}, Tid),
+    case Load of
+        {Node, Reason} ->
+            set({Tab, load_node}, Node),
+            set({Tab, load_reason}, {dumper, Reason});
+        none ->
+            ok
+    end;
 apply_change({Twice, #cstruct{name = Tab} = Cs}, Tid) when Twice =:= create; Twice =:= add_copy ->
     Record = {schema, Tab, cs2list(Cs)},
     schema_event(Tid, Record, write),
@@ -329,11 +342,12 @@ apply_change({delete, Tab} = Change, Tid) ->
 apply_change({dump, _} = Change, _) ->
     apply_change(Change);
 % A definition of a schema merge (MIM1H5): a table new to this node joins its schema, with a replica here when the
-% definition lists this node; a known one is redefined.
+% definition lists this node; a known one is redefined. A replica that a running node holds too is loaded from it
+% after the merge (MIM1H9), empty until then.
 apply_change({merge, #cstruct{name = Tab} = Cs}, _) ->
     case ets:member(schema, Tab) of
         true -> redefine(Cs);
-        false -> insert(Cs, initial)
+        false -> insert(Cs, merged_reason(Cs))
     end;
 % The other side of a merge runs with this node (MIM1H5): its nodes are running db nodes and hold the schema.
 apply_change({announce, Running, RemoteRunning}, _) ->
@@ -352,6 +366,14 @@ apply_change(Change, Tid) ->
     Cs = element(2, Change),
     schema_event(Tid, {schema, Cs#cstruct.name, cs2list(Cs)}, write),
     apply_change(Change).
+
+% A merged table's replica here is loaded from a connected node holding one, else here, as OTP's local_only load.
+merged_reason(#cstruct{ram_copies = Ram, disc_copies = Disc, disc_only_copies = DiscOnly}) ->
+    Connected = val(recover_nodes),
+    case [N || N <- Ram ++ Disc ++ DiscOnly, N =/= node(), lists:member(N, Connected)] of
+        [] -> local_only;
+        _ -> unloaded
+    end.
 
 running(Node) ->
     Current = val({current, db_nodes}),
@@ -415,6 +437,7 @@ transform_key(Tab, _, {_, Written, _}) ->
 % and majority.
 redefine(#cstruct{name = Tab} = Cs) ->
     OldAccess = val({Tab, access_mode}),
+    prune_active(Cs),
     ets:insert(schema, {schema, Tab, cs2list(Cs)}),
     set({schema, tables}, [Tab | lists:delete(Tab, val({schema, tables}))]),
     [set({Tab, Item}, Value) || {Item, Value} <- definition_properties(Cs), not lists:member(Item, ?RUNTIME)],
@@ -428,9 +451,12 @@ redefine(#cstruct{name = Tab} = Cs) ->
             make_storage(Cs, Storage, {dumper, add_table_copy}),
             loaded(Cs, Storage, {dumper, add_table_copy});
         {_, unknown} ->
+            % The copy here goes; the table is read and written on the other active copies, and keeps where this copy
+            % was loaded from, as OTP's (MIM1H9).
             drop_replica(Tab),
             clause_mnesia_disc:deleted(Tab),
-            [set({Tab, Item}, Value) || {Item, Value} <- absent_properties()];
+            set({Tab, storage_type}, unknown),
+            set_active(Tab, lists:delete(node(), active(Tab)));
         {Storage, Storage} ->
             [set({Tab, Item}, Value) || {Item, Value} <- writer_properties(Cs, access_active(Tab, OldAccess, Cs))];
         {Old, New} ->
@@ -479,7 +505,20 @@ drop_replica(Tab) ->
 close_storage(Tab, disc_only_copies) -> dets:close(Tab);
 close_storage(Tab, _) -> ets:delete(Tab).
 
-% A new table: its record in the schema, its properties and, on this node, its storage and indexes.
+% A copy that went from a node no longer counts as active there (MIM1H9).
+prune_active(#cstruct{name = Tab} = Cs) ->
+    Active = active(Tab),
+    case [N || N <- Active, storage(N, Cs) =/= unknown] of
+        Active -> ok;
+        Left -> set_active(Tab, Left)
+    end.
+
+% A new table: its record in the schema, its properties and, on this node, its storage and indexes; a merged table
+% whose replica is loaded later has none yet (MIM1H9).
+insert(#cstruct{name = Tab} = Cs, unloaded) ->
+    insert(Cs#cstruct{ram_copies = [], disc_copies = [], disc_only_copies = []}, initial),
+    ets:insert(schema, {schema, Tab, cs2list(Cs)}),
+    [set({Tab, Item}, Value) || {Item, Value} <- definition_properties(Cs)];
 insert(#cstruct{name = Tab} = Cs, Reason) ->
     ets:insert(schema, {schema, Tab, cs2list(Cs)}),
     [set({Tab, Item}, Value) || {Item, Value} <- definition_properties(Cs)],
@@ -514,7 +553,9 @@ make_storage(#cstruct{name = Tab} = Cs, disc_only_copies, _) ->
     clause_mnesia_disc:open_dat(Cs);
 make_storage(#cstruct{name = Tab, type = Type, storage_properties = Properties}, Storage, Reason) ->
     set({Tab, storage_type}, Storage),
-    ets:new(Tab, [Type, public, named_table, {keypos, 2} | proplists:get_value(ets, Properties, [])]),
+    % A table a transfer filled is kept (MIM1H9).
+    ets:info(Tab, owner) =:= self() orelse
+        ets:new(Tab, [Type, public, named_table, {keypos, 2} | proplists:get_value(ets, Properties, [])]),
     case Reason of
         local_only -> clause_mnesia_disc:load(Tab, Storage);
         _ -> clause_mnesia_disc:created(Tab, Storage)
@@ -643,6 +684,39 @@ created_active(#cstruct{name = Tab} = Cs) ->
         [] -> ok;
         Active -> set_active(Tab, Active)
     end.
+
+% Node is written while it loads Tab from this node or another (MIM1H9).
+add_writer(Tab, Node) ->
+    Written = val({Tab, where_to_write}),
+    case lists:member(Node, Written) of
+        true ->
+            ok;
+        false ->
+            Writers = Written ++ [Node],
+            Cs = val({Tab, cstruct}),
+            set({Tab, where_to_write}, Writers),
+            set({Tab, where_to_commit}, lists:sort([{N, storage(N, Cs)} || N <- Writers])),
+            set({Tab, where_to_wlock}, {Writers, Cs#cstruct.majority})
+    end.
+
+% The ets table of a replica that a transfer fills, owned by mnesia_monitor: made, or emptied when an earlier transfer
+% left it without a commit (MIM1H9).
+replica_table(Tab) ->
+    #cstruct{type = Type, storage_properties = Properties} = val({Tab, cstruct}),
+    case ets:info(Tab, owner) =:= self() of
+        true -> ets:delete_all_objects(Tab);
+        false -> ets:new(Tab, [Type, public, named_table, {keypos, 2} | proplists:get_value(ets, Properties, [])])
+    end,
+    ok.
+
+% A replica loaded from Node at start (MIM1H9): stored and active here, with the node and the reason of its load.
+replica_loaded(Tab, Node, Reason) ->
+    Cs = val({Tab, cstruct}),
+    Storage = storage(Cs),
+    set({Tab, storage_type}, Storage),
+    loaded(Cs, Storage, Reason),
+    set({Tab, load_node}, Node),
+    ok.
 
 % A new replica on this node needs its ets name free, or OTP's system_limit abort (MIM1H8).
 check_storage(#cstruct{name = Tab} = Cs) ->

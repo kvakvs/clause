@@ -24,6 +24,7 @@ connect(Nodes) ->
     _ = clause_mnesia_recover:connect_nodes(Nodes),
     Result = merge_loop(false),
     _ = gen_server:multi_call([node() | val(recover_nodes)], mnesia_controller, {schema_is_merged, [], late_merge, []}),
+    ok = clause_mnesia_loader:load_pending(),
     Result.
 
 % A merge, then another, until the schema transaction finds nothing to merge; each merge tells both sides' controllers

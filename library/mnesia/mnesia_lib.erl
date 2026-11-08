@@ -1,11 +1,11 @@
 %% OTP's mnesia_lib as other nodes call it (plan 21 step MIM1H3,
 %% docs/libraries/mnesia-protocol.md#remote-queries-mim1h3): whether mnesia runs here, the node number, and the record
-%% reads of a peer's dirty access and mnesia_rpc. OTP's other internal functions are declined: no other node calls them.
+%% reads of a peer's dirty access and mnesia_rpc, and the variable a node loading a table from this one sets (MIM1H9). OTP's other internal functions are declined: no other node calls them.
 -module(mnesia_lib).
 -export([is_running/0, is_running_remote/0, running_nodes/1, get_node_number/0]).
 -export([db_get/2, db_get/3, db_first/1, db_first/2, db_last/1, db_last/2]).
 -export([db_next_key/2, db_next_key/3, db_prev_key/2, db_prev_key/3]).
--export([db_slot/2, db_slot/3, db_select_init/4, db_select_rev_init/4, db_select_cont/3]).
+-export([db_slot/2, db_slot/3, db_select_init/4, db_select_rev_init/4, db_select_cont/3, set/2]).
 %% OTP 29 exports implemented natively or not yet: catalog builtins, whose clause_builtin_placeholder body the runtime's
 %% builtin replaces, and stubs raising error({not_implemented, F, A}) (docs/libraries/library.md#runtime-module-replacements).
 -export([
@@ -102,7 +102,6 @@
     scratch_debug_fun/0,
     search_delete/2,
     semantics/2,
-    set/2,
     set_counter/2,
     set_local_content_whereabouts/1,
     set_remote_where_to_read/1,
@@ -207,6 +206,10 @@ db_select_cont(_, Cont, Spec) -> ets:select(ets:repair_continuation(Cont, Spec))
 storage_type(Tab) ->
     clause_mnesia_monitor:val({Tab, storage_type}).
 
+% A global variable, as a node loading a new copy from this one sets {mnesia_loader, active_trans} (MIM1H9).
+set(Name, Value) ->
+    ets:insert(mnesia_gvar, {Name, Value}).
+
 activate_debug_fun(_, _, _, _, _) -> erlang:error({not_implemented, activate_debug_fun, 5}).
 active_tables() -> erlang:error({not_implemented, active_tables, 0}).
 add(_, _) -> erlang:error({not_implemented, add, 2}).
@@ -300,7 +303,6 @@ schema_cs_to_storage_type(_, _) -> erlang:error({not_implemented, schema_cs_to_s
 scratch_debug_fun() -> erlang:error({not_implemented, scratch_debug_fun, 0}).
 search_delete(_, _) -> erlang:error({not_implemented, search_delete, 2}).
 semantics(_, _) -> erlang:error({not_implemented, semantics, 2}).
-set(_, _) -> erlang:error({not_implemented, set, 2}).
 set_counter(_, _) -> erlang:error({not_implemented, set_counter, 2}).
 set_local_content_whereabouts(_) ->
     erlang:error({not_implemented, set_local_content_whereabouts, 1}).

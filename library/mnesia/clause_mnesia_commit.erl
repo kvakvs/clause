@@ -49,7 +49,18 @@ schema(_, [_], _, Local) ->
     Local();
 schema(Tid, Nodes, Ops, Local) ->
     Remote = [#commit{node = N, schema_ops = Ops} || N <- Nodes, N =/= node()],
-    asym(Tid, Remote, Nodes, Local, true).
+    asym(Tid, Remote, Nodes, Local, lists:member({op, sync_trans}, Ops)).
+
+% A move's participants each meet the coordinator while they prepare (MIM1H9); a participant gone is left to the votes.
+sync_trans(Monitors) ->
+    [
+        receive
+            {sync_trans, Pid} when node(Pid) =:= Node -> Pid ! {sync_trans, self()};
+            {'DOWN', Ref, process, _, _} = Down -> self() ! Down
+        end
+     || {Node, Ref} <- Monitors
+    ],
+    ok.
 
 %% Preparing the commits.
 
@@ -120,10 +131,12 @@ sym(Tid, Protocol, Remote, Nodes, Local) ->
 % asym_trans: the participants' votes, the pre-commit, then committed to each and this node's part; participants
 % applying schema operations confirm them. A participant that has not voted hears the abort through its transaction
 % manager.
-asym(Tid, Remote, Nodes, Local, Schema) ->
+asym(Tid, Remote, Nodes, Local, Sync) ->
+    Schema = [Op || #commit{schema_ops = Ops} <- Remote, Op <- Ops] =/= [],
     {Disc, Ram} = split_nodes(Nodes),
     Decision = #decision{tid = Tid, outcome = presume_abort, disc_nodes = Disc, ram_nodes = Ram},
     Monitors = ask(Tid, asym_trans, [C#commit{decision = Decision} || C <- Remote], Nodes),
+    Sync =:= true andalso sync_trans(Monitors),
     Result =
         case answers(Tid, vote_yes, Monitors) of
             {ok, Pids} -> pre_commit(Tid, Monitors, Pids, Local, Schema);

@@ -208,6 +208,8 @@ behavior (`docs/differences.md` lists gaps).
   MIM1H8: commits over nodes in `clause_mnesia_commit` (one `#commit{}` per node, sym_trans/sync_sym_trans voted and
   applied by the participant's `mnesia_tm`, asym_trans for mixed placements, majority and every schema change through
   a participant process in `clause_mnesia_participant`), outcomes kept in `mnesia_recover` for `what_happened`;
+  MIM1H9: OTP's table transfer in `clause_mnesia_loader` (controller-started senders, receivers filling a
+  monitor-owned ets before the copy commits or at start after a merge), move = add + sync_trans + del;
   SNMP row index per table kept by updates).
   Distribution and tracing
   answer as a non-alive node.

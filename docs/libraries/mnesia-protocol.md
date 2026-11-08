@@ -71,8 +71,7 @@ the new version.
   `{decision, Tid, committed, [], []}` when it wrote no disc table. `set_master_nodes` logs `{master_nodes, Tab,
   Nodes}`.
 - **Not seen on one node:** the operations of `add_table_copy/3`, `del_table_copy/2` of another copy and
-  `move_table_copy/3`. Clause writes `{op, add_table_copy, Storage, Node, Cs}`, `{op, del_table_copy, Storage, Node,
-  Cs}` and `{op, move_table_copy, From, To, Cs}` until MIM1H9 observes them.
+  `move_table_copy/3`, observed over two nodes in [replicas and loading](#replicas-and-loading-mim1h9).
 - **Serial at start:** a start whose log held schema transactions takes one serial more before its own two.
 
 ## Remote queries (MIM1H3)
@@ -304,3 +303,36 @@ storage on that node, as in [the log](#directory-files-mim1h1).
   nodes still running. **The coordinator going down** before the participant voted, after it voted or after the
   pre-commit: the participant aborts the transaction, unless another node taking part knows it committed, and its
   locks go.
+
+## Replicas and loading (MIM1H9)
+
+How a node gets a replica's records from another node, observed after a [merge](#schema-merge-mim1h5) of two RAM
+schemas. In the tables, b gets the replica and a holds the table. The receiver is the process that needs the records:
+the participant of b in `add_table_copy/3` and `move_table_copy/3` (before it votes), the coordinator itself when it
+gets the copy, or a loader process of b at start.
+
+| Message | From, to | Answer or effect |
+| --- | --- | --- |
+| `mnesia_lib:set({mnesia_loader, active_trans}, Tid)` | b's receiver of a new copy, to a, by `rpc` | sets the variable on a; a sender of a table locked by the transaction locks it under that tid |
+| `{send_table, Tab, Receiver, Storage, Reason}` | b's receiver, to a's `mnesia_controller` by `gen_server:cast` | a's controller starts a sender; `Reason` is `{add_table_copy, Tid}` for a new copy and `load` at start |
+| `{Sender, {first, Size}}` | the sender, to the receiver | `Size` is the table's size; the receiver makes its replica's table and answers `{Receiver, more}` |
+| `mnesia_controller:call({update_where_to_write, [add, Tab, b], Sender})` | the sender, to b by `rpc`, then to its own controller | the table is written on b from then on (`true`) |
+| `{Sender, {more, Records}}`, or `{Sender, {more_z, zlib:compress(term_to_binary(Records))}}` with `send_compressed` above 0 | the sender, to the receiver | all chunks follow at once, each of about `max_transfer_size` bytes of records, then `{Sender, no_more}`; the receiver acknowledges with `more`, which the sender does not wait for |
+| `{block_table, [Tab], Sender}`, `{add_active_replica, [Tab, b, Storage, AccessMode], Sender}` | the sender, to b's `mnesia_controller` by `gen_server:call`, the second also to its own | `ok`, `true`: b's replica is active on both nodes |
+| `{Sender, {no_more, nobin}}` | the sender, to the receiver | the receiver answers `{Pid, no_more}`, `Pid` any process of its loader |
+
+- **Commits meanwhile:** before the first chunk, the sender subscribes the receiver to the table's simple events, so
+  that it gets the commits made while the records go; the sender ends the subscription after the receiver's
+  `no_more`.
+- **Copies:** the operations are `{op, add_table_copy, Storage, Node, Cs}` and `{op, del_table_copy, Storage, Node,
+  Cs}`, `Cs` the new definition. `move_table_copy/3` commits `{op, add_table_copy, Storage, To, Cs1}`, `{op,
+  sync_trans}` and `{op, del_table_copy, Storage, From, Cs2}`, `Cs1` with both nodes (`To` first) and `Cs2` without
+  `From`, both of the same version. At `sync_trans` each participant sends `{sync_trans, Participant}` to the
+  coordinator and waits for its `{sync_trans, Coordinator}` before it prepares the rest.
+- **Properties:** the new replica's node lists itself first in `active_replicas` and `where_to_write`, `load_node` is
+  the sender's node and `load_reason` `{dumper, {add_table_copy, Tid}}`; the sender's node lists the new node first in
+  `active_replicas` and last in `where_to_write`. A node whose copy goes keeps its `load_node` and `load_reason`, and
+  reads and writes the table on the other copies.
+- **At start:** a node starting with `extra_db_nodes` loads each replica that a running node holds too from it, with
+  `load_reason` `{active_remote, Node}`; a replica that no running node holds comes back empty, `load_reason`
+  `local_only`.

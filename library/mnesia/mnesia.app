@@ -15,6 +15,7 @@
         clause_mnesia_event,
         clause_mnesia_index,
         clause_mnesia_info,
+        clause_mnesia_loader,
         clause_mnesia_locker,
         clause_mnesia_merge,
         clause_mnesia_monitor,

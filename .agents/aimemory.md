@@ -979,3 +979,15 @@ gotchas and user directions not recorded elsewhere.
   run per destructive scenario: runs with other args (a_coordinator) are generated independently. Events of a commit
   applied by another process race the next dirty write's events: OTP's asym participant applies in its own process,
   so Clause's does too (not via a mnesia_tm call). scratch/mim1h8/all.sh runs both runs in all pairings (ARGA).
+- MIM1H9 mnesia (2026-11-08): when a trace is ambiguous about flow control, drive the OTP side by hand: a fake receiver
+  casting send_table to OTP's controller (scratch/mim1h9/p3.erl) showed the sender waits for one `more` only. A
+  mixed-pairing hang came from `{op, sync_trans}`, a participant/coordinator rendezvous invisible in OTP-only traces of
+  registered processes: trace the coordinator process too (set_on_spawn on the caller). erpc:execute_call/4 traced with
+  trace_pattern [local] on new_processes names every rpc a peer makes. "clau: runtime failure: entry call failed:
+  wrong_owner" from any process (not only the entry) is a runtime-level fault ending the program: rerun the built
+  pair with CLAUSE_CALL_TRACE=<file> CLAUSE_CALL_TRACE_ALL=1 (scratch/mim1h9/cpair.py TRACE=1) and read the RAISE line.
+  Found: Debug's checked admission rejected boxed words hashed from outside the heap (ets select bound keys: bignum,
+  remote pid), fixed in hashing.cpp. A burst of large messages between two Clause nodes stalled the connection: each
+  {active, once} setopts reset the socket's packet decoder, dropping a partly read packet (scratch/mim1h9/big).
+  Multi-node fixtures: whatever a node learns asynchronously after an rpc returns (a restarted peer's replicas
+  becoming active, local_tables at the end of a load) races under suite load; poll for it in the fixture.

@@ -344,6 +344,8 @@ class Socket final : public std::enable_shared_from_this<Socket> {
     void release();
     // Answer waiting recv calls and deliver active messages from what was read; read more when wanted.
     void serve();
+    // Replace the input decoder when setopts changed the framing from `before`.
+    void reframe(const PortOptions &before);
     // Serve stream data (TCP); true when something was delivered.
     bool serve_stream();
     // Serve datagrams (UDP); true when something was delivered.
@@ -435,8 +437,9 @@ std::optional<Bytes> Socket::common_operation(Word caller, SocketOperation opera
     switch (operation) {
     case SocketOperation::setopts: {
         const auto previous = mode_.bytes();
+        const auto framing = mode_.framing();
         mode_.apply(data, 0);
-        decoder_ = InputDecoder(mode_.framing());
+        reframe(framing);
         serve();
         return ok(previous);
     }
@@ -1054,6 +1057,16 @@ void Socket::report_end() {
             {PortValue::of_atom("tcp_error"), PortValue::of_identity(port_), PortValue::of_atom(error_)}));
     }
     message(PortValue::of_tuple({PortValue::of_atom("tcp_closed"), PortValue::of_identity(port_)}));
+}
+
+// A new decoder only for new framing options: a partly read packet survives options that keep them, as the {active,
+// once} each distribution packet sets (plan 21 step MIM1H9).
+void Socket::reframe(const PortOptions &before) {
+    const auto now = mode_.framing();
+    if (now.framing != before.framing || now.packet_bytes != before.packet_bytes ||
+        now.line_length != before.line_length) {
+        decoder_ = InputDecoder(now);
+    }
 }
 
 void Socket::serve() {

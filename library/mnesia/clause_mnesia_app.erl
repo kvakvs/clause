@@ -66,7 +66,9 @@ init(mnesia_kernel_sup) ->
         fun mnesia_recover:call/1,
         fun mnesia_index:dirty_read2/3,
         fun mnesia_index:dirty_match_object/3,
-        fun mnesia_tm:fixtable/3
+        fun mnesia_tm:fixtable/3,
+        fun mnesia_controller:call/1,
+        fun mnesia_lib:set/2
     ],
     {ok, {#{strategy => one_for_all, intensity => 0, period => 86400000}, kernel_children()}};
 % Each checkpoint's process (MIM1F), never restarted.

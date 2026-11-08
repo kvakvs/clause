@@ -38,7 +38,8 @@ Clause's `mnesia` application (plan 21, MIM1) exports the OTP 29 interface of `m
   [process names](#processes) and the [queries other nodes make](#queries-from-other-nodes). MIM1H4, done:
   [connecting nodes](#connecting-nodes). MIM1H5, done: [merging schemas](#merging-schemas). MIM1H6, done:
   [dirty access](#dirty-access) to tables held on another node. MIM1H7, done: [locks](#locks) on other nodes. MIM1H8,
-  done: [commits](#transactions) over several nodes. What OTP writes and sends is recorded in
+  done: [commits](#transactions) over several nodes. MIM1H9, done: [table copies](#schema-changes) and loads over
+  several nodes. What OTP writes and sends is recorded in
   [mnesia's files and protocol](mnesia-protocol.md).
 
 Every other documented function works. See the [function inventory](../../library/mnesia/mnesia.terms) and
@@ -152,12 +153,12 @@ those of the nodes that run mnesia, OTP's or Clause's, as OTP's does (plan 21 st
   written on the node that holds them, and the controllers report `{mnesia_up, Node}`. A table defined on both nodes
   with another cookie fails the merge with `{error, {merge_schema_failed, Message}}`, OTP's message.
 - **A node going down:** its tables stay defined but are read nowhere until it comes back; a node starting again with
-  `extra_db_nodes` takes the running nodes' definitions, and a RAM table of its own comes back empty.
+  `extra_db_nodes` takes the running nodes' definitions and loads each replica that a running node holds too from it
+  ([table copies](#schema-changes), MIM1H9), while a RAM table of its own comes back empty.
 - **Schema changes after it** reach every running node's schema ([transactions](#transactions), MIM1H8).
 - **Not yet:**
-  - a replica held on another node too is not copied when a node starts: it starts empty, and a node asked to commit
-    another node's table copy changes (`add_table_copy/3`, `del_table_copy/2`, `move_table_copy/3`,
-    `change_table_copy_type/3`), restores, fragment changes or SNMP changes votes no (MIM1H9, MIM1H11, MIM1H12);
+  - a node asked to commit another node's `change_table_copy_type/3`, restore, fragment change or SNMP change votes no
+    (MIM1H10, MIM1H11, MIM1H12);
   - disc nodes keep no decisions in `DECISION_TAB.LOG` (MIM1H10).
 
 ### Global variables
@@ -249,10 +250,15 @@ checks of `create_table/2` for the changed definition. Each change gives the def
   - `ignore` changes the definition only. For a `bag` key, only the records the function changes stay, as in OTP.
 - **Table copies:**
   - `add_table_copy/3` adds a node first in its storage's list. A `ram_copies` replica on a node outside the running
-    nodes only changes the definition. A replica on this node of a table held elsewhere starts empty.
+    nodes only changes the definition. A replica on a running node of a table held on another running node, OTP's or
+    Clause's, is loaded from that node with OTP's transfer before the commit (plan 21 step MIM1H9,
+    [mnesia's files and protocol](mnesia-protocol.md#replicas-and-loading-mim1h9),
+    [clause_mnesia_loader](../../library/mnesia/clause_mnesia_loader.erl)); this node sends its replicas to other
+    nodes the same way, from a process its controller starts.
   - `del_table_copy/2` deletes the table with its last replica. Deleting the schema's copy on another node also removes
     that node's replicas of every table, and deletes the tables it alone held.
-  - `move_table_copy/3` needs both nodes running, so on one node it always aborts with `not_active`.
+  - `move_table_copy/3` needs both nodes running, so on one node it always aborts with `not_active`. Over two nodes it
+    adds the copy, loaded as above, then deletes the old one, as OTP's operations do (MIM1H9).
   - `change_table_copy_type/3` to `unknown` deletes the replica. The other changes are described under
     [storage types](#storage-types).
 - **Table properties:**
@@ -729,6 +735,12 @@ index of its rows by SNMP row index, as OTP's `mnesia_snmp_hook` does
   load order, access mode and table changes reach the other node's schema; a clashing `ets` name makes the other node
   refuse a table; both nodes answer `what_happened`. One run ends with the participant going down before it votes, the
   other with the coordinator going down before this node votes. Its runs pair Clause nodes with OTP nodes both ways.
+- **`mnesia_replicas` golden:** generated from OTP
+  ([fixture](../../tests/fixtures/executables/mnesia_replicas/mnesia_replicas.erl)). After a merge, copies are added
+  on the other node and on this one by each node, a large table among them, deleted and moved both ways, with their
+  errors; then b starts again and loads its replica of a replicated table from a. Each step shows both nodes' readers,
+  writers, active replicas, load node and reason, and whether they hold the same records. Its runs pair Clause nodes
+  with OTP nodes both ways.
 - **What `mnesia_dirty` covers:** answers before starting, system information, every `create_table` option and error, table
   properties, dirty access of each table type, indexes, counters, argument errors, schema changes, `schema/1`'s
   printout, error descriptions, and stopping and restarting.

@@ -237,14 +237,14 @@ dependencies, non-test sources.
     (H10); OTP's `wait_for_decision`/`max_wait_for_decision` (a participant with no node to ask aborts at once); the
     coordinator dying between `pre_commit` and `committed` is checked only in scratch runs (OTP has no release test
     hook).
-  - **MIM1H9 Replicas and table loading:** `add_table_copy/3` to and from the other node, `mnesia_loader`'s table
-    transfer (`{first, Size}`, `more`, `{more_z, ...}` with `send_compressed`, `max_transfer_size` chunks,
-    `no_more`, the receiver's subscription during the transfer), `del_table_copy/2`, `move_table_copy/3`,
-    `change_table_copy_type/3` on another node, load at start from a running node (`load_reason`
-    `{active_remote, Node}`), `wait_for_tables/2`, `force_load_table/1`, `load_order`, `no_table_loaders`,
-    `mnesia_late_loader`.
-    - Golden `mnesia_replicas`: copies added, moved and dropped both ways, a node restarting and loading its
-      replicas from the other.
+  - **MIM1H9 done** (`21-finished.md`): OTP's table transfer both ways (`send_table`, `{first, Size}`, chunks and
+    `more_z`, `no_more`, events during the transfer, `update_where_to_write`/`block_table`/`add_active_replica`),
+    copies added, deleted and moved over nodes (move as `add_table_copy` + `sync_trans` + `del_table_copy`), replicas
+    loaded at start from a running node (`{active_remote, Node}`). Left for later steps: `change_table_copy_type/3` on
+    another node needs disc nodes (H10); `load_order`, `no_table_loaders` and `force_load_table/1` of a replica held
+    elsewhere are not applied (every pending replica loads at once); OTP's table blocks during a transfer are answered
+    without blocking; disc replicas (`{no_more, Bin}` of a DCD file) come with H10; Clause's `mnesia_late_loader`
+    stays idle.
   - **MIM1H10 Disc nodes:** `create_schema/1` over several nodes (both ways), disc schemas joined at start,
     `delete_schema/1` of a remote node, schema changes logged and dumped on each disc node, `master_nodes`
     (`set_master_nodes/1,2` deciding loads), `majority` checks (`{no_majority, Tab}`), `move_table_copy/3` between
@@ -321,7 +321,7 @@ dependencies, non-test sources.
 
 ### Order
 
-1. MIM9's record wildcard fix, MIM6, MIM7 (MIM1A-MIM1G, MIM1H1-H8 done 2026-11-02/08; MIM1H9-H12 optional, in order)
+1. MIM9's record wildcard fix, MIM6, MIM7 (MIM1A-MIM1G, MIM1H1-H9 done 2026-11-02/08; MIM1H10-H12 optional, in order)
    (small), MIM3, MIM4, MIM2, MIM5; MIM8 after a user decision.
 2. LIB81D3c, LIB81D4b and LIB81E on request.
 3. LIB82, LIB83 last (test support).

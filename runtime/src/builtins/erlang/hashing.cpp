@@ -233,7 +233,9 @@ class Hash2 final {
 
     void push(Word word) { stack_.push_back({Step::term, word}); }
 
-    void term(ProcessContext &context, Word word) {
+    // A word of a term admitted already, which may live outside this process's heap (an ets select's bound key, plan 21
+    // step MIM1H9): read trusted, as lists and tuples are.
+    void term(ProcessContext & /*context*/, Word word) {
         if (const auto value = small(word)) {
             integer(*value);
         } else if (word == abi::v1::empty_list) {
@@ -241,7 +243,7 @@ class Hash2 final {
         } else if (is_cons(word)) {
             list(word);
         } else if (!tuple(word)) {
-            boxed(need(Term::from_word(word, context)));
+            boxed(need(detail::TermAccess::trusted_term(word)));
         }
     }
 
@@ -483,7 +485,8 @@ class Hash1 final {
         } else if (is_cons(word)) {
             list(word);
         } else if (!tuple(word)) {
-            boxed(context, need(Term::from_word(word, context)));
+            // Trusted like the hash above: the term may live outside this process's heap (MIM1H9).
+            boxed(context, need(detail::TermAccess::trusted_term(word)));
         }
     }
 

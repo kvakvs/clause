@@ -608,7 +608,14 @@ order(B) ->
     Collector = agent_of(this),
     Collector ! {collect, 50},
     sent = ask(Agent, {send, Collector, lists:seq(1, 50)}),
-    show("order here", answer(Collector) =:= lists:seq(1, 50)).
+    show("order here", answer(Collector) =:= lists:seq(1, 50)),
+    % Large messages sent at once arrive whole and in order both ways, packets read together included (plan 21 step
+    % MIM1H9).
+    Chunk = [{record, K, lists:duplicate(100, $x)} || K <- lists:seq(1, 543)],
+    Agent ! {collect, 6},
+    [Agent ! {large, I, Chunk} || I <- lists:seq(1, 6)],
+    Large = answer(Agent),
+    show("large burst", {[I || {large, I, _} <- Large], lists:all(fun({large, _, C}) -> C =:= Chunk end, Large)}).
 
 %% Aliases reachable from b (plan 30 step DIST5c): an alias with reply takes one message, an explicit one until
 %% unalias/1, and a monitor's alias with reply_demonitor ends the monitor with its reply.

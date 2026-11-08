@@ -1,9 +1,9 @@
 %% OTP's mnesia_controller as other nodes call it (plan 21 step MIM1H3,
 %% docs/libraries/mnesia-protocol.md#remote-queries-mim1h3): this node's table definitions and running nodes, which a
-%% node merging its schema with this one fetches. The server registered as mnesia_controller is
+%% node merging its schema with this one fetches, and the requests of another node's sender loading a table here (MIM1H9). The server registered as mnesia_controller is
 %% clause_mnesia_controller. OTP's other internal functions are declined: no other node calls them.
 -module(mnesia_controller).
--export([get_remote_cstructs/0, get_cstructs/0]).
+-export([get_remote_cstructs/0, get_cstructs/0, call/1]).
 %% OTP 29 exports implemented natively or not yet: catalog builtins, whose clause_builtin_placeholder body the runtime's
 %% builtin replaces, and stubs raising error({not_implemented, F, A}) (docs/libraries/library.md#runtime-module-replacements).
 -export([
@@ -13,7 +13,6 @@
     async_dump_log/1,
     block_controller/0,
     block_table/1,
-    call/1,
     cast/1,
     change_table_access_mode/1,
     change_table_majority/1,
@@ -62,6 +61,10 @@ get_remote_cstructs() ->
     get_cstructs().
 
 % {cstructs, Cstructs, RunningNodes}; without a running mnesia it fails with OTP's badmatch.
+% A request to this node's controller, as a sender on another node makes it (MIM1H9).
+call(Request) ->
+    clause_mnesia_controller:call(Request).
+
 get_cstructs() ->
     {cstructs, _, _} = clause_mnesia_controller:call(get_cstructs).
 
@@ -71,7 +74,6 @@ add_active_replica(_, _, _, _) -> erlang:error({not_implemented, add_active_repl
 async_dump_log(_) -> erlang:error({not_implemented, async_dump_log, 1}).
 block_controller() -> erlang:error({not_implemented, block_controller, 0}).
 block_table(_) -> erlang:error({not_implemented, block_table, 1}).
-call(_) -> erlang:error({not_implemented, call, 1}).
 cast(_) -> erlang:error({not_implemented, cast, 1}).
 change_table_access_mode(_) -> erlang:error({not_implemented, change_table_access_mode, 1}).
 change_table_majority(_) -> erlang:error({not_implemented, change_table_majority, 1}).

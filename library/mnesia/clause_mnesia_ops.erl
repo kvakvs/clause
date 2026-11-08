@@ -4,7 +4,7 @@
 %% schema's create lists. Another node's operations become this node's changes when it takes part in their commit
 %% (MIM1H8).
 -module(clause_mnesia_ops).
--export([ops/2, dumped/1, items/1, changes/1]).
+-export([ops/2, dumped/1, items/1, changes/1, changes/2]).
 
 -include("clause_mnesia.hrl").
 
@@ -30,8 +30,9 @@ ops({del_copy, _, Node}, Changes) ->
     [copy_op(Change, Node, del_table_copy) || Change <- Changes];
 ops({add_copy, _, Node, _}, Changes) ->
     [copy_op(Change, Node, add_table_copy) || Change <- Changes];
-ops({move_copy, _, From, To}, [{redefine, Cs}]) ->
-    [{op, move_table_copy, From, To, list(Cs)}];
+ops({move_copy, _, From, To}, [{add_copy, Both, _}, {redefine, Final}]) ->
+    Storage = clause_mnesia_schema:storage(To, Both),
+    [{op, add_table_copy, Storage, To, list(Both)}, {op, sync_trans}, {op, del_table_copy, Storage, From, list(Final)}];
 ops({access_mode, _, _}, Changes) ->
     [changed(change_table_access_mode, #cstruct.access_mode, Cs) || {redefine, Cs} <- Changes];
 ops({load_order, _, _}, Changes) ->
@@ -56,14 +57,31 @@ ops(_, _) ->
     [].
 
 % The changes another node's commit of operations makes here (MIM1H5, MIM1H8), the nodes announced running last; an
-% operation this node cannot make is {error, {aborted, Reason}}, its refusal.
+% operation this node cannot make is {error, {aborted, Reason}}, its refusal. A copy added here in transaction Tid is
+% loaded first (MIM1H9).
 changes(Ops) ->
-    try lists:append([change(Op) || Op <- Ops]) of
+    changes(Ops, none).
+
+changes(Ops, Tid) ->
+    try lists:append([change(Op, Tid) || Op <- Ops]) of
         Changes -> {ok, [C || C <- Changes, element(1, C) =/= announce] ++ [C || {announce, _, _} = C <- Changes]}
     catch
         exit:{aborted, Reason} -> {error, {aborted, Reason}};
         throw:Reason -> {error, {aborted, Reason}}
     end.
+
+change({op, add_table_copy, _, _, List}, _) when hd(List) =:= {name, schema} ->
+    [{redefine, cs(List)}];
+change({op, add_table_copy, Storage, Node, List}, Tid) ->
+    #cstruct{name = Tab} = Cs = cs(List),
+    [{add_copy, Cs, clause_mnesia_loader:copy(Tab, Node, Storage, Tid)}];
+change({op, del_table_copy, _, _, List}, _) ->
+    [{redefine, cs(List)}];
+change({op, sync_trans}, #tid{pid = Coordinator}) ->
+    sync_trans(Coordinator),
+    [];
+change(Op, _) ->
+    change(Op).
 
 change({op, merge_schema, List}) ->
     [{merge, cs(List)}];
@@ -97,6 +115,15 @@ change(Op) ->
 
 cs(List) -> clause_mnesia_schema:list2cs(List).
 
+% A move's participant meets its coordinator between the copy added and the copy deleted, as OTP's (MIM1H9).
+sync_trans(Coordinator) ->
+    Ref = erlang:monitor(process, Coordinator),
+    Coordinator ! {sync_trans, self()},
+    receive
+        {sync_trans, Coordinator} -> erlang:demonitor(Ref, [flush]);
+        {'DOWN', Ref, process, _, _} -> throw({node_not_running, node(Coordinator)})
+    end.
+
 % Whether OTP dumps the log right after these operations.
 dumped(Ops) ->
     lists:any(fun(Op) -> lists:member(element(2, Op), ?DUMPED) end, Ops).
@@ -121,7 +148,8 @@ deleted(Tab) -> {op, delete_table, list(old(Tab))}.
 % A copy's change: the table goes with its last copy.
 copy_op({delete, Tab}, _, _) ->
     deleted(Tab);
-copy_op({_, #cstruct{name = Tab} = Cs}, Node, Name) ->
+copy_op(Change, Node, Name) ->
+    #cstruct{name = Tab} = Cs = element(2, Change),
     Storage =
         case Name of
             add_table_copy -> clause_mnesia_schema:storage(Node, Cs);
