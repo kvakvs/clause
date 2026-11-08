@@ -17,6 +17,7 @@
     apply_change/2,
     add_active/2,
     del_active/2,
+    check_storage/1,
     storage/1,
     storage/2,
     properties/1,
@@ -315,8 +316,11 @@ apply_change({Twice, #cstruct{name = Tab} = Cs}, Tid) when Twice =:= create; Twi
     Record = {schema, Tab, cs2list(Cs)},
     schema_event(Tid, Record, write),
     case Twice of
-        create -> insert(Cs, {dumper, create_table});
-        add_copy -> redefine(Cs)
+        create ->
+            insert(Cs, {dumper, create_table}),
+            created_active(Cs);
+        add_copy ->
+            redefine(Cs)
     end,
     schema_event(Tid, Record, write);
 apply_change({delete, Tab} = Change, Tid) ->
@@ -378,17 +382,24 @@ apply_change({add_index, #cstruct{name = Tab} = Cs, Index}) ->
 apply_change({del_index, #cstruct{name = Tab} = Cs, Pos}) ->
     redefine(Cs),
     clause_mnesia_index:drop(Tab, Pos);
-apply_change({transform, #cstruct{name = Tab, type = Type} = Cs, Changes}) ->
+apply_change({transform, #cstruct{name = Tab} = Cs, Changes}) ->
+    case val({Tab, storage_type}) of
+        unknown -> redefine(Cs);
+        _ -> transform(Cs, Changes)
+    end;
+apply_change({redefine, Cs}) ->
+    redefine(Cs);
+apply_change({dump, Tab}) ->
+    clause_mnesia_disc:ets2dcd(Tab).
+
+% A transformed replica on this node: its indexes made again over the new records.
+transform(#cstruct{name = Tab, type = Type} = Cs, Changes) ->
     Positions = lists:reverse([P || {{P, _}, _} <- (val({Tab, index_info}))#index.pos_list]),
     [clause_mnesia_index:drop(Tab, P) || P <- Positions],
     [transform_key(Tab, Type, Change) || Change <- Changes],
     redefine(Cs),
     [clause_mnesia_index:add(Tab, {P, ordered}) || P <- Positions],
-    val({Tab, storage_type}) =:= disc_copies andalso clause_mnesia_disc:ets2dcd(Tab);
-apply_change({redefine, Cs}) ->
-    redefine(Cs);
-apply_change({dump, Tab}) ->
-    clause_mnesia_disc:ets2dcd(Tab).
+    val({Tab, storage_type}) =:= disc_copies andalso clause_mnesia_disc:ets2dcd(Tab).
 
 % A key's transformed records replace its old ones; a bag's key keeps only its written records, as in OTP.
 transform_key(Tab, bag, {Key, Written, _}) ->
@@ -399,10 +410,13 @@ transform_key(Tab, _, {Key, [], _}) ->
 transform_key(Tab, _, {_, Written, _}) ->
     clause_mnesia_db:insert(Tab, Written).
 
-% A changed definition replaces the schema record and the properties it sets; a replica on this node comes or goes
-% with its node lists, and its writers follow the access mode and majority.
+% A changed definition replaces the schema record and the properties it sets, and its table comes first among the
+% tables (MIM1H8); a replica on this node comes or goes with its node lists, and its writers follow the access mode
+% and majority.
 redefine(#cstruct{name = Tab} = Cs) ->
+    OldAccess = val({Tab, access_mode}),
     ets:insert(schema, {schema, Tab, cs2list(Cs)}),
+    set({schema, tables}, [Tab | lists:delete(Tab, val({schema, tables}))]),
     [set({Tab, Item}, Value) || {Item, Value} <- definition_properties(Cs), not lists:member(Item, ?RUNTIME)],
     mnesia_frag:set_frag_hash(Tab, Cs#cstruct.frag_properties),
     ets:match_delete(?GVAR, {{Tab, user_property, '_'}, '_'}),
@@ -418,7 +432,7 @@ redefine(#cstruct{name = Tab} = Cs) ->
             clause_mnesia_disc:deleted(Tab),
             [set({Tab, Item}, Value) || {Item, Value} <- absent_properties()];
         {Storage, Storage} ->
-            [set({Tab, Item}, Value) || {Item, Value} <- writer_properties(Cs, active(Tab))];
+            [set({Tab, Item}, Value) || {Item, Value} <- writer_properties(Cs, access_active(Tab, OldAccess, Cs))];
         {Old, New} ->
             converted(Cs, Old, New),
             set({Tab, storage_type}, New),
@@ -577,12 +591,12 @@ loaded_properties(#cstruct{name = Tab, type = Type} = Cs, Storage, Reason) ->
         | writer_properties(Cs, Active)
     ].
 
-% Where a table is written: on its active replicas, the earliest active first, or nowhere when read_only; commits
-% name each node's storage, in node order, as OTP's.
+% Where a table is written: on its active replicas, this node first, then the others the earliest active first, or
+% nowhere when read_only; commits name each node's storage, in node order, as OTP's.
 writer_properties(#cstruct{access_mode = Access, majority = Majority} = Cs, Active) ->
     Writers =
         case Access of
-            read_write -> lists:reverse(Active);
+            read_write -> [N || N <- Active, N =:= node()] ++ lists:reverse(lists:delete(node(), Active));
             read_only -> []
         end,
     [
@@ -597,6 +611,46 @@ active(Tab) ->
         ets:lookup_element(?GVAR, {Tab, active_replicas}, 2)
     catch
         error:badarg -> []
+    end.
+
+% A table made read_only lists its active replicas in reverse of where it was written; made writable again, in the
+% order it is written (MIM1H8).
+access_active(Tab, Old, #cstruct{access_mode = Old}) ->
+    active(Tab);
+access_active(Tab, _, #cstruct{access_mode = New}) ->
+    Active = active(Tab),
+    Written = [N || N <- Active, N =:= node()] ++ lists:reverse(lists:delete(node(), Active)),
+    Changed =
+        case New of
+            read_only -> lists:reverse(Written);
+            read_write -> Written
+        end,
+    set({Tab, active_replicas}, Changed),
+    Changed.
+
+% A new table's replicas on the running nodes are active at once, this node's first (MIM1H8); a table with none
+% keeps the properties of a table held nowhere.
+created_active(#cstruct{name = Tab} = Cs) ->
+    Running = val({current, db_nodes}),
+    Others = [
+        N
+     || N <- Cs#cstruct.ram_copies ++ Cs#cstruct.disc_copies ++ Cs#cstruct.disc_only_copies,
+        N =/= node(),
+        lists:member(N, Running)
+    ],
+    Local = [node() || storage(Cs) =/= unknown],
+    case Local ++ lists:reverse(Others) of
+        [] -> ok;
+        Active -> set_active(Tab, Active)
+    end.
+
+% A new replica on this node needs its ets name free, or OTP's system_limit abort (MIM1H8).
+check_storage(#cstruct{name = Tab} = Cs) ->
+    case storage(Cs) of
+        Ets when Ets =:= ram_copies; Ets =:= disc_copies ->
+            ets:info(Tab) =:= undefined orelse abort({system_limit, Tab, {"Failed to create ets table", badarg}});
+        _ ->
+            ok
     end.
 
 % Node's replica of Tab became active (MIM1H5): the table is written there, and read there when this node has no

@@ -37,7 +37,8 @@ Clause's `mnesia` application (plan 21, MIM1) exports the OTP 29 interface of `m
   directory. MIM1H2, done: [schema transactions](#transaction-log) logged as OTP's operations. MIM1H3, done: OTP's
   [process names](#processes) and the [queries other nodes make](#queries-from-other-nodes). MIM1H4, done:
   [connecting nodes](#connecting-nodes). MIM1H5, done: [merging schemas](#merging-schemas). MIM1H6, done:
-  [dirty access](#dirty-access) to tables held on another node. MIM1H7, done: [locks](#locks) on other nodes. What OTP writes and sends is recorded in
+  [dirty access](#dirty-access) to tables held on another node. MIM1H7, done: [locks](#locks) on other nodes. MIM1H8,
+  done: [commits](#transactions) over several nodes. What OTP writes and sends is recorded in
   [mnesia's files and protocol](mnesia-protocol.md).
 
 Every other documented function works. See the [function inventory](../../library/mnesia/mnesia.terms) and
@@ -134,7 +135,7 @@ Clause's mnesia connects to other nodes' mnesia, OTP's or Clause's, as OTP's doe
 - **Partitions:** two running nodes that recorded each other down report `{inconsistent_database,
   running_partitioned_network, Node}` when they meet again, and `starting_partitioned_network` when they connect.
 
-Deciding transactions together (MIM1H8) comes later: a decision another node sends is not taken yet.
+Each node keeps the outcomes of the transactions it took part in ([transactions](#transactions), MIM1H8); a decision another node sends is not taken yet (MIM1H10).
 
 ### Merging schemas
 
@@ -152,12 +153,12 @@ those of the nodes that run mnesia, OTP's or Clause's, as OTP's does (plan 21 st
   with another cookie fails the merge with `{error, {merge_schema_failed, Message}}`, OTP's message.
 - **A node going down:** its tables stay defined but are read nowhere until it comes back; a node starting again with
   `extra_db_nodes` takes the running nodes' definitions, and a RAM table of its own comes back empty.
+- **Schema changes after it** reach every running node's schema ([transactions](#transactions), MIM1H8).
 - **Not yet:**
-  - schema changes after a merge stay on the node that makes them, and a node asked to commit another node's schema
-    change votes no (MIM1H8);
-  - a replica held on another node too is not copied when a node starts: it starts empty (MIM1H9);
-  - a transaction cannot write a table held only on another node (MIM1H8); it can [lock](#locks) and read it
-    (MIM1H7), and [dirty access](#dirty-access) to it works (MIM1H6).
+  - a replica held on another node too is not copied when a node starts: it starts empty, and a node asked to commit
+    another node's table copy changes (`add_table_copy/3`, `del_table_copy/2`, `move_table_copy/3`,
+    `change_table_copy_type/3`), restores, fragment changes or SNMP changes votes no (MIM1H9, MIM1H11, MIM1H12);
+  - disc nodes keep no decisions in `DECISION_TAB.LOG` (MIM1H10).
 
 ### Global variables
 
@@ -396,6 +397,16 @@ dictionary, as in OTP:
   the outer transaction running. Inner commits and aborts count too.
 - **Restarts:** a refused lock (`#cyclic{}`) restarts the outermost transaction with the same tid, after OTP's growing
   pause, counting `transaction_restarts`. When the retries run out the result is `{aborted, nomore}`.
+- **Other nodes** (plan 21 step MIM1H8, [mnesia's files and protocol](mnesia-protocol.md#two-phase-commit-mim1h8)):
+  a transaction writing tables held on other nodes, OTP's or Clause's, commits there with OTP's two-phase protocols
+  ([clause_mnesia_commit](../../library/mnesia/clause_mnesia_commit.erl)): `sym_trans` for tables replicated on the
+  same nodes, `asym_trans` for tables of different nodes and majority tables, and for every schema change, which
+  reaches every running node's schema. This node takes part in other nodes' commits the same way
+  ([clause_mnesia_participant](../../library/mnesia/clause_mnesia_participant.erl)): `mnesia_tm` votes on and applies
+  `sym_trans` commits, a process of its own each `asym_trans` commit, with the transaction's table events. A node
+  going down before it votes restarts the transaction, which commits on the nodes still running; a coordinator going
+  down before deciding aborts its transaction on the participants unless another one knows it committed. Each node
+  keeps the outcomes of the transactions it took part in and answers other nodes' `what_happened` questions from them.
 
 `select/4` and `select_reverse/4` return OTP's `#mnesia_select{}` continuation. In a transaction with writes to the
 table, each chunk merges them as OTP's does, chunk boundaries included.
@@ -710,6 +721,14 @@ index of its rows by SNMP row index, as OTP's `mnesia_snmp_hook` does
   transactions take every kind of lock on the other node's table and read it, abort and nest; an older transaction
   waits in the other node's queue, a younger one is refused and restarts, a killed transaction's locks go, and a holder
   going down ends a wait and releases its transactions' locks. Its runs pair Clause nodes with OTP nodes both ways.
+- **`mnesia_two_phase` golden:** generated from OTP
+  ([fixture](../../tests/fixtures/executables/mnesia_two_phase/mnesia_two_phase.erl)). After a merge, replicated tables
+  are created from either node; each node's transactions write replicated tables, tables of different nodes, a majority
+  table and only the other node's table, in sync, nested and aborted transactions, with `clear_table/1` and dirty
+  writes, and both nodes hold the same records, the other node reporting the table events. Index, transform, property,
+  load order, access mode and table changes reach the other node's schema; a clashing `ets` name makes the other node
+  refuse a table; both nodes answer `what_happened`. One run ends with the participant going down before it votes, the
+  other with the coordinator going down before this node votes. Its runs pair Clause nodes with OTP nodes both ways.
 - **What `mnesia_dirty` covers:** answers before starting, system information, every `create_table` option and error, table
   properties, dirty access of each table type, indexes, counters, argument errors, schema changes, `schema/1`'s
   printout, error descriptions, and stopping and restarting.

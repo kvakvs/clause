@@ -23,6 +23,7 @@
         clause_mnesia_schema,
         clause_mnesia_snmp,
         clause_mnesia_ops,
+        clause_mnesia_participant,
         clause_mnesia_subscr,
         clause_mnesia_text,
         clause_mnesia_tm,

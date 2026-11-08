@@ -205,6 +205,9 @@ behavior (`docs/differences.md` lists gaps).
   holder's `mnesia_rpc`, dirty writes OTP's `sync_dirty`/`async_dirty` commits to its `mnesia_tm` (alias replies);
   MIM1H7: locks go to the lock manager of the node keeping them as OTP's raw requests (grants carry records), the store's
   `{nodes, N}` entries drive `simple_commit`/`release_tid`/`sync_release_tid` and `do_abort` on a dead transaction;
+  MIM1H8: commits over nodes in `clause_mnesia_commit` (one `#commit{}` per node, sym_trans/sync_sym_trans voted and
+  applied by the participant's `mnesia_tm`, asym_trans for mixed placements, majority and every schema change through
+  a participant process in `clause_mnesia_participant`), outcomes kept in `mnesia_recover` for `what_happened`;
   SNMP row index per table kept by updates).
   Distribution and tracing
   answer as a non-alive node.

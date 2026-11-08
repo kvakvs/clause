@@ -972,3 +972,10 @@ gotchas and user directions not recorded elsewhere.
   get(mnesia_activity_state)'s tid is larger (bump_past). A restarted transaction reruns its fun in the same process:
   fixture funs that wait for a go message must wait only on the first run (process dictionary flag). Restart counts
   depend on timing: goldens print only that a restart happened.
+- MIM1H8 mnesia (2026-11-08): OTP's mnesia debug hooks (?eval_debug_fun) are compiled out of release builds, and Clause
+  has no erlang:trace: golden failure scenarios suspend a registered mnesia process (erlang:suspend_process) and halt
+  the other node; a coordinator killed after pre_commit is checked only in scratch (scratch/mim1h8/p3.erl suspends
+  the transaction process from a tracer on its send of pre_commit; the BEAM-run Clause library works with it). A golden
+  run per destructive scenario: runs with other args (a_coordinator) are generated independently. Events of a commit
+  applied by another process race the next dirty write's events: OTP's asym participant applies in its own process,
+  so Clause's does too (not via a mnesia_tm call). scratch/mim1h8/all.sh runs both runs in all pairings (ARGA).

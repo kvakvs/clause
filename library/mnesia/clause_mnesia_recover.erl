@@ -1,13 +1,21 @@
 %% mnesia's recovery server, registered as mnesia_recover as in OTP (plan 21 steps MIM1H3, MIM1H4,
 %% docs/libraries/mnesia.md#connecting-nodes): it connects this node's mnesia to other nodes', with which it then
 %% exchanges transaction serials and decisions, and it records another node's mnesia going down. The nodes it is
-%% connected to are the recover_nodes variable.
+%% connected to are the recover_nodes variable. It keeps the outcomes of the transactions committed over several nodes
+%% that this node took part in, which other nodes ask about (MIM1H8).
 -module(clause_mnesia_recover).
 -behaviour(gen_server).
 -export([start_link/0, call/1, connect_nodes/1, has_mnesia_down/1, mnesia_down/1, log_mnesia_up/1, sync_serial/1]).
+-export([note_decision/2]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2]).
 
 -include("clause_mnesia.hrl").
+
+%% The outcomes kept in the newest generation before the oldest one is dropped (MIM1H8).
+-define(GENERATION_SIZE, 1000).
+
+%% The server's state: transaction outcomes as {Tid, Outcome} in two ets generations, the newest first (MIM1H8).
+-record(state, {latest, previous}).
 
 start_link() ->
     gen_server:start_link({local, mnesia_recover}, ?MODULE, [], [{timeout, infinity}]).
@@ -37,6 +45,10 @@ has_mnesia_down(Node) ->
 log_mnesia_up(Node) ->
     call({log_mnesia_up, Node}).
 
+% A transaction committed over several nodes was decided here: committed, aborted or still unclear (MIM1H8).
+note_decision(Tid, Outcome) ->
+    gen_server:cast(mnesia_recover, {note_decision, Tid, Outcome}).
+
 % Node's mnesia went down, as its monitor's link says: it is no longer a node to recover with.
 mnesia_down(Node) ->
     del(recover_nodes, Node),
@@ -44,7 +56,9 @@ mnesia_down(Node) ->
 
 init([]) ->
     set(recover_nodes, []),
-    {ok, []}.
+    {ok, #state{latest = decisions(), previous = decisions()}}.
+
+decisions() -> ets:new(mnesia_transient_decision, [set, private]).
 
 handle_call({connect_nodes, Nodes}, _From, State) ->
     Connected = val(recover_nodes),
@@ -55,10 +69,10 @@ handle_call({connect_nodes, Nodes}, _From, State) ->
 handle_call({log_mnesia_up, Node}, _From, State) ->
     ets:delete(mnesia_decision, {node, Node}),
     {reply, ok, State};
-% Another node asks what became of a transaction that took locks here (MIM1H7): no outcome is kept here before
-% MIM1H8, so the answer is the asker's default, as OTP's for a transaction it never decided.
-handle_call({what_happened, Default, _Tid}, _From, State) ->
-    {reply, {ok, Default}, State};
+% Another node asks what became of a transaction (MIM1H7): the outcome kept here (MIM1H8), or the asker's default, as
+% OTP's for a transaction it never decided.
+handle_call({what_happened, Default, Tid}, _From, State) ->
+    {reply, {ok, outcome(Tid, Default, State)}, State};
 handle_call(_Request, _From, State) ->
     {reply, badop, State}.
 
@@ -88,8 +102,11 @@ handle_cast({decisions, Node, Decisions}, State) ->
     {noreply, State};
 handle_cast({what_decision, Node, #decision{tid = Tid} = Asked}, State) ->
     sync_serial(Tid#tid.counter),
-    gen_server:abcast([Node], mnesia_recover, {decisions, node(), [decision(Tid, Asked)]}),
+    Decision = decision(Tid, Asked#decision{outcome = outcome(Tid, Asked#decision.outcome, State)}),
+    gen_server:abcast([Node], mnesia_recover, {decisions, node(), [Decision]}),
     {noreply, State};
+handle_cast({note_decision, Tid, Outcome}, State) ->
+    {noreply, noted(Tid, Outcome, State)};
 handle_cast({mnesia_down, Node}, State) ->
     del(recover_nodes, Node),
     clause_mnesia_monitor:is_running() =:= yes andalso log_mnesia_down(Node),
@@ -105,6 +122,24 @@ handle_cast(_Request, State) ->
 
 handle_info(_Message, State) ->
     {noreply, State}.
+
+% A transaction's outcome in the newest generation; a full one becomes the older generation.
+noted(Tid, Outcome, #state{latest = Latest, previous = Previous} = State) ->
+    ets:insert(Latest, {Tid, Outcome}),
+    case ets:info(Latest, size) >= ?GENERATION_SIZE of
+        true ->
+            ets:delete(Previous),
+            State#state{latest = decisions(), previous = Latest};
+        false ->
+            State
+    end.
+
+% The outcome kept for a transaction, or Default.
+outcome(Tid, Default, #state{latest = Latest, previous = Previous}) ->
+    case ets:lookup(Latest, Tid) ++ ets:lookup(Previous, Tid) of
+        [{_, Outcome} | _] -> Outcome;
+        [] -> Default
+    end.
 
 % This node's decision on a transaction, or the asker's own when this node has none.
 decision(Tid, Asked) ->

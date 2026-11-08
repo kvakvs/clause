@@ -1,9 +1,10 @@
 %% OTP's schema operations, the {op, ...} tuples of a schema transaction (plan 21 step MIM1H2,
 %% docs/libraries/mnesia-protocol.md): built from the request and the changes clause_mnesia_change prepared, before
 %% mnesia_monitor applies them, so that the transaction log holds the terms OTP's holds. Table definitions are the
-%% schema's create lists.
+%% schema's create lists. Another node's operations become this node's changes when it takes part in their commit
+%% (MIM1H8).
 -module(clause_mnesia_ops).
--export([ops/2, dumped/1, items/1]).
+-export([ops/2, dumped/1, items/1, changes/1]).
 
 -include("clause_mnesia.hrl").
 
@@ -53,6 +54,48 @@ ops({restore, _, _}, [{restore, Plan, _}]) ->
     lists:append([restore_ops(Entry) || Entry <- lists:reverse(Plan)]);
 ops(_, _) ->
     [].
+
+% The changes another node's commit of operations makes here (MIM1H5, MIM1H8), the nodes announced running last; an
+% operation this node cannot make is {error, {aborted, Reason}}, its refusal.
+changes(Ops) ->
+    try lists:append([change(Op) || Op <- Ops]) of
+        Changes -> {ok, [C || C <- Changes, element(1, C) =/= announce] ++ [C || {announce, _, _} = C <- Changes]}
+    catch
+        exit:{aborted, Reason} -> {error, {aborted, Reason}};
+        throw:Reason -> {error, {aborted, Reason}}
+    end.
+
+change({op, merge_schema, List}) ->
+    [{merge, cs(List)}];
+change({op, announce_im_running, _, _, Running, RemoteRunning}) ->
+    [{announce, Running, RemoteRunning}];
+change({op, create_table, List}) ->
+    Cs = cs(List),
+    clause_mnesia_schema:check_storage(Cs),
+    [{create, Cs}];
+change({op, delete_table, List}) ->
+    [{delete, proplists:get_value(name, List)}];
+change({op, add_index, Index, List}) ->
+    [{add_index, cs(List), Index}];
+change({op, del_index, Pos, List}) ->
+    [{del_index, cs(List), Pos}];
+change({op, transform, Fun, List}) ->
+    Cs = cs(List),
+    [{transform, Cs, clause_mnesia_change:transformed(Cs, Fun)}];
+change({op, Name, List, _, _}) when
+    Name =:= change_table_access_mode; Name =:= change_table_load_order; Name =:= change_table_majority
+->
+    [{redefine, cs(List)}];
+change({op, Property, List, _}) when Property =:= write_property; Property =:= delete_property ->
+    [{redefine, cs(List)}];
+change({op, add_snmp, _, List}) ->
+    [{redefine, cs(List)}];
+change({op, del_snmp, List}) ->
+    [{redefine, cs(List)}];
+change(Op) ->
+    throw({not_supported, Op}).
+
+cs(List) -> clause_mnesia_schema:list2cs(List).
 
 % Whether OTP dumps the log right after these operations.
 dumped(Ops) ->

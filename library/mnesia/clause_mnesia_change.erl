@@ -2,7 +2,7 @@
 %% each change takes OTP's locks and makes OTP's checks in OTP's order inside the transaction, then hands
 %% mnesia_monitor the changes to apply (clause_mnesia_schema:apply_change/1). Transform functions run here too.
 -module(clause_mnesia_change).
--export([prepare/1, check_new_table/1, check_deleted_table/1, check_active/1, lock_table/2]).
+-export([prepare/1, check_new_table/1, check_deleted_table/1, check_active/1, lock_table/2, transformed/2]).
 
 -include("clause_mnesia.hrl").
 
@@ -158,13 +158,23 @@ dump_tables([]) ->
 %% Creating and deleting tables and indexes (MIM1A's checks).
 
 % create_table/1: the definition checked, then the table on this node; a fragmented table's fragments, each checked
-% in turn (MIM1G).
+% in turn (MIM1G). Each new table is write locked on its running nodes (MIM1H8).
 create_table(Def) ->
     Cs = clause_mnesia_schema:cstruct(Def),
-    case Cs#cstruct.frag_properties of
-        [] -> [{create, check_new_table(Cs)}];
-        _ -> [{create, check_new_table(F)} || F <- mnesia_frag:expand_cstruct(Cs)]
-    end.
+    Created =
+        case Cs#cstruct.frag_properties of
+            [] -> [check_new_table(Cs)];
+            _ -> [check_new_table(F) || F <- mnesia_frag:expand_cstruct(Cs)]
+        end,
+    [lock_new(C) || C <- Created],
+    [{create, C} || C <- Created].
+
+% The new table's write lock on its running nodes, the last first, as OTP takes it.
+lock_new(#cstruct{name = Tab} = Cs) ->
+    {_, Tid, #tidstore{store = Store}} = get(mnesia_activity_state),
+    Running = val({current, db_nodes}),
+    Nodes = [N || N <- copy_holders(Cs), lists:member(N, Running)],
+    clause_mnesia_locker:wlock_new(Tid, Store, Tab, lists:reverse(Nodes)).
 
 % A new table's checks: it does not exist, its definition is sound, and its disc nodes run.
 check_new_table(#cstruct{name = Tab} = Cs0) ->
@@ -176,6 +186,7 @@ check_new_table(#cstruct{name = Tab} = Cs0) ->
      || N <- Cs#cstruct.disc_copies ++ Cs#cstruct.disc_only_copies, not lists:member(N, Running)
     ],
     check_local_storage(Cs),
+    clause_mnesia_schema:check_storage(Cs),
     Cs.
 
 % The tables delete_table/1 deletes: a fragmented table's fragments with it, when no other table's foreign key names
@@ -253,14 +264,20 @@ transform(Tab, Fun, Attributes, RecordName) ->
     ensure_active(Cs),
     ensure_writable(Tab),
     Cs2 = verify(Cs#cstruct{attributes = Attributes, record_name = RecordName}),
-    case Fun of
-        ignore -> [{transform, Cs2, []}];
-        _ -> [{transform, Cs2, transformed(Cs2, Fun)}]
+    [{transform, Cs2, transformed(Cs2, Fun)}].
+
+% Each key's {Key, Written, Deleted} records of this node's replica when Fun changes them, keys in term order; a
+% failure aborts the change and mnesia_event reports it, as OTP's commit does. Another node's transform of a table
+% held here runs it too (MIM1H8).
+transformed(_, ignore) ->
+    [];
+transformed(#cstruct{name = Tab} = Cs, Fun) ->
+    case val({Tab, storage_type}) of
+        unknown -> [];
+        _ -> transformed_replica(Cs, Fun)
     end.
 
-% Each key's {Key, Written, Deleted} records when Fun changes them, keys in term order; a failure aborts the change
-% and mnesia_event reports it, as OTP's commit does.
-transformed(#cstruct{name = Tab} = Cs, Fun) ->
+transformed_replica(#cstruct{name = Tab} = Cs, Fun) ->
     try
         Keys = lists:usort(clause_mnesia_db:select(Tab, [{'$1', [], [{element, 2, '$1'}]}], forward)),
         [

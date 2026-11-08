@@ -317,3 +317,13 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   store's `{nodes, N}` entries end the transaction there (`simple_commit`, `release_tid`, `sync_release_tid` with
   `tid_released` at restarts, `what_happened` + `do_abort` when its process dies); global locks on the running listed
   nodes; OTP-named `mnesia_tm:fixtable/3`; `mnesia_remote_locks` golden identical to OTP both ways — `947f51b4`
+- **MIM1H8** mnesia two-phase commit: transactions writing tables held on other nodes send one `#commit{}` per node
+  (`clause_mnesia_commit`): `sym_trans`/`sync_sym_trans` voted and applied by the participant's `mnesia_tm`
+  (`vote_yes`, `do_commit`, `committed`), `asym_trans` for mixed placements, majority tables and every schema change
+  through a participant process (`clause_mnesia_participant`: `vote_yes`/`vote_no`, `pre_commit`, `acc_pre_commit`,
+  `committed`, `schema_commit`); schema changes reach every running node (new tables locked on their nodes, an `ets`
+  name clash refused with OTP's `system_limit`); a participant down before voting restarts the transaction, a
+  coordinator gone aborts it on participants unless another node knows it committed; outcomes kept in
+  `mnesia_recover` for `what_happened`; new tables' replica order, `read_only` reversing `active_replicas` and changed
+  definitions moving to the front of `system_info(tables)` as OTP's; `mnesia_two_phase` golden identical to OTP both
+  ways — `HASH`

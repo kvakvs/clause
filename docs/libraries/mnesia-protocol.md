@@ -262,3 +262,45 @@ itself.
 - **A node going down:** a transaction waiting for b's grant when b goes down is told so (`{mnesia_down, b}`), releases
   its locks on every node and restarts; once b's tables are read nowhere it aborts with `{no_exists, Tab}`. a's lock
   manager drops the locks of b's transactions.
+
+## Two-phase commit (MIM1H8)
+
+How transactions and schema changes commit on several nodes, observed after a [merge](#schema-merge-mim1h5) of two RAM
+schemas. In the tables, a coordinates: a's transaction process sends each other node holding a written table one
+`#commit{}` and gathers the answers. Each commit's items are `{{Tab, Key}, Value, Op}` in the field of the table's
+storage on that node, as in [the log](#directory-files-mim1h1).
+
+| Message | From, to | Answer or effect |
+| --- | --- | --- |
+| `{Pid, {ask_commit, Protocol, Tid, #commit{}, DiscNodes, RamNodes}}` | a's transaction, to each other node's `mnesia_tm` | see each protocol below; the node takes the transaction's serial as when [connecting](#connecting-mim1h4) |
+| `{mnesia_tm, b, {vote_yes, Tid}}` | b's `mnesia_tm`, to a (`sym_trans`, `sync_sym_trans`) | a sends `{Tid, do_commit}` to b's `mnesia_tm` and commits its own part; b applies its commit, reports its table events and completed activity with a's tid, and releases the transaction's locks |
+| `{mnesia_tm, b, {committed, Tid}}` | b's `mnesia_tm`, to a, after `do_commit` (`sync_sym_trans`) | a waits for it before the transaction returns |
+| `{mnesia_tm, b, {vote_yes, Tid, Participant}}` | a process b's `mnesia_tm` starts, to a (`asym_trans`) | a sends `{Tid, pre_commit}` to `Participant` |
+| `{mnesia_tm, b, {acc_pre_commit, Tid, Participant, SchemaOps}}` | the participant, to a | `SchemaOps` is `true` when the commit has schema operations; a sends `{Tid, committed}` to the participant and commits its own part |
+| `{mnesia_tm, b, {schema_commit, Tid, Participant}}` | the participant, after applying schema operations, to a | a waits for it before the schema change returns; a commit of records only is not confirmed |
+| `{mnesia_tm, b, {vote_no, Tid, {aborted, Reason}}}` | b, to a | the transaction aborts with `Reason` and releases its locks on every node |
+| `{Tid, {do_abort, Reason}}` | a, to b's `mnesia_tm` or participant | b drops the commit and releases the transaction's locks |
+
+- **Protocols:** writes of tables replicated on the same nodes commit with `sym_trans` (`sync_sym_trans` in
+  `sync_transaction/1` and `clear_table/1`); writes of tables on different nodes, of a table with `majority`, and every
+  schema change commit with `asym_trans`, also in a sync transaction. A transaction that only read ends with
+  `simple_commit` ([remote locks](#remote-locks-mim1h7)).
+- **Commits and node lists:** a node gets a commit when the first item for it comes, in front of those before it; a's
+  own commit is always there, empty when a holds none of the written tables. `RamNodes` lists the commits' nodes in
+  that order, and `DiscNodes` those whose schema is on disc. An `asym_trans` commit's `decision` is
+  `#decision{tid = Tid, outcome = presume_abort, disc_nodes = DiscNodes, ram_nodes = RamNodes}`, a `sym_trans` one's
+  `presume_commit`.
+- **Schema changes:** every running node gets the schema operations of a change as `schema_ops`, whether it holds the
+  table or not, after the schema's write lock on each of them; a new table is also write locked on its running nodes,
+  the last first. A node holding a new replica creates its `ets` table before voting, and an `ets` table of that name
+  makes it vote no with `{system_limit, Tab, {"Failed to create ets table", badarg}}`. A new table's replicas on the
+  running nodes are active at once: each node lists itself first in `active_replicas` and `where_to_write`. A table made
+  `read_only` lists its active replicas in reverse, and made writable again, its own node first. Each change of a
+  definition brings its table to the front of `system_info(tables)` on every node.
+- **Outcomes:** each node taking part keeps the transaction's outcome; `{what_happened, Default, Tid}` to its
+  `mnesia_recover` answers `{ok, committed}` for both protocols, `{ok, Default}` for a transaction it never saw.
+  Participants do not count the transactions in `transaction_commits`.
+- **A participant going down** before it votes: the transaction counts a failure and a restart, and commits on the
+  nodes still running. **The coordinator going down** before the participant voted, after it voted or after the
+  pre-commit: the participant aborts the transaction, unless another node taking part knows it committed, and its
+  locks go.

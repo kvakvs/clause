@@ -44,17 +44,20 @@ schema_change(Operation) ->
             applied(Changes, clause_mnesia_ops:ops(Operation, Changes))
     end.
 
-% A change's result is ok, or the value its preparation gave, as restore/2's tables (MIM1F).
+% A change's result is ok, or the value its preparation gave, as restore/2's tables (MIM1F). The other nodes running
+% mnesia commit the operations too (MIM1H8).
 applied(Changes, Ops) ->
     {_, Tid, #tidstore{store = Store}} = get(mnesia_activity_state),
-    case gen_server:call(mnesia_monitor, {schema, Changes, Ops, Tid}, infinity) of
-        ok ->
-            % A schema change counts as a write: its transaction completes an activity (MIM1E).
-            true = ets:insert(Store, {op, schema_change}),
-            ok;
-        {aborted, Reason} ->
-            mnesia:abort(Reason)
-    end.
+    Local = fun() ->
+        case gen_server:call(mnesia_monitor, {schema, Changes, Ops, Tid}, infinity) of
+            ok -> ok;
+            {aborted, Reason} -> mnesia:abort(Reason)
+        end
+    end,
+    _ = clause_mnesia_commit:schema(Tid, [node() | lists:delete(node(), val({schema, active_replicas}))], Ops, Local),
+    % A schema change counts as a write: its transaction completes an activity (MIM1E).
+    true = ets:insert(Store, {op, schema_change}),
+    ok.
 
 % The nodes of Nodes whose monitors agreed on a protocol with this one, linked to it (MIM1H4).
 negotiate_protocol([]) ->

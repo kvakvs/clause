@@ -229,13 +229,14 @@ dependencies, non-test sources.
     down; `mnesia_tm:fixtable/3` answered for OTP peers (Clause walks without fixing). Left for later steps: OTP's
     `{switch, ...}` reply and unsticking replicated tables need tables held on several nodes (H8, H9); `what_happened`
     answers the asker's default until decisions are kept (H8); a transaction writing another node's table (H8).
-  - **MIM1H8 Two-phase commit:** transactions writing tables held on several nodes: `#commit{}` per node,
-    `sym_trans`/`sync_sym_trans` with `{Tid, ask_commit}`, votes, `pre_commit`, `committed`, `do_commit`,
-    `do_abort`, `simple_commit` for read-only; `asym_trans` for schema operations over several nodes; decisions in
-    `mnesia_decision` (`#decision{}`) and `DECISION_TAB.LOG`; outcomes after a participant goes down
-    (`what_happened`, `wait_for_decision`, `max_wait_for_decision`). Replicated tables stay identical.
-    - Golden `mnesia_two_phase`: replicated RAM tables written from both nodes, an abort voted by the other node, a
-      node killed between `pre_commit` and `committed` (via a test hook observed on OTP, or a forced `mnesia_down`).
+  - **MIM1H8 done** (`21-finished.md`): commits over nodes with OTP's `sym_trans`, `sync_sym_trans` and `asym_trans`
+    (data and every schema change), votes and refusals, restarts when a participant goes down before voting, aborts on
+    participants when the coordinator goes, transient outcomes for `what_happened`. Left for later steps: participants
+    vote no on table copy, restore, fragment and SNMP operations (H9, H11, H12); decisions are not logged in
+    `DECISION_TAB.LOG` nor merged in `{decisions, ...}`, and a disc node's commit is not logged under its `#decision{}`
+    (H10); OTP's `wait_for_decision`/`max_wait_for_decision` (a participant with no node to ask aborts at once); the
+    coordinator dying between `pre_commit` and `committed` is checked only in scratch runs (OTP has no release test
+    hook).
   - **MIM1H9 Replicas and table loading:** `add_table_copy/3` to and from the other node, `mnesia_loader`'s table
     transfer (`{first, Size}`, `more`, `{more_z, ...}` with `send_compressed`, `max_transfer_size` chunks,
     `no_more`, the receiver's subscription during the transfer), `del_table_copy/2`, `move_table_copy/3`,
@@ -320,7 +321,7 @@ dependencies, non-test sources.
 
 ### Order
 
-1. MIM9's record wildcard fix, MIM6, MIM7 (MIM1A-MIM1G, MIM1H1-H7 done 2026-11-02/07; MIM1H8-H12 optional, in order)
+1. MIM9's record wildcard fix, MIM6, MIM7 (MIM1A-MIM1G, MIM1H1-H8 done 2026-11-02/08; MIM1H9-H12 optional, in order)
    (small), MIM3, MIM4, MIM2, MIM5; MIM8 after a user decision.
 2. LIB81D3c, LIB81D4b and LIB81E on request.
 3. LIB82, LIB83 last (test support).

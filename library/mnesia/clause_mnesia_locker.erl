@@ -9,7 +9,7 @@
 -behaviour(gen_server).
 -export([start_link/0, held_locks/0, lock_queue/0, release_tid/1, release_tid_sync/1]).
 -export([remote_request/2, mnesia_down/1, ix_read/5, lock_nodes/1, release_remote/2, sync_release_remote/2]).
--export([rlock/3, rlock_table/3, wlock/3, wlock_table/3, wlock_no_exist/4, load_lock_table/3, rwlock/3]).
+-export([rlock/3, rlock_table/3, wlock/3, wlock_table/3, wlock_no_exist/4, wlock_new/4, load_lock_table/3, rwlock/3]).
 -export([sticky_wlock/3, sticky_wlock_table/3, sticky_rwlock/3, global_lock/5]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2]).
 
@@ -117,6 +117,12 @@ wlock_no_exist(Tid, Store, Tab, _Active) ->
         no ->
             ok
     end.
+
+% A new table's write lock on each of Nodes, before the table exists (MIM1H8).
+wlock_new(Tid, Store, Tab, Nodes) ->
+    ets:insert(Store, {{locks, Tab, ?ALL}, write}),
+    [lock_on(Node, Store, {write, Tid, {Tab, ?ALL}}) || Node <- Nodes],
+    ok.
 
 load_lock_table(Tid, Store, Tab) ->
     wlock(Tid, Store, {Tab, ?ALL}).

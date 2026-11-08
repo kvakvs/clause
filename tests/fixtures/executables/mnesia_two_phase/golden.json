@@ -1,0 +1,202 @@
+{
+  "schema": 1,
+  "entry": "mnesia_two_phase",
+  "host_otp": true,
+  "runs": [
+    {
+      "nodes": [
+        {
+          "name": "a",
+          "args": [
+            "a"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname mtpa@localhost --setcookie mtp"
+          },
+          "otp_flags": "-sname mtpa@localhost -setcookie mtp",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "merge: {ok,[mtpb@localhost]}\ncreate_tr: {atomic,ok}\ntr_info_a: [{where_to_commit,[{mtpa@localhost,ram_copies},\n                              {mtpb@localhost,ram_copies}]},\n            {where_to_write,[mtpa@localhost,mtpb@localhost]},\n            {active_replicas,[mtpa@localhost,mtpb@localhost]},\n            {where_to_read,mtpa@localhost}]\ntr_info_b: [{where_to_commit,[{mtpa@localhost,ram_copies},\n                              {mtpb@localhost,ram_copies}]},\n            {where_to_write,[mtpb@localhost,mtpa@localhost]},\n            {active_replicas,[mtpb@localhost,mtpa@localhost]},\n            {where_to_read,mtpb@localhost}]\nb_creates_tq: {atomic,ok}\ntq_info_a: [{where_to_commit,[{mtpa@localhost,ram_copies},\n                              {mtpb@localhost,ram_copies}]},\n            {where_to_write,[mtpa@localhost,mtpb@localhost]},\n            {active_replicas,[mtpa@localhost,mtpb@localhost]},\n            {where_to_read,mtpa@localhost}]\ncreate_tm: {atomic,ok}\na_writes: [{replicated,{atomic,ok}},\n           {two_tables,{atomic,ok}},\n           {read_only,{atomic,[{tr,10,mtpa@localhost}]}},\n           {mine_and_replicated,{atomic,ok}},\n           {theirs_only,{atomic,ok}},\n           {majority,{atomic,ok}},\n           {sync,{atomic,ok}},\n           {sync_two_nodes,{atomic,ok}},\n           {delete,{atomic,ok}},\n           {delete_object,{atomic,ok}},\n           {nested,{atomic,{atomic,ok}}},\n           {aborted,{aborted,stop}},\n           {clear,{atomic,ok}},\n           {sync_dirty,ok},\n           {dirty,ok},\n           {replicas,[{tr,20,x}]}]\ncontents_after_a: [{tr,{same,[{tr,10,mtpa@localhost},\n                              {tr,11,x},\n                              {tr,12,x},\n                              {tr,17,x},\n                              {tr,19,x},\n                              {tr,20,x}]}},\n                   {tm,{same,[]}},\n                   {ta,{a,[{ta,0,mtpa@localhost},{ta,12,x},{ta,16,x}],\n                          b,no_replica}},\n                   {tb,{a,no_replica,b,[{tb,13,x}]}}]\nb_events: [{mnesia_table_event,{write,{tr,10,mtpa@localhost},\n                                      {tid,mtpa@localhost}}},\n           {mnesia_activity_event,{complete,{tid,mtpa@localhost}}},\n           {mnesia_table_event,{write,{tr,11,x},{tid,mtpa@localhost}}},\n           {mnesia_activity_event,{complete,{tid,mtpa@localhost}}},\n           {mnesia_table_event,{write,{tr,12,x},{tid,mtpa@localhost}}},\n           {mnesia_activity_event,{complete,{tid,mtpa@localhost}}},\n           {mnesia_activity_event,{complete,{tid,mtpa@localhost}}},\n           {mnesia_activity_event,{complete,{tid,mtpa@localhost}}},\n           {mnesia_table_event,{write,{tr,15,x},{tid,mtpa@localhost}}},\n           {mnesia_activity_event,{complete,{tid,mtpa@localhost}}},\n           {mnesia_table_event,{write,{tr,16,x},{tid,mtpa@localhost}}},\n           {mnesia_activity_event,{complete,{tid,mtpa@localhost}}},\n           {mnesia_table_event,{delete,{tr,15},{tid,mtpa@localhost}}},\n           {mnesia_activity_event,{complete,{tid,mtpa@localhost}}},\n           {mnesia_table_event,{delete_object,{tr,16,x},{tid,mtpa@localhost}}},\n           {mnesia_activity_event,{complete,{tid,mtpa@localhost}}},\n           {mnesia_table_event,{write,{tr,17,x},{tid,mtpa@localhost}}},\n           {mnesia_activity_event,{complete,{tid,mtpa@localhost}}},\n           {mnesia_activity_event,{complete,{tid,mtpa@localhost}}},\n           {mnesia_table_event,{write,{tr,19,x},{dirty,mtpa@localhost}}},\n           {mnesia_table_event,{write,{tr,20,x},{dirty,mtpa@localhost}}}]\nb_writes: [{replicated,{atomic,ok}},\n           {two_tables,{atomic,ok}},\n           {read_only,{atomic,[{tr,20,mtpb@localhost}]}},\n           {mine_and_replicated,{atomic,ok}},\n           {theirs_only,{atomic,ok}},\n           {majority,{atomic,ok}},\n           {sync,{atomic,ok}},\n           {sync_two_nodes,{atomic,ok}},\n           {delete,{atomic,ok}},\n           {delete_object,{atomic,ok}},\n           {nested,{atomic,{atomic,ok}}},\n           {aborted,{aborted,stop}},\n           {clear,{atomic,ok}},\n           {sync_dirty,ok},\n           {dirty,ok},\n           {replicas,[{tr,30,x}]}]\ncontents_after_b: [{tr,{same,[{tr,10,mtpa@localhost},\n                              {tr,11,x},\n                              {tr,12,x},\n                              {tr,17,x},\n                              {tr,19,x},\n                              {tr,20,mtpb@localhost},\n                              {tr,21,x},\n                              {tr,22,x},\n                              {tr,27,x},\n                              {tr,29,x},\n                              {tr,30,x}]}},\n                   {tm,{same,[]}},\n                   {ta,{a,[{ta,12,x},{ta,16,x},{ta,23,x}],b,no_replica}},\n                   {tb,{a,no_replica,b,[{tb,13,x},{tb,22,x},{tb,26,x}]}}]\ncounts_a: [{transaction_commits,13},\n           {transaction_failures,1},\n           {transaction_restarts,0}]\ncounts_b: [{transaction_commits,13},\n           {transaction_failures,1},\n           {transaction_restarts,0}]\ncreate_a_only: {atomic,ok}\ntx_on_b: [{where_to_commit,[{mtpa@localhost,ram_copies}]},\n          {where_to_write,[mtpa@localhost]},\n          {active_replicas,[mtpa@localhost]},\n          {where_to_read,mtpa@localhost}]\ntx_b_writes: {atomic,ok}\ntx_a: [{tx,1,b}]\nadd_index: {atomic,ok}\nb_index_read: [{tr,10,mtpa@localhost}]\nb_index_info: [3]\ntransform: {atomic,ok}\nb_transformed: [{tr,10,mtpa@localhost,new},\n                {tr,11,x,new},\n                {tr,12,x,new},\n                {tr,17,x,new},\n                {tr,19,x,new},\n                {tr,20,mtpb@localhost,new},\n                {tr,21,x,new},\n                {tr,22,x,new},\n                {tr,27,x,new},\n                {tr,29,x,new},\n                {tr,30,x,new}]\nb_attributes: [k,v,w]\ndel_index: {atomic,ok}\nb_index_after: []\nb_property: {atomic,ok}\na_property: {owner,b}\nb_load_order: {atomic,ok}\na_load_order: 5\naccess_mode: {atomic,ok}\nb_tq_info: [{where_to_commit,[]},\n            {where_to_write,[]},\n            {active_replicas,[mtpa@localhost,mtpb@localhost]},\n            {where_to_read,mtpb@localhost}]\nb_tq_write: {aborted,{no_exists,tq}}\nb_access_mode: {atomic,ok}\na_tq_info: [{where_to_commit,[{mtpa@localhost,ram_copies},\n                              {mtpb@localhost,ram_copies}]},\n            {where_to_write,[mtpa@localhost,mtpb@localhost]},\n            {active_replicas,[mtpa@localhost,mtpb@localhost]},\n            {where_to_read,mtpa@localhost}]\ndelete_tx: {atomic,ok}\nb_tx_after: {badrpc,{'EXIT',{aborted,{no_exists,tx,where_to_commit}}}}\nb_deletes_tq: {atomic,ok}\ntq_after: [{exit,{aborted,{no_exists,tq,type}}},no_replica,no_replica]\ntables_b: [schema,ta,tb,tm,tr]\nclash: [{create,\n            {aborted,{system_limit,ty,{\"Failed to create ets table\",badarg}}}},\n        {a,{exit,{aborted,{no_exists,ty,where_to_commit}}}},\n        {b,[tr,tm,ta,schema,tb]}]\nwhat_happened: [{sym,mtpa@localhost,[{ok,committed},{ok,committed}]},\n                {sym,mtpb@localhost,[{ok,committed},{ok,committed}]},\n                {asym,mtpa@localhost,[{ok,committed},{ok,committed}]},\n                {asym,mtpb@localhost,[{ok,committed},{ok,committed}]},\n                {unknown,mtpa@localhost,[{ok,unclear},{ok,aborted}]},\n                {unknown,mtpb@localhost,[{ok,unclear},{ok,aborted}]}]\nparticipant_down: [{result,{atomic,ok}},\n                   {counts,[{transaction_commits,1},\n                            {transaction_failures,1},\n                            {transaction_restarts,1}]},\n                   {tr_200,[{tr,200,x,y}]},\n                   {running,[mtpa@localhost]},\n                   {where_to_commit,[{mtpa@localhost,ram_copies}]},\n                   {locks,{[],[]}}]\nmnesia_two_phase: ok\n"
+        },
+        {
+          "name": "b",
+          "args": [
+            "b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname mtpb@localhost --setcookie mtp"
+          },
+          "otp_flags": "-sname mtpb@localhost -setcookie mtp",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "mnesia_two_phase: ok\n"
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "name": "a",
+          "kind": "otp",
+          "args": [
+            "a"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname mtpa@localhost --setcookie mtp"
+          },
+          "otp_flags": "-sname mtpa@localhost -setcookie mtp",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "merge: {ok,[mtpb@localhost]}\ncreate_tr: {atomic,ok}\ntr_info_a: [{where_to_commit,[{mtpa@localhost,ram_copies},\n                              {mtpb@localhost,ram_copies}]},\n            {where_to_write,[mtpa@localhost,mtpb@localhost]},\n            {active_replicas,[mtpa@localhost,mtpb@localhost]},\n            {where_to_read,mtpa@localhost}]\ntr_info_b: [{where_to_commit,[{mtpa@localhost,ram_copies},\n                              {mtpb@localhost,ram_copies}]},\n            {where_to_write,[mtpb@localhost,mtpa@localhost]},\n            {active_replicas,[mtpb@localhost,mtpa@localhost]},\n            {where_to_read,mtpb@localhost}]\nb_creates_tq: {atomic,ok}\ntq_info_a: [{where_to_commit,[{mtpa@localhost,ram_copies},\n                              {mtpb@localhost,ram_copies}]},\n            {where_to_write,[mtpa@localhost,mtpb@localhost]},\n            {active_replicas,[mtpa@localhost,mtpb@localhost]},\n            {where_to_read,mtpa@localhost}]\ncreate_tm: {atomic,ok}\na_writes: [{replicated,{atomic,ok}},\n           {two_tables,{atomic,ok}},\n           {read_only,{atomic,[{tr,10,mtpa@localhost}]}},\n           {mine_and_replicated,{atomic,ok}},\n           {theirs_only,{atomic,ok}},\n           {majority,{atomic,ok}},\n           {sync,{atomic,ok}},\n           {sync_two_nodes,{atomic,ok}},\n           {delete,{atomic,ok}},\n           {delete_object,{atomic,ok}},\n           {nested,{atomic,{atomic,ok}}},\n           {aborted,{aborted,stop}},\n           {clear,{atomic,ok}},\n           {sync_dirty,ok},\n           {dirty,ok},\n           {replicas,[{tr,20,x}]}]\ncontents_after_a: [{tr,{same,[{tr,10,mtpa@localhost},\n                              {tr,11,x},\n                              {tr,12,x},\n                              {tr,17,x},\n                              {tr,19,x},\n                              {tr,20,x}]}},\n                   {tm,{same,[]}},\n                   {ta,{a,[{ta,0,mtpa@localhost},{ta,12,x},{ta,16,x}],\n                          b,no_replica}},\n                   {tb,{a,no_replica,b,[{tb,13,x}]}}]\nb_events: [{mnesia_table_event,{write,{tr,10,mtpa@localhost},\n                                      {tid,mtpa@localhost}}},\n           {mnesia_activity_event,{complete,{tid,mtpa@localhost}}},\n           {mnesia_table_event,{write,{tr,11,x},{tid,mtpa@localhost}}},\n           {mnesia_activity_event,{complete,{tid,mtpa@localhost}}},\n           {mnesia_table_event,{write,{tr,12,x},{tid,mtpa@localhost}}},\n           {mnesia_activity_event,{complete,{tid,mtpa@localhost}}},\n           {mnesia_activity_event,{complete,{tid,mtpa@localhost}}},\n           {mnesia_activity_event,{complete,{tid,mtpa@localhost}}},\n           {mnesia_table_event,{write,{tr,15,x},{tid,mtpa@localhost}}},\n           {mnesia_activity_event,{complete,{tid,mtpa@localhost}}},\n           {mnesia_table_event,{write,{tr,16,x},{tid,mtpa@localhost}}},\n           {mnesia_activity_event,{complete,{tid,mtpa@localhost}}},\n           {mnesia_table_event,{delete,{tr,15},{tid,mtpa@localhost}}},\n           {mnesia_activity_event,{complete,{tid,mtpa@localhost}}},\n           {mnesia_table_event,{delete_object,{tr,16,x},{tid,mtpa@localhost}}},\n           {mnesia_activity_event,{complete,{tid,mtpa@localhost}}},\n           {mnesia_table_event,{write,{tr,17,x},{tid,mtpa@localhost}}},\n           {mnesia_activity_event,{complete,{tid,mtpa@localhost}}},\n           {mnesia_activity_event,{complete,{tid,mtpa@localhost}}},\n           {mnesia_table_event,{write,{tr,19,x},{dirty,mtpa@localhost}}},\n           {mnesia_table_event,{write,{tr,20,x},{dirty,mtpa@localhost}}}]\nb_writes: [{replicated,{atomic,ok}},\n           {two_tables,{atomic,ok}},\n           {read_only,{atomic,[{tr,20,mtpb@localhost}]}},\n           {mine_and_replicated,{atomic,ok}},\n           {theirs_only,{atomic,ok}},\n           {majority,{atomic,ok}},\n           {sync,{atomic,ok}},\n           {sync_two_nodes,{atomic,ok}},\n           {delete,{atomic,ok}},\n           {delete_object,{atomic,ok}},\n           {nested,{atomic,{atomic,ok}}},\n           {aborted,{aborted,stop}},\n           {clear,{atomic,ok}},\n           {sync_dirty,ok},\n           {dirty,ok},\n           {replicas,[{tr,30,x}]}]\ncontents_after_b: [{tr,{same,[{tr,10,mtpa@localhost},\n                              {tr,11,x},\n                              {tr,12,x},\n                              {tr,17,x},\n                              {tr,19,x},\n                              {tr,20,mtpb@localhost},\n                              {tr,21,x},\n                              {tr,22,x},\n                              {tr,27,x},\n                              {tr,29,x},\n                              {tr,30,x}]}},\n                   {tm,{same,[]}},\n                   {ta,{a,[{ta,12,x},{ta,16,x},{ta,23,x}],b,no_replica}},\n                   {tb,{a,no_replica,b,[{tb,13,x},{tb,22,x},{tb,26,x}]}}]\ncounts_a: [{transaction_commits,13},\n           {transaction_failures,1},\n           {transaction_restarts,0}]\ncounts_b: [{transaction_commits,13},\n           {transaction_failures,1},\n           {transaction_restarts,0}]\ncreate_a_only: {atomic,ok}\ntx_on_b: [{where_to_commit,[{mtpa@localhost,ram_copies}]},\n          {where_to_write,[mtpa@localhost]},\n          {active_replicas,[mtpa@localhost]},\n          {where_to_read,mtpa@localhost}]\ntx_b_writes: {atomic,ok}\ntx_a: [{tx,1,b}]\nadd_index: {atomic,ok}\nb_index_read: [{tr,10,mtpa@localhost}]\nb_index_info: [3]\ntransform: {atomic,ok}\nb_transformed: [{tr,10,mtpa@localhost,new},\n                {tr,11,x,new},\n                {tr,12,x,new},\n                {tr,17,x,new},\n                {tr,19,x,new},\n                {tr,20,mtpb@localhost,new},\n                {tr,21,x,new},\n                {tr,22,x,new},\n                {tr,27,x,new},\n                {tr,29,x,new},\n                {tr,30,x,new}]\nb_attributes: [k,v,w]\ndel_index: {atomic,ok}\nb_index_after: []\nb_property: {atomic,ok}\na_property: {owner,b}\nb_load_order: {atomic,ok}\na_load_order: 5\naccess_mode: {atomic,ok}\nb_tq_info: [{where_to_commit,[]},\n            {where_to_write,[]},\n            {active_replicas,[mtpa@localhost,mtpb@localhost]},\n            {where_to_read,mtpb@localhost}]\nb_tq_write: {aborted,{no_exists,tq}}\nb_access_mode: {atomic,ok}\na_tq_info: [{where_to_commit,[{mtpa@localhost,ram_copies},\n                              {mtpb@localhost,ram_copies}]},\n            {where_to_write,[mtpa@localhost,mtpb@localhost]},\n            {active_replicas,[mtpa@localhost,mtpb@localhost]},\n            {where_to_read,mtpa@localhost}]\ndelete_tx: {atomic,ok}\nb_tx_after: {badrpc,{'EXIT',{aborted,{no_exists,tx,where_to_commit}}}}\nb_deletes_tq: {atomic,ok}\ntq_after: [{exit,{aborted,{no_exists,tq,type}}},no_replica,no_replica]\ntables_b: [schema,ta,tb,tm,tr]\nclash: [{create,\n            {aborted,{system_limit,ty,{\"Failed to create ets table\",badarg}}}},\n        {a,{exit,{aborted,{no_exists,ty,where_to_commit}}}},\n        {b,[tr,tm,ta,schema,tb]}]\nwhat_happened: [{sym,mtpa@localhost,[{ok,committed},{ok,committed}]},\n                {sym,mtpb@localhost,[{ok,committed},{ok,committed}]},\n                {asym,mtpa@localhost,[{ok,committed},{ok,committed}]},\n                {asym,mtpb@localhost,[{ok,committed},{ok,committed}]},\n                {unknown,mtpa@localhost,[{ok,unclear},{ok,aborted}]},\n                {unknown,mtpb@localhost,[{ok,unclear},{ok,aborted}]}]\nparticipant_down: [{result,{atomic,ok}},\n                   {counts,[{transaction_commits,1},\n                            {transaction_failures,1},\n                            {transaction_restarts,1}]},\n                   {tr_200,[{tr,200,x,y}]},\n                   {running,[mtpa@localhost]},\n                   {where_to_commit,[{mtpa@localhost,ram_copies}]},\n                   {locks,{[],[]}}]\nmnesia_two_phase: ok\n"
+        },
+        {
+          "name": "b",
+          "args": [
+            "b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname mtpb@localhost --setcookie mtp"
+          },
+          "otp_flags": "-sname mtpb@localhost -setcookie mtp",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "mnesia_two_phase: ok\n"
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "name": "a",
+          "args": [
+            "a"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname mtpa@localhost --setcookie mtp"
+          },
+          "otp_flags": "-sname mtpa@localhost -setcookie mtp",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "merge: {ok,[mtpb@localhost]}\ncreate_tr: {atomic,ok}\ntr_info_a: [{where_to_commit,[{mtpa@localhost,ram_copies},\n                              {mtpb@localhost,ram_copies}]},\n            {where_to_write,[mtpa@localhost,mtpb@localhost]},\n            {active_replicas,[mtpa@localhost,mtpb@localhost]},\n            {where_to_read,mtpa@localhost}]\ntr_info_b: [{where_to_commit,[{mtpa@localhost,ram_copies},\n                              {mtpb@localhost,ram_copies}]},\n            {where_to_write,[mtpb@localhost,mtpa@localhost]},\n            {active_replicas,[mtpb@localhost,mtpa@localhost]},\n            {where_to_read,mtpb@localhost}]\nb_creates_tq: {atomic,ok}\ntq_info_a: [{where_to_commit,[{mtpa@localhost,ram_copies},\n                              {mtpb@localhost,ram_copies}]},\n            {where_to_write,[mtpa@localhost,mtpb@localhost]},\n            {active_replicas,[mtpa@localhost,mtpb@localhost]},\n            {where_to_read,mtpa@localhost}]\ncreate_tm: {atomic,ok}\na_writes: [{replicated,{atomic,ok}},\n           {two_tables,{atomic,ok}},\n           {read_only,{atomic,[{tr,10,mtpa@localhost}]}},\n           {mine_and_replicated,{atomic,ok}},\n           {theirs_only,{atomic,ok}},\n           {majority,{atomic,ok}},\n           {sync,{atomic,ok}},\n           {sync_two_nodes,{atomic,ok}},\n           {delete,{atomic,ok}},\n           {delete_object,{atomic,ok}},\n           {nested,{atomic,{atomic,ok}}},\n           {aborted,{aborted,stop}},\n           {clear,{atomic,ok}},\n           {sync_dirty,ok},\n           {dirty,ok},\n           {replicas,[{tr,20,x}]}]\ncontents_after_a: [{tr,{same,[{tr,10,mtpa@localhost},\n                              {tr,11,x},\n                              {tr,12,x},\n                              {tr,17,x},\n                              {tr,19,x},\n                              {tr,20,x}]}},\n                   {tm,{same,[]}},\n                   {ta,{a,[{ta,0,mtpa@localhost},{ta,12,x},{ta,16,x}],\n                          b,no_replica}},\n                   {tb,{a,no_replica,b,[{tb,13,x}]}}]\nb_events: [{mnesia_table_event,{write,{tr,10,mtpa@localhost},\n                                      {tid,mtpa@localhost}}},\n           {mnesia_activity_event,{complete,{tid,mtpa@localhost}}},\n           {mnesia_table_event,{write,{tr,11,x},{tid,mtpa@localhost}}},\n           {mnesia_activity_event,{complete,{tid,mtpa@localhost}}},\n           {mnesia_table_event,{write,{tr,12,x},{tid,mtpa@localhost}}},\n           {mnesia_activity_event,{complete,{tid,mtpa@localhost}}},\n           {mnesia_activity_event,{complete,{tid,mtpa@localhost}}},\n           {mnesia_activity_event,{complete,{tid,mtpa@localhost}}},\n           {mnesia_table_event,{write,{tr,15,x},{tid,mtpa@localhost}}},\n           {mnesia_activity_event,{complete,{tid,mtpa@localhost}}},\n           {mnesia_table_event,{write,{tr,16,x},{tid,mtpa@localhost}}},\n           {mnesia_activity_event,{complete,{tid,mtpa@localhost}}},\n           {mnesia_table_event,{delete,{tr,15},{tid,mtpa@localhost}}},\n           {mnesia_activity_event,{complete,{tid,mtpa@localhost}}},\n           {mnesia_table_event,{delete_object,{tr,16,x},{tid,mtpa@localhost}}},\n           {mnesia_activity_event,{complete,{tid,mtpa@localhost}}},\n           {mnesia_table_event,{write,{tr,17,x},{tid,mtpa@localhost}}},\n           {mnesia_activity_event,{complete,{tid,mtpa@localhost}}},\n           {mnesia_activity_event,{complete,{tid,mtpa@localhost}}},\n           {mnesia_table_event,{write,{tr,19,x},{dirty,mtpa@localhost}}},\n           {mnesia_table_event,{write,{tr,20,x},{dirty,mtpa@localhost}}}]\nb_writes: [{replicated,{atomic,ok}},\n           {two_tables,{atomic,ok}},\n           {read_only,{atomic,[{tr,20,mtpb@localhost}]}},\n           {mine_and_replicated,{atomic,ok}},\n           {theirs_only,{atomic,ok}},\n           {majority,{atomic,ok}},\n           {sync,{atomic,ok}},\n           {sync_two_nodes,{atomic,ok}},\n           {delete,{atomic,ok}},\n           {delete_object,{atomic,ok}},\n           {nested,{atomic,{atomic,ok}}},\n           {aborted,{aborted,stop}},\n           {clear,{atomic,ok}},\n           {sync_dirty,ok},\n           {dirty,ok},\n           {replicas,[{tr,30,x}]}]\ncontents_after_b: [{tr,{same,[{tr,10,mtpa@localhost},\n                              {tr,11,x},\n                              {tr,12,x},\n                              {tr,17,x},\n                              {tr,19,x},\n                              {tr,20,mtpb@localhost},\n                              {tr,21,x},\n                              {tr,22,x},\n                              {tr,27,x},\n                              {tr,29,x},\n                              {tr,30,x}]}},\n                   {tm,{same,[]}},\n                   {ta,{a,[{ta,12,x},{ta,16,x},{ta,23,x}],b,no_replica}},\n                   {tb,{a,no_replica,b,[{tb,13,x},{tb,22,x},{tb,26,x}]}}]\ncounts_a: [{transaction_commits,13},\n           {transaction_failures,1},\n           {transaction_restarts,0}]\ncounts_b: [{transaction_commits,13},\n           {transaction_failures,1},\n           {transaction_restarts,0}]\ncreate_a_only: {atomic,ok}\ntx_on_b: [{where_to_commit,[{mtpa@localhost,ram_copies}]},\n          {where_to_write,[mtpa@localhost]},\n          {active_replicas,[mtpa@localhost]},\n          {where_to_read,mtpa@localhost}]\ntx_b_writes: {atomic,ok}\ntx_a: [{tx,1,b}]\nadd_index: {atomic,ok}\nb_index_read: [{tr,10,mtpa@localhost}]\nb_index_info: [3]\ntransform: {atomic,ok}\nb_transformed: [{tr,10,mtpa@localhost,new},\n                {tr,11,x,new},\n                {tr,12,x,new},\n                {tr,17,x,new},\n                {tr,19,x,new},\n                {tr,20,mtpb@localhost,new},\n                {tr,21,x,new},\n                {tr,22,x,new},\n                {tr,27,x,new},\n                {tr,29,x,new},\n                {tr,30,x,new}]\nb_attributes: [k,v,w]\ndel_index: {atomic,ok}\nb_index_after: []\nb_property: {atomic,ok}\na_property: {owner,b}\nb_load_order: {atomic,ok}\na_load_order: 5\naccess_mode: {atomic,ok}\nb_tq_info: [{where_to_commit,[]},\n            {where_to_write,[]},\n            {active_replicas,[mtpa@localhost,mtpb@localhost]},\n            {where_to_read,mtpb@localhost}]\nb_tq_write: {aborted,{no_exists,tq}}\nb_access_mode: {atomic,ok}\na_tq_info: [{where_to_commit,[{mtpa@localhost,ram_copies},\n                              {mtpb@localhost,ram_copies}]},\n            {where_to_write,[mtpa@localhost,mtpb@localhost]},\n            {active_replicas,[mtpa@localhost,mtpb@localhost]},\n            {where_to_read,mtpa@localhost}]\ndelete_tx: {atomic,ok}\nb_tx_after: {badrpc,{'EXIT',{aborted,{no_exists,tx,where_to_commit}}}}\nb_deletes_tq: {atomic,ok}\ntq_after: [{exit,{aborted,{no_exists,tq,type}}},no_replica,no_replica]\ntables_b: [schema,ta,tb,tm,tr]\nclash: [{create,\n            {aborted,{system_limit,ty,{\"Failed to create ets table\",badarg}}}},\n        {a,{exit,{aborted,{no_exists,ty,where_to_commit}}}},\n        {b,[tr,tm,ta,schema,tb]}]\nwhat_happened: [{sym,mtpa@localhost,[{ok,committed},{ok,committed}]},\n                {sym,mtpb@localhost,[{ok,committed},{ok,committed}]},\n                {asym,mtpa@localhost,[{ok,committed},{ok,committed}]},\n                {asym,mtpb@localhost,[{ok,committed},{ok,committed}]},\n                {unknown,mtpa@localhost,[{ok,unclear},{ok,aborted}]},\n                {unknown,mtpb@localhost,[{ok,unclear},{ok,aborted}]}]\nparticipant_down: [{result,{atomic,ok}},\n                   {counts,[{transaction_commits,1},\n                            {transaction_failures,1},\n                            {transaction_restarts,1}]},\n                   {tr_200,[{tr,200,x,y}]},\n                   {running,[mtpa@localhost]},\n                   {where_to_commit,[{mtpa@localhost,ram_copies}]},\n                   {locks,{[],[]}}]\nmnesia_two_phase: ok\n"
+        },
+        {
+          "name": "b",
+          "kind": "otp",
+          "args": [
+            "b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname mtpb@localhost --setcookie mtp"
+          },
+          "otp_flags": "-sname mtpb@localhost -setcookie mtp",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "mnesia_two_phase: ok\n"
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "name": "a",
+          "args": [
+            "a_coordinator"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname mtpa@localhost --setcookie mtp"
+          },
+          "otp_flags": "-sname mtpa@localhost -setcookie mtp",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "merge: {ok,[mtpb@localhost]}\ncoordinator_down: [{queued,ok},\n                   {tr,[]},\n                   {locks,unlocked},\n                   {write_after,{atomic,ok}},\n                   {tr_after,[{tr,3,a}]}]\nmnesia_two_phase: ok\n"
+        },
+        {
+          "name": "b",
+          "args": [
+            "b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname mtpb@localhost --setcookie mtp"
+          },
+          "otp_flags": "-sname mtpb@localhost -setcookie mtp",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "mnesia_two_phase: ok\n"
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "name": "a",
+          "kind": "otp",
+          "args": [
+            "a_coordinator"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname mtpa@localhost --setcookie mtp"
+          },
+          "otp_flags": "-sname mtpa@localhost -setcookie mtp",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "merge: {ok,[mtpb@localhost]}\ncoordinator_down: [{queued,ok},\n                   {tr,[]},\n                   {locks,unlocked},\n                   {write_after,{atomic,ok}},\n                   {tr_after,[{tr,3,a}]}]\nmnesia_two_phase: ok\n"
+        },
+        {
+          "name": "b",
+          "args": [
+            "b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname mtpb@localhost --setcookie mtp"
+          },
+          "otp_flags": "-sname mtpb@localhost -setcookie mtp",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "mnesia_two_phase: ok\n"
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "name": "a",
+          "args": [
+            "a_coordinator"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname mtpa@localhost --setcookie mtp"
+          },
+          "otp_flags": "-sname mtpa@localhost -setcookie mtp",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "merge: {ok,[mtpb@localhost]}\ncoordinator_down: [{queued,ok},\n                   {tr,[]},\n                   {locks,unlocked},\n                   {write_after,{atomic,ok}},\n                   {tr_after,[{tr,3,a}]}]\nmnesia_two_phase: ok\n"
+        },
+        {
+          "name": "b",
+          "kind": "otp",
+          "args": [
+            "b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname mtpb@localhost --setcookie mtp"
+          },
+          "otp_flags": "-sname mtpb@localhost -setcookie mtp",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "mnesia_two_phase: ok\n"
+        }
+      ]
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
+  },
+  "inputs": {
+    "mnesia_two_phase.erl": "04ff5f9726d070c1fd93a7556368c1ed8e4cf8075e13ec3e2f73d5e681466061"
+  }
+}

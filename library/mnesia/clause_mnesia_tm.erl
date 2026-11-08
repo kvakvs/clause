@@ -5,17 +5,26 @@
 %% nodes' coordinators send it OTP's raw commit requests (MIM1H5, clause_mnesia_commit), and other nodes' dirty
 %% writes come to it as OTP's commits (MIM1H6). A transaction that took locks on other nodes ends there too: a commit
 %% sends their transaction managers simple_commit, an abort their lock managers release_tid, a restart sync_release_tid
-%% (MIM1H7).
+%% (MIM1H7). A transaction writing tables held on other nodes commits there with OTP's protocols (MIM1H8,
+%% clause_mnesia_commit); this server votes on and applies other nodes' sym_trans commits and starts the participants
+%% of their asym_trans commits (clause_mnesia_participant).
 -module(clause_mnesia_tm).
 -behaviour(gen_server).
 -export([start_link/0, transaction/6, non_transaction/5, transactions/0, send_dirty/5, dirty_results/1]).
+-export([apply_commit/3]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2]).
 
 -include("clause_mnesia.hrl").
 
-%% The server's state: each transaction's stores (innermost first) and the transaction of each process running one.
-%% The last transaction serial is OTP's {trans_tid, serial, N} row of mnesia_decision, kept in DECISION_TAB.LOG.
--record(state, {stores = #{}, tids = #{}}).
+%% The server's state: each transaction's stores (innermost first) and the transaction of each process running one;
+%% the other nodes' sym_trans commits voted on here and waiting for their outcome, as #pending{}, and the participant
+%% process of each asym_trans commit (MIM1H8). The last transaction serial is OTP's {trans_tid, serial, N} row of
+%% mnesia_decision, kept in DECISION_TAB.LOG.
+-record(state, {stores = #{}, tids = #{}, pending = #{}, participants = #{}}).
+
+%% A sym_trans commit voted on here (MIM1H8): its coordinator and the monitor of it, its protocol, this node's commit
+%% and the nodes taking part.
+-record(pending, {coordinator, monitor, protocol, commit, nodes}).
 
 start_link() ->
     gen_server:start_link({local, mnesia_tm}, ?MODULE, [], []).
@@ -157,15 +166,18 @@ fix_error({aborted, Reason}) -> Reason;
 fix_error({abort, Reason}) -> Reason;
 fix_error(Reason) -> Reason.
 
-% The commit: mnesia_tm applies an outer transaction's writes and releases its locks, so that a commit completes even
-% if the transaction's process dies meanwhile; an inner transaction hands its store to the outer one. A sync
-% transaction logs synchronously (MIM1H1).
+% The commit: mnesia_tm applies an outer transaction's writes held here and releases its locks, so that a commit
+% completes even if the transaction's process dies meanwhile; the other nodes holding written tables take part
+% (MIM1H8), the others it locked end it; an inner transaction hands its store to the outer one. A sync transaction
+% logs synchronously (MIM1H1).
 commit(Kind) ->
     case get(mnesia_activity_state) of
         {_, Tid, #tidstore{store = Store, up_stores = []}} ->
             check_snmp_keys(Store),
-            [{mnesia_tm, Node} ! {Tid, simple_commit} || Node <- clause_mnesia_locker:lock_nodes(Store)],
-            committed = request({commit, Tid, Kind}),
+            Locked = clause_mnesia_locker:lock_nodes(Store),
+            Local = fun() -> committed = request({commit, Tid, Kind}) end,
+            Participants = clause_mnesia_commit:commit(Tid, Store, Kind, Local),
+            [{mnesia_tm, Node} ! {Tid, simple_commit} || Node <- Locked -- Participants],
             outer;
         {_, Tid, #tidstore{store = Store, up_stores = [{OldMod, Outer} | Rest], level = Level} = Ts} ->
             request({del_store, Tid, Store, Outer}),
@@ -179,14 +191,11 @@ check_snmp_keys(Store) ->
     [clause_mnesia_snmp:check(Tab, Key) || {Tab, Key} <- lists:usort(Oids)],
     ok.
 
-% Each written record's operations, in the order the transaction made them, after the tables it clears; those of disc
-% tables logged first (MIM1D), under the transaction's decision when it wrote a majority table (MIM1H2). A transaction
-% that wrote, or changed the schema, completes an activity (MIM1E).
+% Each written record's operations of the tables held here, after the tables it clears; those of disc tables logged
+% first (MIM1D), under the transaction's decision when it wrote a majority table (MIM1H2). A transaction that wrote,
+% or changed the schema, completes an activity (MIM1E).
 apply_writes(Tid, Store, Kind) ->
-    Clears = ets:match_object(Store, {'_', '_', clear_table}),
-    Oids = lists:usort(ets:select(Store, [{{'$1', '_', '_'}, [{is_tuple, '$1'}, {'=:=', {size, '$1'}, 2}], ['$1']}])),
-    Ops = Clears ++ [Op || Oid <- Oids, Op <- ets:lookup(Store, Oid), element(3, Op) =/= clear_table],
-    Updates = [U || Op <- Ops, U <- [table_update(Op)], U =/= none],
+    Updates = [U || {Tab, _, _} = U <- clause_mnesia_commit:updates(Store), held(Tab)],
     safe(fun() -> clause_mnesia_disc:log(Updates, Kind, decision(Tid, Updates)) end),
     [safe(fun() -> clause_mnesia_access:update(Tid, Tab, Key, Update) end) || {Tab, Key, Update} <- Updates],
     (Updates =/= [] orelse ets:member(Store, op)) andalso clause_mnesia_subscr:report_activity(Tid),
@@ -200,16 +209,25 @@ decision(Tid, Updates) ->
 
 majority(Tab) -> (clause_mnesia_monitor:val({Tab, cstruct}))#cstruct.majority.
 
-table_update({{Tab, Key}, Val, write}) -> {Tab, Key, {write, Val}};
-table_update({{Tab, Key}, _, delete}) -> {Tab, Key, delete};
-table_update({{Tab, Key}, Val, delete_object}) -> {Tab, Key, {delete_object, Val}};
-table_update({{Tab, Key}, Pattern, clear_table}) -> {Tab, Key, {clear_table, Pattern}};
-table_update({{Tab, Key}, {RecordName, Incr}, update_counter}) -> {Tab, Key, {update_counter, RecordName, Incr}};
-table_update(_) -> none.
+held(Tab) ->
+    try
+        clause_mnesia_monitor:val({Tab, storage_type}) =/= unknown
+    catch
+        error:_ -> false
+    end.
+
+% Another node's commit of a transaction (MIM1H8): its records applied as this node's own commits apply them, with
+% the transaction's table events and its completed activity.
+apply_commit(Tid, #commit{ram_copies = Ram, disc_copies = Disc, disc_only_copies = DiscOnly}, Kind) ->
+    Updates = [U || Item <- Ram ++ Disc ++ DiscOnly, U <- [clause_mnesia_commit:update(Item)], U =/= none],
+    safe(fun() -> clause_mnesia_disc:log(Updates, Kind, decision(Tid, Updates)) end),
+    [safe(fun() -> clause_mnesia_access:update(Tid, Tab, Key, Update) end) || {Tab, Key, Update} <- Updates],
+    Updates =/= [] andalso clause_mnesia_subscr:report_activity(Tid),
+    ok.
 
 % A dirty commit's updates of this node's replicas, logged first; the last update's result, ok when none succeeds.
 apply_dirty(Tid, #commit{ram_copies = Ram, disc_copies = Disc, disc_only_copies = DiscOnly}, Kind) ->
-    Updates = [U || Item <- Ram ++ Disc ++ DiscOnly, U <- [table_update(Item)], U =/= none],
+    Updates = [U || Item <- Ram ++ Disc ++ DiscOnly, U <- [clause_mnesia_commit:update(Item)], U =/= none],
     safe(fun() -> clause_mnesia_disc:log(Updates, Kind, presume_commit) end),
     lists:foldl(fun(Update, Result) -> dirty_update(Tid, Update, Result) end, ok, Updates).
 
@@ -337,7 +355,9 @@ handle_call(info, _From, #state{stores = Stores} = State) ->
 
 handle_cast({delete_transaction, Tid}, State) ->
     unlink(Tid#tid.pid),
-    {noreply, forget(Tid, State)}.
+    {noreply, forget(Tid, State)};
+handle_cast({participant_ended, Tid}, #state{participants = Participants} = State) ->
+    {noreply, State#state{participants = maps:remove(Tid, Participants)}}.
 
 % A process that exits in a transaction leaves no locks behind.
 handle_info({'EXIT', Pid, _}, #state{tids = Tids, stores = Stores} = State) ->
@@ -349,19 +369,48 @@ handle_info({'EXIT', Pid, _}, #state{tids = Tids, stores = Stores} = State) ->
         _ ->
             {noreply, State}
     end;
-% Another node's coordinator asks this node to take part in a commit, or ends a transaction that only took locks here
-% (MIM1H5); this node's next transactions come after it.
+% Another node's coordinator asks this node to take part in a commit (MIM1H5, MIM1H8): an asym_trans participant
+% process of its own, or a sym_trans vote here; or it ends a transaction that only took locks here. This node's next
+% transactions come after it.
 handle_info({From, {ask_commit, Protocol, #tid{counter = Counter} = Tid, Commit, DiscNodes, RamNodes}}, State) ->
     clause_mnesia_recover:sync_serial(Counter),
-    clause_mnesia_commit:participate(From, Protocol, Tid, Commit, DiscNodes ++ RamNodes),
-    {noreply, State};
+    Nodes = DiscNodes ++ RamNodes,
+    case Protocol of
+        asym_trans ->
+            Pid = clause_mnesia_participant:start(From, Tid, Commit, Nodes),
+            {noreply, State#state{participants = (State#state.participants)#{Tid => Pid}}};
+        _ ->
+            {noreply, vote(From, Protocol, Tid, Commit, Nodes, State)}
+    end;
+handle_info({#tid{} = Tid, do_commit}, #state{pending = Pending} = State) ->
+    case maps:take(Tid, Pending) of
+        {Voted, Rest} ->
+            do_commit(Tid, Voted),
+            {noreply, State#state{pending = Rest}};
+        error ->
+            {noreply, State}
+    end;
 handle_info({#tid{counter = Counter} = Tid, simple_commit}, State) ->
     clause_mnesia_recover:sync_serial(Counter),
     clause_mnesia_locker:release_tid(Tid),
     {noreply, State};
-% Another node's transaction that took locks here ended without a decision (MIM1H7): its locks go.
-handle_info({#tid{} = Tid, {do_abort, _Reason}}, State) ->
+% Another node's transaction that took locks here ended without a decision (MIM1H7): its locks go, its sym_trans
+% commit voted on here is dropped and its asym_trans participant hears the abort (MIM1H8).
+handle_info({#tid{} = Tid, {do_abort, _} = Abort}, #state{pending = Pending, participants = Participants} = State) ->
     clause_mnesia_locker:release_tid(Tid),
+    case maps:take(Tid, Pending) of
+        {#pending{monitor = Ref}, Rest} ->
+            erlang:demonitor(Ref, [flush]),
+            clause_mnesia_recover:note_decision(Tid, aborted),
+            {noreply, State#state{pending = Rest}};
+        error ->
+            [Pid ! {Tid, Abort} || Pid <- [maps:get(Tid, Participants, none)], is_pid(Pid)],
+            {noreply, State}
+    end;
+% The coordinator of a sym_trans commit voted on here went before deciding it: a process asks the other nodes taking
+% part, then tells this server the outcome.
+handle_info({'DOWN', Ref, process, _, _}, #state{pending = Pending} = State) ->
+    [resolve(Tid, Voted) || {Tid, #pending{monitor = R} = Voted} <- maps:to_list(Pending), R =:= Ref],
     {noreply, State};
 % Another node's dirty write of this node's replicas (MIM1H6): applied and logged here, the result answered to a
 % sync_dirty one.
@@ -373,6 +422,38 @@ handle_info({_From, {async_dirty, Tid, Commit, _Tab}}, State) ->
     {noreply, State};
 handle_info(_, State) ->
     {noreply, State}.
+
+% This node votes yes on another node's sym_trans commit and waits for its outcome, watching the coordinator.
+vote(Coordinator, Protocol, Tid, Commit, Nodes, #state{pending = Pending} = State) ->
+    Ref = erlang:monitor(process, Coordinator),
+    Coordinator ! {mnesia_tm, node(), {vote_yes, Tid}},
+    Voted = #pending{coordinator = Coordinator, monitor = Ref, protocol = Protocol, commit = Commit, nodes = Nodes},
+    State#state{pending = Pending#{Tid => Voted}}.
+
+% A voted sym_trans commit applied here; a sync one confirms it.
+do_commit(Tid, #pending{coordinator = Coordinator, monitor = Ref, protocol = Protocol, commit = Commit}) ->
+    erlang:demonitor(Ref, [flush]),
+    Kind =
+        case Protocol of
+            sync_sym_trans -> sync;
+            _ -> async
+        end,
+    apply_commit(Tid, Commit, Kind),
+    clause_mnesia_recover:note_decision(Tid, committed),
+    clause_mnesia_locker:release_tid(Tid),
+    Protocol =:= sync_sym_trans andalso (Coordinator ! {mnesia_tm, node(), {committed, Tid}}),
+    ok.
+
+resolve(Tid, #pending{coordinator = Coordinator, nodes = Nodes}) ->
+    _ = spawn(fun() ->
+        Outcome =
+            case clause_mnesia_participant:outcome(Tid, Nodes) of
+                committed -> do_commit;
+                aborted -> {do_abort, {mnesia_down, node(Coordinator)}}
+            end,
+        mnesia_tm ! {Tid, Outcome}
+    end),
+    ok.
 
 % The other nodes where any of a transaction's stores took locks.
 store_nodes(Tid, Stores) ->

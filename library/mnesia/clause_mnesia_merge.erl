@@ -4,7 +4,7 @@
 %% transactions that lock the schema on every node and commit the merged definitions there (clause_mnesia_commit),
 %% again until nothing is left to merge. The controllers then tell each other which tables they hold.
 -module(clause_mnesia_merge).
--export([connect_nodes/1, changes/1]).
+-export([connect_nodes/1]).
 
 -include("clause_mnesia.hrl").
 
@@ -81,8 +81,10 @@ merged(Tid, Running, [Node | _]) ->
         {cstructs, Cstructs, RemoteRunning} ->
             _ = clause_mnesia_recover:connect_nodes(RemoteRunning),
             Ops = ops(Node, Cstructs, Running, RemoteRunning),
-            {ok, Changes} = changes(Ops),
-            ok = clause_mnesia_commit:coordinate(Tid, Ops, Changes, lists:delete(node(), Running) ++ RemoteRunning),
+            {ok, Changes} = clause_mnesia_ops:changes(Ops),
+            Local = fun() -> ok = gen_server:call(mnesia_monitor, {schema, Changes, Ops, Tid}, infinity) end,
+            Nodes = [node() | lists:delete(node(), Running) ++ RemoteRunning],
+            ok = clause_mnesia_commit:schema(Tid, Nodes, Ops, Local),
             {merged, Running, RemoteRunning};
         Other ->
             mnesia:abort({merge_schema_failed, Node, Other})
@@ -129,19 +131,6 @@ newer(#cstruct{version = A}, #cstruct{version = B}) -> max(A, B).
 bad_cookie(Tab, Local, Node, Remote) ->
     Format = "Bad cookie in table definition ~w: ~w = ~w, ~w = ~w~n",
     lists:flatten(io_lib:format(Format, [Tab, node(), Local, Node, Remote])).
-
-% The changes a commit's operations make here: the merged definitions, then the nodes that run with this one; another
-% operation is refused until MIM1H8.
-changes(Ops) ->
-    try [change(Op) || Op <- Ops] of
-        Changes -> {ok, [C || {merge, _} = C <- Changes] ++ [C || {announce, _, _} = C <- Changes]}
-    catch
-        throw:Reason -> {error, Reason}
-    end.
-
-change({op, merge_schema, List}) -> {merge, clause_mnesia_schema:list2cs(List)};
-change({op, announce_im_running, _, _, Running, RemoteRunning}) -> {announce, Running, RemoteRunning};
-change(Op) -> throw({not_supported, Op}).
 
 cs2list(Cs) -> clause_mnesia_schema:cs2list(Cs).
 
