@@ -345,4 +345,4 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   tables; disc replica transfers (receiver writes its DCD, dets chunks between `disc_only_copies` replicas, chunks to
   the process asking for more); commits over disc nodes logged under their `#decision{}` with `im_certain`;
   `mnesia_up`/`mnesia_down` records in the log and `DECISION_TAB.LOG`; index changes refused while a disc node holding
-  the table is down; `mnesia_disc_nodes` golden identical to OTP both ways — `HASH`
+  the table is down; `mnesia_disc_nodes` golden identical to OTP both ways — `b855926b`
