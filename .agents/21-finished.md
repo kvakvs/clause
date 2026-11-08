@@ -354,4 +354,4 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   node's `change_table_copy_type/3` applied by its participant, schema decisions naming the schema's new disc nodes,
   no `simple_commit` to schema participants, `im_certain` sent right after `committed` (coordinator) and on hearing
   it (participant) so OTP peers dump no unsure decisions; replicas loaded from files by masters or force no longer
-  get an empty DCD; `mnesia_disc_masters` golden identical to OTP both ways — `HASH`
+  get an empty DCD; `mnesia_disc_masters` golden identical to OTP both ways — `0964deb7`
