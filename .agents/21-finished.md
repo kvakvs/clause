@@ -326,4 +326,4 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   coordinator gone aborts it on participants unless another node knows it committed; outcomes kept in
   `mnesia_recover` for `what_happened`; new tables' replica order, `read_only` reversing `active_replicas` and changed
   definitions moving to the front of `system_info(tables)` as OTP's; `mnesia_two_phase` golden identical to OTP both
-  ways — `HASH`
+  ways — `bfb83352`
