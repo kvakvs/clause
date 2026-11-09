@@ -1035,3 +1035,8 @@ gotchas and user directions not recorded elsewhere.
   otp/ and cl/ (Clause's module compiled by erlc into cl/, first on the path), outputs diffed. Its report numbers
   are OTP source lines; invalid_name keeps 6 characters, invalid_target_name 10. xmerl.hrl's ?whitespace is a
   guard sequence: combined with another guard it ORs (use an orelse macro).
+- MIM4 httpc (2026-11-09): observe OTP's client against a raw gen_tcp server printing the bytes it reads
+  (scratch/mim4 p1-p6.erl, cmp.sh runs OTP vs Clause's inets compiled into cl/ first on the path, ports masked).
+  Never leave pipeline_timeout > 0 set in a probe: OTP then pipelines GETs and spreads other requests over sessions
+  by queue length. OTP's verbose debug/trace option turns on dbg tracing of httpc_manager (floods stdout).
+  public_key:cacerts_get/0 gives {cert, Der, Otp} records: ssl's cacerts must take them (httpc's default options).

@@ -295,6 +295,8 @@ cacerts(User, #{verify := Verify} = Ssl, #{role := Role}) ->
     Ssl#{cacerts => CaCerts, cacertfile => CaCertFile}.
 
 cacert(Der) when is_binary(Der) -> Der;
+% A combined certificate, as public_key:cacerts_get/0 gives (used by httpc's default options).
+cacert({cert, Der, _Decoded}) when is_binary(Der) -> Der;
 cacert(Other) -> option_error(cacerts, Other).
 
 depth(User, Ssl) ->

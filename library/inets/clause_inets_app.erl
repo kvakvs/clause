@@ -22,16 +22,7 @@ init(inets_sup) ->
 init(httpc_sup) ->
     {ok, {flags(one_for_one, 10), [sup(httpc_profile_sup), sup(httpc_handler_sup)]}};
 init(httpc_profile_sup) ->
-    % The literal fun links into programs the server the child spec names only as data.
-    _ = fun clause_httpc_manager:start_link/1,
-    Manager = #{
-        id => httpc_manager,
-        start => {clause_httpc_manager, start_link, [default]},
-        shutdown => 4000,
-        modules => [httpc_manager]
-    },
-    {ok, {flags(one_for_one, 10), [Manager]}};
-% The request handlers it starts come with httpc (MIM4).
+    {ok, {flags(one_for_one, 10), [clause_httpc_manager:child_spec(default)]}};
 init(httpc_handler_sup) ->
     Handler = #{
         id => undefined,

@@ -407,3 +407,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **MIM3c** xmerl export: `xmerl:export/2,3`, `export_simple/2,3` and their content and element forms through a
   callback chain (bottom-up calls, `Tag/4` overrides, `'#root#'` with the options as attributes), `xmerl_xml` with
   OTP's nested lists, escaping and prolog rule; `xmerl_export` golden — `09dd8f18`
+- **MIM4** inets' HTTP client: `httpc` requests over `gen_tcp`/`ssl` with OTP's checks and errors, header order
+  (request record last to first, response record first), defaults, bodies (chunked, until close, 1xx skipped),
+  redirects per status and method, OTP's session queues (`max_keep_alive_length`, new sessions after their first
+  response, connections left unused after a user's close or a new connection's redirect), retries, timeouts,
+  receivers, streams to self, cancellation, an http proxy, option reports in OTP's order, profile options and
+  profiles as inets services; `http_uri` over `uri_string`; `ssl` accepts combined certificates in `cacerts`;
+  `httpc_requests` golden — `HASH`

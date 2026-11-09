@@ -1,0 +1,19 @@
+%% OTP 29 inets exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
+{disable_trace, 0, default, declined}.
+{enable_trace, 2, default, declined}.
+{enable_trace, 3, default, declined}.
+{print_version_info, 0, default, declined}.
+{print_version_info, 1, default, declined}.
+{report_event, 4, default, declined}.
+{service_names, 0, default, implemented}.
+{services, 0, default, implemented}.
+{services_info, 0, default, implemented}.
+{set_trace, 1, default, declined}.
+{start, 0, default, implemented}.
+{start, 1, default, implemented}.
+{start, 2, default, implemented}.
+{start, 3, default, implemented}.
+{stop, 0, default, implemented}.
+{stop, 2, default, implemented}.
+{versions, 0, default, declined}.

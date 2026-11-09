@@ -293,10 +293,9 @@ dependencies, non-test sources.
     `from_utf16be/1`), `xmerl_scan:string/1,2`.
   - **MIM3b done** (`21-finished.md`): `xmerl_xpath:string/2,3`, `xmerl_xs:select/2`.
   - **MIM3c done** (`21-finished.md`): `xmerl`'s export with `xmerl_xml`.
-- **MIM4 `inets` client side:** `httpc:request/1,4` (erlcloud, MongooseIM) and
-  `http_uri:encode/1`, `decode/1` (erlcloud, lhttpc, MongooseIM; OTP 29 exports only these two,
-  erlcloud's `parse` calls sit behind `?OTP_RELEASE` guards). `httpc` over `gen_tcp`/`ssl` with OTP's profile,
-  option and result terms; the `inets` server parts (`httpd`, `ftp`, `tftp`) stay out unless asked.
+- **MIM4 done** (`21-finished.md`): `httpc`, `inets`' services and `http_uri` (`docs/libraries/inets.md`). The
+  server parts (`httpd`, `ftp`, `tftp`) stay out unless asked; prometheus_httpd's `inets:start(httpd, ...)` is `undef`
+  (`httpd:start_service/1`), and its `httpd.hrl` include is not provided.
 - **MIM5 `runtime_tools`:** `msacc:start/0,1`, `stop/0`, `stats/0` (rabbit_common) and `dbg`'s
   `tracer`, `p`, `tp`, `ctp`, `stop`, `trace_port` (hackney's debug helper). `dbg` needs the real
   tracing of "Later"; until then OTP's answers where tracing is unavailable.
@@ -335,7 +334,7 @@ dependencies, non-test sources.
 
 ### Order
 
-1. MIM4, MIM2, MIM5 (MIM1A-MIM1G, MIM1H1-H12, MIM9's record wildcard, MIM6, MIM7 and MIM3 done
+1. MIM2, MIM5 (MIM1A-MIM1G, MIM1H1-H12, MIM9's record wildcard, MIM6, MIM7, MIM3 and MIM4 done
    2026-11-02/09); MIM8 after a user decision.
 2. LIB81D3c, LIB81D4b and LIB81E on request.
 3. LIB82, LIB83 last (test support).
