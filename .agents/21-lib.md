@@ -292,8 +292,7 @@ dependencies, non-test sources.
   - **MIM3a done** (`21-finished.md`): `xmerl.hrl`, `xmerl_ucs` (`from_utf8/1`, `to_utf8/1`, `is_unicode/1`,
     `from_utf16be/1`), `xmerl_scan:string/1,2`.
   - **MIM3b done** (`21-finished.md`): `xmerl_xpath:string/2,3`, `xmerl_xs:select/2`.
-  - **MIM3c `xmerl:export_simple/2,3`** with the `xmerl_xml` callback (erlcloud's request bodies, `prolog`
-    option).
+  - **MIM3c done** (`21-finished.md`): `xmerl`'s export with `xmerl_xml`.
 - **MIM4 `inets` client side:** `httpc:request/1,4` (erlcloud, MongooseIM) and
   `http_uri:encode/1`, `decode/1` (erlcloud, lhttpc, MongooseIM; OTP 29 exports only these two,
   erlcloud's `parse` calls sit behind `?OTP_RELEASE` guards). `httpc` over `gen_tcp`/`ssl` with OTP's profile,
@@ -336,8 +335,8 @@ dependencies, non-test sources.
 
 ### Order
 
-1. MIM3c, MIM4, MIM2, MIM5 (MIM1A-MIM1G, MIM1H1-H12, MIM9's record wildcard, MIM6, MIM7, MIM3a and MIM3b
-   done 2026-11-02/09); MIM8 after a user decision.
+1. MIM4, MIM2, MIM5 (MIM1A-MIM1G, MIM1H1-H12, MIM9's record wildcard, MIM6, MIM7 and MIM3 done
+   2026-11-02/09); MIM8 after a user decision.
 2. LIB81D3c, LIB81D4b and LIB81E on request.
 3. LIB82, LIB83 last (test support).
 

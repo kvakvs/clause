@@ -1,0 +1,8 @@
+%% OTP 29 xmerl_xml exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
+{'#cdata#', 1, default, implemented}.
+{'#comment#', 1, default, implemented}.
+{'#element#', 5, default, implemented}.
+{'#root#', 4, default, implemented}.
+{'#text#', 1, default, implemented}.
+{'#xml-inheritance#', 0, default, implemented}.

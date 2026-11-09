@@ -404,3 +404,6 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   xmerl's semantics (steps joined over contexts, predicates over a step's whole result, unions in term order, own
   text as string value, first-node equality, not_implemented primary expressions, its function quirks);
   `xmerl_xs:select/2`; `xmerl_queries` golden — `3c2f00ea`
+- **MIM3c** xmerl export: `xmerl:export/2,3`, `export_simple/2,3` and their content and element forms through a
+  callback chain (bottom-up calls, `Tag/4` overrides, `'#root#'` with the options as attributes), `xmerl_xml` with
+  OTP's nested lists, escaping and prolog rule; `xmerl_export` golden — `HASH`

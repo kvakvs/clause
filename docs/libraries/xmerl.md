@@ -8,8 +8,8 @@ jiffy and rabbit_common convert text with `xmerl_ucs`. The library is Erlang, in
 macros are OTP 29's, observed from a module including it: the record definitions from its debug information, the
 macros through `epp`.
 
-Steps: MIM3a (`xmerl.hrl`, `xmerl_ucs`, `xmerl_scan`) and MIM3b (`xmerl_xpath`, `xmerl_xs:select/2`) done; MIM3c
-`xmerl:export_simple/2,3` with the `xmerl_xml` callback to come.
+Steps: MIM3a (`xmerl.hrl`, `xmerl_ucs`, `xmerl_scan`), MIM3b (`xmerl_xpath`, `xmerl_xs:select/2`) and MIM3c
+(`xmerl`'s export with the `xmerl_xml` callback) done.
 
 ## xmerl_scan
 
@@ -78,6 +78,27 @@ OTP's parse trees (`clause_xmerl_xpath`); a syntax error is OTP's
   `{not_implemented, {function, Name}}`; `substring` and unknown functions exit `{not_a_core_function, Name}`.
 
 `string/5`, `axis/3,4`, `eval_path/3`, `write_node/1` and `xmerl_xs`'s transformation functions are declined.
+
+## xmerl export
+
+`xmerl:export/2,3`, `export_content/2`, `export_element/2` (records) and `export_simple/2,3`,
+`export_simple_content/2`, `export_simple_element/2` (simple forms) export XML through a callback module and the
+modules it inherits from (`'#xml-inheritance#'/0`, `callbacks/1`), as OTP's:
+
+- **Simple forms** become records first: `{Tag, Attributes, Content}`, `{Tag, Content}`, `Tag` and text (a possibly
+  deep list), records keeping their content but taking their place's parents and position. Attribute values may be
+  strings, binaries, atoms or integers (another value is `badarg`, as is a name that is not an atom); text that is
+  not a list is `function_clause`, as is an element name that is not an atom or content that is not a list.
+- **Calls:** bottom-up, children first: `'#text#'/1` for text, `'#cdata#'/1` for CDATA, `'#comment#'/1` for
+  comments, `Tag/4` where a module of the chain exports it, else `'#element#'/5`, each with the outputs of the
+  children; processing instructions are left out. Last `'#root#'/4`, with the export's options as `#xmlAttribute{}`
+  of a `'#root#'` element. An unknown callback module is `undef`.
+- **`xmerl_xml`:** OTP's nested lists (`["<", Name, Attributes, ">"]`, content, `["</", Name, ">"]`, or
+  `["<", Name, Attributes, "/>"]` for no content); text escapes `&`, `<` and `>`, attribute values `&`, `<` and `"`;
+  CDATA and comments as written. `'#root#'` puts the `prolog` option first when it is the only option, else
+  `<?xml version="1.0"?>`.
+
+`export_element/3` and the `xmerl_html`, `xmerl_sgml`, `xmerl_text` and `xmerl_otpsgml` callbacks are not provided.
 
 ## xmerl_ucs
 

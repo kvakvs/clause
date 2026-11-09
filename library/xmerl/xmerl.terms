@@ -1,0 +1,12 @@
+%% OTP 29 xmerl exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
+{callbacks, 1, default, implemented}.
+{export, 2, default, implemented}.
+{export, 3, default, implemented}.
+{export_content, 2, default, implemented}.
+{export_element, 2, default, implemented}.
+{export_element, 3, internal, declined}.
+{export_simple, 2, default, implemented}.
+{export_simple, 3, default, implemented}.
+{export_simple_content, 2, default, implemented}.
+{export_simple_element, 2, default, implemented}.
