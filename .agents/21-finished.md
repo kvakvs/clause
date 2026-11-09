@@ -399,4 +399,4 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **MIM3a** xmerl scanning: `xmerl.hrl` (records and macros observed from OTP's), `xmerl_ucs` UTF conversions,
   `xmerl_scan:string/1,2` in Erlang with OTP's text pieces, positions, languages, namespaces, the single-slot
   xmlbase cache, options, fatal errors and their reports; `include_lib("xmerl/...")` resolves to the library;
-  `xmerl_scanning` golden — `HASH`
+  `xmerl_scanning` golden — `fd18fc31`
