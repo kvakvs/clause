@@ -1025,3 +1025,7 @@ gotchas and user directions not recorded elsewhere.
   keep goldens off that case. A Clause master after a refusal must not wait for an OTP receiver to end. A failed
   ctest run can leave OTP oracle nodes (erl.exe running oracle.escript) holding test directories: stop them first.
   Probes obs7 (traced) and obs8 (plain) in scratch/mim1h11.
+- MIM1H12 mnesia (2026-11-09): a Clause asym participant applies after the coordinator returned: a golden that writes
+  on b right after a's transaction needs a pause before reading events. Events of a multi-record transaction
+  coordinated by Clause arrive on other nodes in Clause's write order (known difference): goldens write one record a
+  transaction there. Probe obs9 in scratch/mim1h11.

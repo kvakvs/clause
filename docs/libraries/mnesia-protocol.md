@@ -602,6 +602,28 @@ DefaultOp}`.
   A node with a fallback installed that hears another node's mnesia go down stops too, reporting "(ignoring core) **
   FATAL ** A fallback is installed and Mnesia must be restarted. Forcing shutdown after mnesia_down from Node...":
   stopping both nodes one after the other may report it on the second.
+
+## Events and fragments over nodes (MIM1H12)
+
+Observed with two disc nodes a and b.
+
+- **Subscriptions:** `subscribe({table, Tab, simple | detailed})` needs a replica here: a table held only on another
+  node answers `{error, {not_active_local, Tab}}`, a second subscription to the same table and kind
+  `{error, {already_exists, What}}`; the others answer `{ok, node()}`.
+- **Events:** each node reports the table events of the updates its own replicas apply, whichever node's transaction
+  or dirty write made them, with that activity's id (`{tid, N, Pid}` or `{dirty, Pid}` of the other node's process),
+  and an activity's `complete` event where it commits. A transaction on several nodes reports its events on each
+  node that applies it, in the order that node applies them.
+- **Fragmented tables:** fragments are placed over the node pool as on one node, each replica on the node holding
+  fewest; any node reads and writes them through `mnesia_frag`, on whichever node holds a fragment. `frag_size` and
+  `frag_memory` ask the node a fragment is read from (a fragment without a replica here is not 0).
+- **Changing fragments:** `add_frag` and `del_frag` are schema transactions on every running node: the coordinator
+  reads the records that move, a fragment held elsewhere read there, and commits `{op, change_table_frag, FragOp,
+  BaseDef}`, the new fragment's `create_table` or the last one's `delete_table`, and an `{op, rec, Storage, {{Frag,
+  Key}, Records, write | delete}}` for each record moving; each node moves the records of the fragments it holds.
+- **Removing a node:** `del_table_copy(schema, Node)` deletes the tables only Node held, fragments among them (a
+  fragmented table whose base table only Node held is gone), and takes Node out of each fragmented table's node pool
+  (`{op, change_table_frag, {del_node, Node}, Def}` where Node holds no replica).
 - **Restoring:** `restore/2` is a schema transaction committed on every node running mnesia (`asym_trans`): each node's
   commit holds the operations (`{op, clear_table, Def}` and `{op, restore_recreate, Def}`, a deleted table's
   `delete_table`) and the backup's records of the tables that node holds after the restore, in the commit's field of

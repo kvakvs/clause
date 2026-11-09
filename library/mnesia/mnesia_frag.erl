@@ -225,11 +225,16 @@ info(Aid, Opaque, _, Frag, Item) -> mnesia:table_info(Aid, Opaque, Frag, Item).
 frag_info(Aid, Opaque, Tab, Item) ->
     [{F, frag_item(Aid, Opaque, F, Item)} || F <- frag_names(Tab)].
 
+% A fragment's size or memory, asked of the node it is read from when that is another node, as OTP's (MIM1H12).
 frag_item(Aid, Opaque, Frag, Item) ->
     case clause_mnesia_monitor:val({Frag, where_to_read}) of
         nowhere -> mnesia:abort({no_exists, Frag, Item});
-        _ -> mnesia:table_info(Aid, Opaque, Frag, Item)
+        Node when Node =:= node() -> mnesia:table_info(Aid, Opaque, Frag, Item);
+        Node -> remote_item(rpc:call(Node, mnesia, table_info, [Frag, Item]), Frag, Item)
     end.
+
+remote_item({badrpc, _}, Frag, Item) -> mnesia:abort({no_exists, Frag, Item});
+remote_item(Value, _, _) -> Value.
 
 % Each pool node's replicas of the table's fragments, the fewest first; nodes outside the pool last.
 frag_dist(Tab) ->
@@ -657,9 +662,16 @@ checked_state(FH, From, More, N, Op) ->
 % A fragment's records that hash elsewhere now: a write to their new fragment and, unless the fragment goes, a delete.
 moves(Tab, FH, I, Last) ->
     Frag = n_to_frag_name(Tab, I),
-    Records = clause_mnesia_db:match_object(Frag, '_'),
+    Records = frag_records(Frag),
     Pos = key_pos(FH),
     lists:append([move(Tab, Frag, I, key_to_n(FH, element(Pos, R)), R, Last) || R <- Records]).
+
+% A fragment's records, read on another node when it has no replica here (MIM1H12).
+frag_records(Frag) ->
+    case val({Frag, storage_type}) of
+        unknown -> mnesia:dirty_match_object(Frag, val({Frag, wild_pattern}));
+        _ -> clause_mnesia_db:match_object(Frag, '_')
+    end.
 
 move(_, _, I, I, _, _) ->
     [];

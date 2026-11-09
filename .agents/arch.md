@@ -222,7 +222,8 @@ behavior (`docs/differences.md` lists gaps).
   and on drop_replica), remote retainers backed up through mnesia_log:tab_copier (clause_mnesia_backup);
   MIM1H11b: global fallbacks relayed to receivers (relay_start/relay/relay_end), global uninstall via
   local_uninstall_fallback; restore records read in the change's prepare and sent per node (ops:restore_items,
-  commit:schema/5), participants apply restore ops before records;
+  commit:schema/5), participants apply restore ops before records; MIM1H12: fragment moves read remote
+  fragments (mnesia_frag:frag_records) and apply locally only, pools lose a deleted schema node (change);
   SNMP row index per table kept by updates).
   Distribution and tracing
   answer as a non-alive node.

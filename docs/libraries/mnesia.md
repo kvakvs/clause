@@ -42,7 +42,8 @@ Clause's `mnesia` application (plan 21, MIM1) exports the OTP 29 interface of `m
   several nodes. MIM1H10a, done: [disc nodes](#disc-nodes) created and started together. MIM1H10b, done: master
   nodes, majority and copies between disc nodes. MIM1H10c, done: partitions of disc nodes and adopted orphans.
   MIM1H11a, done: [checkpoints](#checkpoints) and [backups](#backups) over nodes. MIM1H11b, done:
-  [restores](#restoring) and [fallbacks](#fallbacks) over nodes. What OTP writes and sends is recorded in
+  [restores](#restoring) and [fallbacks](#fallbacks) over nodes. MIM1H12, done: [events](#events) and
+  [fragmented tables](#fragmented-tables) over nodes. What OTP writes and sends is recorded in
   [mnesia's files and protocol](mnesia-protocol.md).
 
 Every other documented function works. See the [function inventory](../../library/mnesia/mnesia.terms) and
@@ -560,6 +561,9 @@ each subscriber and drops its subscriptions when it exits.
   - it prints the table events it subscribes to at the debug levels: the schema's at `debug`, every local table's at
     `trace`, from `set_debug_level/1` or from the start;
   - a process registered globally as `mnesia_global_logger` gets a copy.
+- **Over nodes** (MIM1H12, [protocol](mnesia-protocol.md#events-and-fragments-over-nodes-mim1h12)): a table
+  subscription needs a replica here (`{error, {not_active_local, Tab}}`); each node reports the updates its replicas
+  apply, from any node's transactions and dirty writes.
 
 ## Text files
 
@@ -709,6 +713,10 @@ A table with `frag_properties` is split into fragments: the first is the table i
   foreign key follow their foreign table's fragments. Errors as OTP's.
 - **Majority:** `change_table_majority/2` of a base table changes every fragment; of another fragment it aborts with
   `bad_type`, as in OTP.
+- **Over nodes** (plan 21 step MIM1H12, [protocol](mnesia-protocol.md#events-and-fragments-over-nodes-mim1h12)):
+  fragments spread over a pool of OTP and Clause nodes; `add_frag` and `del_frag` move records between fragments on
+  either node, `frag_size` asks the node holding a fragment, and `del_table_copy(schema, Node)` takes Node out of the
+  pools.
 
 ## SNMP
 
@@ -835,6 +843,12 @@ index of its rows by SNMP row index, as OTP's `mnesia_snmp_hook` does
   a, on b and on both is installed as a fallback on both nodes and uninstalled from b; a local fallback stays on b;
   restores from a and from b clear, keep and recreate the tables, and bring back a deleted one; both nodes start
   again from a global fallback. Its runs pair Clause nodes with OTP nodes both ways.
+- **`mnesia_remote_frag` golden:** generated from OTP
+  ([fixture](../../tests/fixtures/executables/mnesia_remote_frag/mnesia_remote_frag.erl)). Both nodes subscribe to
+  tables held here and elsewhere and hear the events of transactions and dirty writes from either node; a fragmented
+  table spread over both nodes is written and read from either, a fragment is added on b and deleted with its records
+  moving between nodes, pool nodes are added and deleted, and b's schema copy is deleted while b is down, taking its
+  fragments and its place in the pools. Its runs pair Clause nodes with OTP nodes both ways.
 - **What `mnesia_dirty` covers:** answers before starting, system information, every `create_table` option and error, table
   properties, dirty access of each table type, indexes, counters, argument errors, schema changes, `schema/1`'s
   printout, error descriptions, and stopping and restarting.

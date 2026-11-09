@@ -376,3 +376,8 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   reads the backup while the transaction prepares and commits each node's records with the operations, participants
   clear or recreate before writing them, and each node restores only its replicas; `mnesia_remote_backups` golden
   identical to OTP both ways — `e4334eb7`
+- **MIM1H12** mnesia events and fragments over nodes: events of either node's transactions and dirty writes already
+  as OTP's; `add_frag`/`del_frag` read a fragment held elsewhere there and each node moves only its fragments' records
+  (participants take `change_table_frag` and `rec` operations); `frag_size`/`frag_memory` asked of the node a fragment
+  is read from; `del_table_copy(schema, Node)` takes Node out of the fragmented tables' node pools;
+  `mnesia_remote_frag` golden identical to OTP both ways — `HASH`

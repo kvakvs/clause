@@ -115,6 +115,14 @@ change({op, add_snmp, _, List}) ->
     [{redefine, cs(List)}];
 change({op, del_snmp, List}) ->
     [{redefine, cs(List)}];
+% Another node's fragment change (MIM1H12): the base table's definition and the records moving between fragments,
+% applied to the fragments held here.
+change({op, change_table_frag, _, List}) ->
+    [{redefine, cs(List)}];
+change({op, rec, _, {{Frag, Key}, Records, write}}) ->
+    [{records, [{Frag, Key, {write, R}} || R <- Records]}];
+change({op, rec, _, {{Frag, Key}, _, delete}}) ->
+    [{records, [{Frag, Key, delete}]}];
 % Another node's restore (MIM1H11b): a table cleared or made again here; its records come in the commit.
 change({op, clear_table, List}) ->
     #cstruct{name = Tab, record_name = RecordName} = cs(List),
@@ -167,7 +175,11 @@ copy_op(Change, Node, Name) ->
             add_table_copy -> clause_mnesia_schema:storage(Node, Cs);
             del_table_copy -> clause_mnesia_schema:storage(Node, old(Tab))
         end,
-    {op, Name, Storage, Node, list(Cs)}.
+    case Storage of
+        % A fragmented table without a replica on the node leaves its pool only (MIM1H12).
+        unknown -> {op, change_table_frag, {del_node, Node}, list(Cs)};
+        _ -> {op, Name, Storage, Node, list(Cs)}
+    end.
 
 % An operation that changes one field: the definition, the old value and the new.
 changed(Name, Field, #cstruct{name = Tab} = Cs) ->

@@ -274,11 +274,10 @@ dependencies, non-test sources.
       both nodes started from a global fallback. Golden `mnesia_remote_backups`. Not covered: a refused global
       installation (OTP names whichever refusal comes first), fallbacks with `mnesia_dir`, `skip_tables` or
       `keep_tables` over nodes.
-  - **MIM1H12 Events and fragments over nodes:** table subscriptions where the replica is elsewhere
-    (`not_active_local`), `{mnesia_down, Node}` and `{mnesia_up, Node}` system events, activity events of
-    distributed transactions; fragmented tables spread over a `node_pool` of OTP and Clause nodes (`frag_dist`,
-    `remote_select`/`local_select`), `del_table_copy(schema, Node)` removing the node from pools
-    (`mnesia_frag:remove_node/2`). Golden `mnesia_remote_frag`.
+  - **MIM1H12 done** (`21-finished.md`): events over nodes (already as OTP's), fragments added and deleted with
+    records moving between nodes, `frag_size` asked of the fragment's node, the node pools losing a node whose schema
+    copy goes. Golden `mnesia_remote_frag`. The order of a multi-record transaction's events on other nodes stays a
+    difference (`docs/differences.md`).
   - **Order and size:** H1 and H2 are single-node refactors and unlock the rest; H3–H5 make the nodes meet; H6–H8
     are the transaction core; H9–H12 build on it. Each step is one commit with its golden; H8 and H9 are the largest
     and may split further once their message tables are written.
@@ -337,7 +336,7 @@ dependencies, non-test sources.
 
 ### Order
 
-1. MIM9's record wildcard fix, MIM6, MIM7 (MIM1A-MIM1G, MIM1H1-H11 done 2026-11-02/09; MIM1H12 optional)
+1. MIM9's record wildcard fix, MIM6, MIM7 (MIM1A-MIM1G, MIM1H1-H12 done 2026-11-02/09)
    (small), MIM3, MIM4, MIM2, MIM5; MIM8 after a user decision.
 2. LIB81D3c, LIB81D4b and LIB81E on request.
 3. LIB82, LIB83 last (test support).

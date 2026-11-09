@@ -365,10 +365,13 @@ without_node(Tabs, Node) ->
     lists:append([table_without_node(Tab, Node) || Tab <- Tabs]).
 
 table_without_node(Tab, Node) ->
-    Cs = next_version(val({Tab, cstruct})),
+    Old = next_version(val({Tab, cstruct})),
+    Cs = without_pool_node(Old, Node),
     case clause_mnesia_schema:storage(Node, Cs) of
-        unknown ->
+        unknown when Cs =:= Old ->
             [];
+        unknown ->
+            [{redefine, Cs}];
         Storage ->
             Cs2 = without_copy(Cs, Node, Storage),
             case copy_holders(Cs2) of
@@ -379,6 +382,18 @@ table_without_node(Tab, Node) ->
                     val({Tab, active_replicas}) =/= [] andalso lock(write, Tab),
                     [{redefine, Cs3}]
             end
+    end.
+
+% A fragmented table's node pool without the node, as OTP's mnesia_frag:remove_node/2 leaves it (MIM1H12).
+without_pool_node(#cstruct{frag_properties = Props} = Cs, Node) ->
+    case lists:keyfind(node_pool, 1, Props) of
+        {_, Pool} ->
+            case lists:member(Node, Pool) of
+                true -> Cs#cstruct{frag_properties = lists:keystore(node_pool, 1, Props, {node_pool, Pool -- [Node]})};
+                false -> Cs
+            end;
+        false ->
+            Cs
     end.
 
 % move_table_copy/3: the replica of a running node moves to another running node, as a copy added there, loaded

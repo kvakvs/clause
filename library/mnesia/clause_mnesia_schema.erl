@@ -385,7 +385,10 @@ running(Node) ->
 
 % Records moved between a fragmented table's fragments (MIM1G), which the log keeps as OTP's rec operations (MIM1H2).
 move_records(Moves, Tid) ->
-    [clause_mnesia_access:update(Tid, Frag, Key, Update) || {Frag, Key, Update} <- Moves],
+    [
+        clause_mnesia_access:update(Tid, Frag, Key, Update)
+     || {Frag, Key, Update} <- Moves, val({Frag, storage_type}) =/= unknown
+    ],
     ok.
 
 % A schema record changed by transaction Tid: the schema's checkpoints retain the old one (MIM1F), its subscribers
