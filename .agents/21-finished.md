@@ -403,4 +403,4 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **MIM3b** xmerl XPath: `clause_xmerl_xpath` parses into OTP's xmerl parse trees; `xmerl_xpath:string/2,3` with
   xmerl's semantics (steps joined over contexts, predicates over a step's whole result, unions in term order, own
   text as string value, first-node equality, not_implemented primary expressions, its function quirks);
-  `xmerl_xs:select/2`; `xmerl_queries` golden — `HASH`
+  `xmerl_xs:select/2`; `xmerl_queries` golden — `3c2f00ea`
