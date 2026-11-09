@@ -14,6 +14,9 @@ std::optional<std::size_t> record_field(const RecordLayout &layout, const ast::A
 // Select explicit/wildcard/default fields in declaration order; omitted pattern fields have no constraint.
 std::vector<std::optional<ast::ExprId>> record_values(const Module &module, const ast::RecordExpression &record,
                                                       bool pattern);
+// A construction's `_ = Value` when every field is named: it initializes nothing and is never evaluated, but its
+// variables are still checked (record wildcards).
+std::optional<ast::ExprId> unused_wildcard(const Module &module, const ast::RecordExpression &record);
 // Positions of record_values in evaluation order: declaration order for tuple records; for native records the
 // explicit fields in source order, then the defaulted ones (OTP v3_core).
 std::vector<std::size_t> record_order(const Module &module, const ast::RecordExpression &record);

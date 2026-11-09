@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "entry": "record_wildcards",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "{room,<<\"r\">>,<<\"h\">>,[]}\n{room,<<\"r\">>,<<\"h\">>,[]}\nevaluated each\nevaluated each\n{room,<<\"r\">>,each,each}\nevaluated every\nevaluated every\nevaluated every\n{room,every,every,every}\n{empty}\n{pair,1,2}\n{pair,1,2}\n{same,x}\n{other,{room,n,x,y}}\n{pair,2}\n{[{room,b,h,[b]}],[b,c]}\nrecord_wildcards: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
+  },
+  "inputs": {
+    "record_wildcards.erl": "a524777e920229dbbcfe41e0b37ada945a06c88eccb75026760ecdf3d3608a6b"
+  }
+}

@@ -319,9 +319,8 @@ dependencies, non-test sources.
   `fast_pbkdf2`, `stringprep`), or NIF loading through the runtime. `jwerl` and MongooseIM's
   `mongoose_mam_id` use `-on_load` without NIFs.
 - **MIM9 compiler and project gaps** (not library: route to plan 11 when picked up):
-  - `#r{a = 1, b = 2, _ = '_'}` with every field given is rejected (`record wildcard requires an
-    omitted field`, `compiler/src/semantic/records.cpp`); OTP accepts it (checked with `erlc`).
-    MongooseIM's `mod_muc_mnesia`. A difference from OTP: fix or record in `differences.md`.
+  - **Record wildcard done** (`21-finished.md`): a construction naming every field takes `_ = Value`, as OTP's
+    does (`mod_muc_mnesia`); patterns still reject it.
   - `-on_load`, `-nifs`, `-compile(export_all)` (`mongoose_xmpp_errors`) and `no_native`
     (`ets_cache`) are rejected (plan 11, 65A–65C).
   - One include path per target: mysql and epgsql both `-include("protocol.hrl")` from their own
@@ -336,7 +335,7 @@ dependencies, non-test sources.
 
 ### Order
 
-1. MIM9's record wildcard fix, MIM6, MIM7 (MIM1A-MIM1G, MIM1H1-H12 done 2026-11-02/09)
+1. MIM6, MIM7 (MIM1A-MIM1G, MIM1H1-H12 and MIM9's record wildcard done 2026-11-02/09)
    (small), MIM3, MIM4, MIM2, MIM5; MIM8 after a user decision.
 2. LIB81D3c, LIB81D4b and LIB81E on request.
 3. LIB82, LIB83 last (test support).

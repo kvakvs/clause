@@ -157,6 +157,11 @@ context. Analysis is deterministic.
   later pattern matches an exported name is not emitted. `if` clauses follow the
   same rules with a guard and no pattern.
 - `begin`/`end` is a sequence in the enclosing scope.
+- A record construction's wildcard `_ = Value` is evaluated once for each omitted
+  field. When the construction names every field, it is still accepted (as OTP
+  accepts it) but never evaluated; its reads are still checked, and the names it
+  binds are unsafe afterwards. OTP's own compiler crashes on such a binding. A
+  pattern's wildcard must cover an omitted field, as in OTP.
 - Unbound, unsafe and wildcard reads are located errors. Messages keep the
   compiler's wording (`unbound variable X`, `unsafe variable X`); the bindings
   corpus checks each against OTP's `unbound_var`/`unsafe_var` class.

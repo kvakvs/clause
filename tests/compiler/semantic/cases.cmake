@@ -177,6 +177,15 @@ semantic_case(record_update_twice "-module(a). -record(r, {a}). f(X) -> X#r{a = 
     "duplicate record initializer")
 semantic_case(record_update_wildcard "-module(a). -record(r, {a}). f(X) -> X#r{_ = 1}." 1
     "meaningless use of _ in update of record r")
+# A construction naming every field still takes a wildcard (MIM9); its expression must still be valid.
+semantic_case(record_wildcard_full "-module(a). -record(r, {a, b}). f() -> #r{a = 1, b = 2, _ = '_'}." 0 "^$")
+semantic_case(record_wildcard_full_unbound "-module(a). -record(r, {a, b}). f() -> #r{a = 1, b = 2, _ = X}." 1
+    "unbound variable X")
+# OTP's own compiler crashes on this one; a name bound in a wildcard that is never evaluated is unsafe here.
+semantic_case(record_wildcard_full_binds
+    "-module(a). -record(r, {a, b}). f() -> R = #r{a = 1, b = 2, _ = (Y = 3)}, {R, Y}." 1 "unsafe variable Y")
+semantic_case(record_wildcard_full_fun "-module(a). -record(r, {a, b}). f(X) -> #r{a = 1, b = 2, _ = fun() -> X end}."
+    0 "^$")
 semantic_case(record_update_sibling "-module(a). -record(r, {a, b}). f(X) -> X#r{a = Y = 1, b = Y}." 1
     "unbound variable Y")
 semantic_case(record_update_guard "-module(a). -record(r, {a}). f(X) when X#r{a = 1} =:= X -> X." 1

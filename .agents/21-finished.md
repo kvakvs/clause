@@ -381,3 +381,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   (participants take `change_table_frag` and `rec` operations); `frag_size`/`frag_memory` asked of the node a fragment
   is read from; `del_table_copy(schema, Node)` takes Node out of the fragmented tables' node pools;
   `mnesia_remote_frag` golden identical to OTP both ways — `bff21c07`
+- **MIM9 record wildcard** (compiler): a record construction naming every field accepts `_ = Value` as OTP does
+  (MongooseIM's `mod_muc_mnesia` match specifications); the value is never evaluated, its reads are still checked
+  and names it binds are unsafe (OTP's compiler crashes there); a pattern's wildcard still needs an omitted field;
+  `record_wildcards` golden — `HASH`

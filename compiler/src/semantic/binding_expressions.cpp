@@ -1,6 +1,7 @@
 #include "binding_state.hpp"
 #include "capabilities.hpp"
 #include "pattern_state.hpp"
+#include "records.hpp"
 #include <algorithm>
 #include <cstdint>
 #include <set>
@@ -82,9 +83,21 @@ void finish_sibling(BindingEnvironment &environment, SiblingScope &scope) {
     environment.checks.insert(scope.accumulated.names.begin(), scope.accumulated.names.end());
 }
 
+// A record wildcard that initializes nothing is checked last, like a skipped RHS: names it binds stay unsafe.
+void schedule_unused_wildcard(const Module &module, const ast::ExprValue &value, std::vector<Visit> &pending) {
+    const auto *record = std::get_if<ast::RecordExpression>(&value);
+    const auto wildcard = record ? unused_wildcard(module, *record) : std::nullopt;
+    if (wildcard) {
+        pending.push_back({*wildcard, Action::conditional_exit});
+        pending.push_back({*wildcard});
+        pending.push_back({*wildcard, Action::conditional_enter});
+    }
+}
+
 // Sequence nodes export immediately; ordinary sibling operands export together after all are analyzed.
 void schedule_children(const Module &module, const ast::ExprId &id, const ast::ExprValue &value,
                        std::vector<Visit> &pending) {
+    schedule_unused_wildcard(module, value, pending);
     const auto children = std::holds_alternative<ast::RecordExpression>(value)
                               ? expression_children(module, module.syntax->expression(id))
                               : binding_children(value);

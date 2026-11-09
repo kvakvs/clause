@@ -60,7 +60,7 @@ void explicit_field(const Module &module, const ast::RecordField &field, const a
     }
 }
 
-// Wildcards initialize omitted fields only and cannot repeat or accompany a completely explicit record.
+// Wildcards initialize omitted fields only and cannot repeat.
 void wildcard_field(const Module &module, const ast::RecordField &field, const ast::NodeSource *&wildcard,
                     const Reporter &out) {
     if (std::get<ast::Variable>(field.name).name != U"_") {
@@ -72,9 +72,10 @@ void wildcard_field(const Module &module, const ast::RecordField &field, const a
     wildcard = &field.source;
 }
 
-// Native records take no wildcard; an update wildcard is meaningless; otherwise it must cover an omitted field.
+// Native records take no wildcard; an update wildcard is meaningless; a pattern's must cover an omitted field
+// (a construction's then initializes nothing and is not evaluated, as in OTP).
 void wildcard_rules(const Module &module, const ast::RecordExpression &record, const RecordLayout &layout,
-                    const std::size_t named, const ast::NodeSource *wildcard, const Reporter &out) {
+                    const bool pattern, const std::size_t named, const ast::NodeSource *wildcard, const Reporter &out) {
     if (!wildcard) {
         return;
     }
@@ -83,7 +84,7 @@ void wildcard_rules(const Module &module, const ast::RecordExpression &record, c
                out);
     } else if (record.base) {
         report(module, wildcard, "meaningless use of _ in update of record " + utf8(layout.name.name), out);
-    } else if (named >= layout.fields.size()) {
+    } else if (pattern && named >= layout.fields.size()) {
         report(module, wildcard, "record wildcard requires an omitted field", out);
     }
 }
@@ -103,7 +104,7 @@ void fields(const Module &module, const ast::RecordExpression &record, const Rec
             wildcard_field(module, field, wildcard, out);
         }
     }
-    wildcard_rules(module, record, layout, names.size(), wildcard, out);
+    wildcard_rules(module, record, layout, pattern, names.size(), wildcard, out);
     if (layout.native && construction) {
         native_initialized(module, record, layout, names, out);
     }
@@ -288,6 +289,19 @@ std::vector<std::optional<ast::ExprId>> record_values(const Module &module, cons
         result.push_back(selected(values, field, pattern));
     }
     return result;
+}
+
+std::optional<ast::ExprId> unused_wildcard(const Module &module, const ast::RecordExpression &record) {
+    const auto *layout = record.base ? nullptr : record_layout(module, record.identity);
+    if (!layout || layout->native) {
+        return std::nullopt;
+    }
+    Initializers values;
+    initializers(values, record);
+    const auto omitted = [&](const ast::RecordDeclarationField &field) {
+        return !values.values.contains(field.name.name);
+    };
+    return std::ranges::any_of(layout->fields, omitted) ? std::nullopt : values.wildcard;
 }
 
 namespace {
