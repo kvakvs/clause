@@ -414,3 +414,8 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   receivers, streams to self, cancellation, an http proxy, option reports in OTP's order, profile options and
   profiles as inets services; `http_uri` over `uri_string`; `ssl` accepts combined certificates in `cacerts`;
   `httpc_requests` golden — `41ed2d48`
+- **MIM2** eldap: OTP's LDAP client over `gen_tcp`/`ssl` (and StartTLS) with the LDAPv3 codec clau generates from
+  RFC 4511's module (with RFC 3062's and RFC 2696's values; `legacy_erlang_types`, as OTP's); OTP's options and
+  their errors, results, search argument checks in field order, message identifiers (kept after successes, late
+  answers read as the next request's), lost-connection errors, log calls, paged results; `eldap.hrl`;
+  `eldap_requests` golden — `HASH`

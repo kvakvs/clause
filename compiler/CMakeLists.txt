@@ -191,5 +191,16 @@ add_custom_command(OUTPUT "${public_key_stamp}"
     WORKING_DIRECTORY "${public_key_asn1}"
     COMMENT "Generating public_key's ASN.1 modules"
     VERBATIM)
-add_custom_target(clause_library_asn1 ALL DEPENDS "${public_key_stamp}")
+# Added for eldap (plan 21 step MIM2): its LDAPv3 codec, with OTP's options (lists for OCTET STRINGs).
+set(eldap_asn1 "${PROJECT_SOURCE_DIR}/library/eldap/asn1")
+set(eldap_stamp "${generated_library}/eldap/generated.stamp")
+add_custom_command(OUTPUT "${eldap_stamp}"
+    COMMAND clau --generate-asn1 --asn1-option ber --asn1-option legacy_erlang_types --asn1-option noobj
+        --asn1-outdir "${generated_library}/eldap" "${eldap_asn1}/ELDAPv3.asn1"
+    COMMAND "${CMAKE_COMMAND}" -E touch "${eldap_stamp}"
+    DEPENDS clau "${eldap_asn1}/ELDAPv3.asn1"
+    WORKING_DIRECTORY "${eldap_asn1}"
+    COMMENT "Generating eldap's ASN.1 module"
+    VERBATIM)
+add_custom_target(clause_library_asn1 ALL DEPENDS "${public_key_stamp}" "${eldap_stamp}")
 target_link_libraries(clau PRIVATE clause_linking)

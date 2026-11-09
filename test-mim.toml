@@ -33,8 +33,7 @@ options = ["ber"]
 
 [targets.options]
 ignore_dirs = ["references/MongooseIM/_build/default/lib/*/test"]
-# The LDAP modules include eldap.hrl; Clause's library has no eldap yet (plan 21 MIM2).
-ignore_modules = ["ejabberd_auth_ldap", "eldap_pool", "mod_shared_roster_ldap", "mod_vcard_ldap"]
+ignore_modules = []
 # Fallback roots for listed source filenames, e.g. ["src", "generated"].
 # These do not discover extra files or search for headers.
 # The rebar3 dependencies resolve from here when MongooseIM's modules name them.

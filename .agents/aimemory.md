@@ -1040,3 +1040,8 @@ gotchas and user directions not recorded elsewhere.
   Never leave pipeline_timeout > 0 set in a probe: OTP then pipelines GETs and spreads other requests over sessions
   by queue length. OTP's verbose debug/trace option turns on dbg tracing of httpc_manager (floods stdout).
   public_key:cacerts_get/0 gives {cert, Der, Otp} records: ssl's cacerts must take them (httpc's default options).
+- MIM2 eldap (2026-11-10): probes scratch/mim2 (lsrv.erl prints BER trees, answers hand-built BER; p1-p9; cmp.sh,
+  fx.sh run OTP vs cl/ = Clause's eldap.erl + asn1ct's ELDAPv3 from our spec with +legacy_erlang_types). OTP's eldap
+  throws from substrings/extensibleMatch/add argument errors (a catch in a probe hides throw vs return). close/1 is
+  async; closing with an unread answer can reset the connection and lose the unbind (fixture ends that section with
+  a server close). Never taskkill erl.exe broadly: the VS Code Erlang LSP runs as erl.exe.

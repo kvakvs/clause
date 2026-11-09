@@ -281,12 +281,9 @@ dependencies, non-test sources.
   - **Order and size:** H1 and H2 are single-node refactors and unlock the rest; H3–H5 make the nodes meet; H6–H8
     are the transaction core; H9–H12 build on it. Each step is one commit with its golden; H8 and H9 are the largest
     and may split further once their message tables are written.
-- **MIM2 `eldap`** (`eldap.hrl` and module `eldap`): `open`, `simple_bind`, `search` with the
-  filter constructors (`equalityMatch`, `substrings`, `present`, `approxMatch`,
-  `greaterOrEqual`, `lessOrEqual`, `extensibleMatch`), `close`. LDAPv3 over `gen_tcp`/`ssl` with
-  the ELDAPv3 BER codec (Clause's ASN.1 BER engine, LIB84). MongooseIM's
-  `ejabberd_auth_ldap`, `eldap_pool`, `mod_shared_roster_ldap` and `mod_vcard_ldap` are in
-  `ignore_modules` until then.
+- **MIM2 done** (`21-finished.md`): `eldap` and `eldap.hrl` (`docs/libraries/eldap.md`), the codec generated from
+  `library/eldap/asn1/ELDAPv3.asn1`. Declined: `parse_dn/1`, `parse_ldap_url/1`, `loop/2`. MongooseIM's
+  `ejabberd_auth_ldap`, `eldap_pool`, `mod_shared_roster_ldap` and `mod_vcard_ldap` can leave `ignore_modules`.
 - **MIM3 `xmerl`** (`docs/libraries/xmerl.md`), in Erlang (the C++ scanner of the first plan is not needed for
   erlcloud's AWS responses; speed in "Later" if it matters):
   - **MIM3a done** (`21-finished.md`): `xmerl.hrl`, `xmerl_ucs` (`from_utf8/1`, `to_utf8/1`, `is_unicode/1`,
@@ -334,8 +331,8 @@ dependencies, non-test sources.
 
 ### Order
 
-1. MIM2, MIM5 (MIM1A-MIM1G, MIM1H1-H12, MIM9's record wildcard, MIM6, MIM7, MIM3 and MIM4 done
-   2026-11-02/09); MIM8 after a user decision.
+1. MIM5 (MIM1A-MIM1G, MIM1H1-H12, MIM9's record wildcard, MIM6, MIM7, MIM3, MIM4 and MIM2 done
+   2026-11-02/10); MIM8 after a user decision.
 2. LIB81D3c, LIB81D4b and LIB81E on request.
 3. LIB82, LIB83 last (test support).
 
