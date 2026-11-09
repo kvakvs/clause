@@ -1019,3 +1019,9 @@ gotchas and user directions not recorded elsewhere.
   and select run opposite to first/next, so backup item order differs from OTP's on the BEAM: goldens sort items.
   OTP's node joined to a checkpoint by add_copy retains nothing of its own (differences row). Probes obs1-6 and
   shim.py (writes an OTP-named shim from its .terms) in scratch/mim1h11.
+- MIM1H11b mnesia (2026-11-09): Clause links modules statically: a local apply(M, F, A) to an OTP-named shim nobody
+  names literally is undef (fixed by dispatching local calls directly and naming the shims in literal funs). OTP's
+  master of a refused global fallback kills its receivers (crash reports) and names whichever refusal comes first:
+  keep goldens off that case. A Clause master after a refusal must not wait for an OTP receiver to end. A failed
+  ctest run can leave OTP oracle nodes (erl.exe running oracle.escript) holding test directories: stop them first.
+  Probes obs7 (traced) and obs8 (plain) in scratch/mim1h11.

@@ -58,10 +58,20 @@ pre_committed({Ref, Coordinator, Tid, #commit{schema_ops = Ops, decision = Decis
             end
     end.
 
-% The commit's records applied here as this node's own commits apply them, its schema operations in mnesia_monitor.
+% The commit's records applied here as this node's own commits apply them, its schema operations in mnesia_monitor;
+% a restore's operations clear or make its tables before its records come (MIM1H11b).
 apply_commit({_, _, Tid, #commit{schema_ops = Ops, decision = Decision} = Commit, Changes, _}) ->
-    ok = clause_mnesia_tm:apply_commit(Tid, Commit, async),
-    Ops =:= [] orelse gen_server:call(mnesia_monitor, {schema, Changes, Ops, Tid, Decision}, infinity),
+    Schema = fun() ->
+        Ops =:= [] orelse gen_server:call(mnesia_monitor, {schema, Changes, Ops, Tid, Decision}, infinity)
+    end,
+    case clause_mnesia_ops:restoring(Ops) of
+        true ->
+            Schema(),
+            ok = clause_mnesia_tm:apply_commit(Tid, Commit, async);
+        false ->
+            ok = clause_mnesia_tm:apply_commit(Tid, Commit, async),
+            Schema()
+    end,
     ok.
 
 % Whether the coordinator waits for this node's schema_commit: not for a merge's announcement alone, as OTP's

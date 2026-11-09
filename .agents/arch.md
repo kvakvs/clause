@@ -220,6 +220,9 @@ behavior (`docs/differences.md` lists gaps).
   MIM1H11a: checkpoints over nodes in clause_mnesia_checkpoint (OTP's #checkpoint_args{} via mnesia_tm:
   prepare_checkpoint and mnesia_checkpoint call/cast; joined by the loader's sender, left on mnesia_down in recover
   and on drop_replica), remote retainers backed up through mnesia_log:tab_copier (clause_mnesia_backup);
+  MIM1H11b: global fallbacks relayed to receivers (relay_start/relay/relay_end), global uninstall via
+  local_uninstall_fallback; restore records read in the change's prepare and sent per node (ops:restore_items,
+  commit:schema/5), participants apply restore ops before records;
   SNMP row index per table kept by updates).
   Distribution and tracing
   answer as a non-alive node.

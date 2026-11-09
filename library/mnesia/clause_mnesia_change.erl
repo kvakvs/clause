@@ -102,7 +102,9 @@ prepare({dump_tables, Tabs}) ->
 prepare({restore, Restore, Schema}) ->
     lock(write, schema),
     Plan = restore_plan(Schema, Restore, []),
-    {value, [T || {T, _} <- Plan, T =/= deleted], [{restore, Plan, Restore}]}.
+    {value, [T || {T, _} <- Plan, T =/= deleted], [
+        {restore, Plan, clause_mnesia_backup:restore_updates(Plan, Restore)}
+    ]}.
 
 % restore/2's tables (MIM1F), the last first as OTP returns them: each with its operation's locks, the schema's own
 % definition left alone; a table the backup deletes goes.

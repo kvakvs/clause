@@ -41,8 +41,8 @@ Clause's `mnesia` application (plan 21, MIM1) exports the OTP 29 interface of `m
   done: [commits](#transactions) over several nodes. MIM1H9, done: [table copies](#schema-changes) and loads over
   several nodes. MIM1H10a, done: [disc nodes](#disc-nodes) created and started together. MIM1H10b, done: master
   nodes, majority and copies between disc nodes. MIM1H10c, done: partitions of disc nodes and adopted orphans.
-  MIM1H11a, done: [checkpoints](#checkpoints) and [backups](#backups) over nodes. What OTP writes and sends is recorded
-  in
+  MIM1H11a, done: [checkpoints](#checkpoints) and [backups](#backups) over nodes. MIM1H11b, done:
+  [restores](#restoring) and [fallbacks](#fallbacks) over nodes. What OTP writes and sends is recorded in
   [mnesia's files and protocol](mnesia-protocol.md).
 
 Every other documented function works. See the [function inventory](../../library/mnesia/mnesia.terms) and
@@ -670,6 +670,9 @@ by default `mnesia_backup` ([mnesia_backup](../../library/mnesia/mnesia_backup.e
   tables' record names. The schema's own definition is never restored.
 - **Errors:** `{aborted, Reason}` for a bad argument (`{badarg, {clear_tables, schema}}` and others) and for a
   backup that cannot be read, before any transaction.
+- **Over nodes** (plan 21 step MIM1H11b, [protocol](mnesia-protocol.md#fallbacks-and-restores-over-nodes-mim1h11b)):
+  every node running mnesia takes part; each clears or makes its replicas of the restored tables and writes the
+  records of the tables it holds, which come in its commit, as OTP's.
 
 ## Fallbacks
 
@@ -678,6 +681,10 @@ by default `mnesia_backup` ([mnesia_backup](../../library/mnesia/mnesia_backup.e
   a local scope. Errors are OTP's `{"Cannot install fallback", Reason}`, such as `{already_exists, Node}` for a second
   fallback.
 - **Uninstalling:** `uninstall_fallback/0,1` removes the fallback.
+- **Over nodes** (MIM1H11b, [protocol](mnesia-protocol.md#fallbacks-and-restores-over-nodes-mim1h11b)): a global
+  fallback (the default scope) goes to every disc node of the backup's schema through OTP's fallback receivers, and a
+  global `uninstall_fallback/0,1` removes it from every disc node of the fallback's schema through OTP's
+  `mnesia_bup:local_uninstall_fallback/2`. A local one stays on its node.
 - **Starting:** the next start replaces the directory's database with the fallback: its schema, and each local
   table's records in the table's files, a `disc_copies` table's as `DCL` writes after an empty `DCD` file, as OTP's.
   The start's dump then merges them, unless `dump_disc_copies_at_startup` is `false`. The decision log goes.
@@ -823,6 +830,11 @@ index of its rows by SNMP row index, as OTP's `mnesia_snmp_hook` does
   other node's retainers; b stops (its checkpoints' end reported on stderr) and starts again, a new copy joins a
   checkpoint with the records retained so far, and deactivations and a deleted copy end checkpoints. Its runs pair
   Clause nodes with OTP nodes both ways.
+- **`mnesia_remote_backups` golden:** generated from OTP
+  ([fixture](../../tests/fixtures/executables/mnesia_remote_backups/mnesia_remote_backups.erl)). A backup of tables on
+  a, on b and on both is installed as a fallback on both nodes and uninstalled from b; a local fallback stays on b;
+  restores from a and from b clear, keep and recreate the tables, and bring back a deleted one; both nodes start
+  again from a global fallback. Its runs pair Clause nodes with OTP nodes both ways.
 - **What `mnesia_dirty` covers:** answers before starting, system information, every `create_table` option and error, table
   properties, dirty access of each table type, indexes, counters, argument errors, schema changes, `schema/1`'s
   printout, error descriptions, and stopping and restarting.

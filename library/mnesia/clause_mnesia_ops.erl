@@ -4,7 +4,7 @@
 %% schema's create lists. Another node's operations become this node's changes when it takes part in their commit
 %% (MIM1H8).
 -module(clause_mnesia_ops).
--export([ops/2, dumped/1, items/1, changes/1, changes/2]).
+-export([ops/2, dumped/1, items/1, changes/1, changes/2, restore_items/1, restoring/1]).
 
 -include("clause_mnesia.hrl").
 
@@ -115,6 +115,13 @@ change({op, add_snmp, _, List}) ->
     [{redefine, cs(List)}];
 change({op, del_snmp, List}) ->
     [{redefine, cs(List)}];
+% Another node's restore (MIM1H11b): a table cleared or made again here; its records come in the commit.
+change({op, clear_table, List}) ->
+    #cstruct{name = Tab, record_name = RecordName} = cs(List),
+    [{restore, [{Tab, {clear, RecordName}}], []}];
+change({op, restore_recreate, List}) ->
+    #cstruct{name = Tab} = Cs = cs(List),
+    [{restore, [{Tab, {recreate, Cs}}], []}];
 change(Op) ->
     throw({not_supported, Op}).
 
@@ -190,6 +197,29 @@ rec({Frag, Key, Update}, New) ->
         {write, Record} -> {op, rec, Storage, {{Frag, Key}, [Record], write}};
         delete -> {op, rec, Storage, {{Frag, Key}, [{Frag, Key}], delete}}
     end.
+
+% The records a restore writes on each node holding their table after it, as {Node, Storage, Item} (MIM1H11b): the
+% other nodes get them in their commits, as OTP's.
+restore_items(Changes) ->
+    [
+        {Node, Storage, clause_mnesia_disc:item(Tab, Key, Update)}
+     || {restore, Plan, Updates} <- Changes,
+        {Tab, Key, Update} <- Updates,
+        {Node, Storage} <- restored_nodes(Tab, Plan)
+    ].
+
+restored_nodes(Tab, Plan) ->
+    Cs =
+        case lists:keyfind(Tab, 1, Plan) of
+            {_, {recreate, New}} -> New;
+            _ -> old(Tab)
+        end,
+    #cstruct{ram_copies = Ram, disc_copies = Disc, disc_only_copies = DiscOnly} = Cs,
+    [{N, ram_copies} || N <- Ram] ++ [{N, disc_copies} || N <- Disc] ++ [{N, disc_only_copies} || N <- DiscOnly].
+
+% Whether operations restore tables, which come before the commit's records (MIM1H11b).
+restoring(Ops) ->
+    lists:any(fun(Op) -> lists:member(element(2, Op), [clear_table, restore_recreate]) end, Ops).
 
 % A restored table's operation: its records cleared, or the table made again from the backup's definition.
 restore_ops({deleted, Tab}) -> [deleted(Tab)];

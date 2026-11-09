@@ -1,0 +1,110 @@
+{
+  "schema": 1,
+  "entry": "mnesia_remote_backups",
+  "host_otp": true,
+  "runs": [
+    {
+      "nodes": [
+        {
+          "name": "a",
+          "args": [
+            "a"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname mrba@localhost --setcookie mrb"
+          },
+          "otp_flags": "-sname mrba@localhost -setcookie mrb",
+          "stderr": "(?si)^(?:(?!error)(?!=ERROR).|[^\\n]*fallback is installed[^\\n]*\\n?|=ERROR REPORT[^\\n]*\\n[^\\n]*fallback is installed[^\\n]*\\n?)*$",
+          "exit_status": 0,
+          "stdout": "create_schema: ok\nstart: [{ok,ok},{ok,ok}]\ncreate_tables: [{atomic,ok},{atomic,ok},{atomic,ok},{atomic,ok}]\nwrites: {atomic,[ok,ok,ok,ok,ok,ok,ok,ok]}\nbackup: ok\nglobal_fallback: ok\nfallbacks: [{a,{true,[\"FALLBACK.BUP\"]}},{b,{true,[\"FALLBACK.BUP\"]}}]\nuninstalled_on_b: ok\nfallbacks_uninstalled: [{a,{false,[]}},{b,{false,[]}}]\nlocal_fallback_on_b: ok\nfallbacks_local: [{a,{false,[]}},{b,{true,[\"FALLBACK.BUP\"]}}]\nuninstalled_without_one: {error,enoent}\nfallbacks_left: [{a,{false,[]}},{b,{true,[\"FALLBACK.BUP\"]}}]\nuninstalled_local_on_b: ok\nfallbacks_none: [{a,{false,[]}},{b,{false,[]}}]\nwrites_c: {atomic,[ok,ok,ok,ok,ok,ok,ok,ok]}\nrestore_cleared: {atomic,[ta,tb,td,tr]}\ntables_cleared: [{a,[{td,[mrba@localhost,mrbb@localhost],[{td,1,a},{td,2,a}]},\n                     {tb,[mrbb@localhost],[{tb,1,a},{tb,2,a}]},\n                     {ta,[mrba@localhost],[{ta,1,a},{ta,2,a}]},\n                     {tr,[mrba@localhost,mrbb@localhost],[]}]},\n                 {b,[{td,[mrba@localhost,mrbb@localhost],[{td,1,a},{td,2,a}]},\n                     {tb,[mrbb@localhost],[{tb,1,a},{tb,2,a}]},\n                     {ta,[mrba@localhost],[{ta,1,a},{ta,2,a}]},\n                     {tr,[mrba@localhost,mrbb@localhost],[]}]}]\nwrites_d: {atomic,[ok,ok,ok,ok,ok,ok]}\nrestore_on_b: {atomic,[ta,tb,td,tr]}\ntables_restored_on_b: [{a,[{td,[mrba@localhost,mrbb@localhost],\n                               [{td,1,a},{td,2,a},{td,4,d}]},\n                           {tb,[mrbb@localhost],[{tb,1,a},{tb,2,a}]},\n                           {ta,[mrba@localhost],[{ta,1,a},{ta,2,a}]},\n                           {tr,[mrba@localhost,mrbb@localhost],[]}]},\n                       {b,[{td,[mrba@localhost,mrbb@localhost],\n                               [{td,1,a},{td,2,a},{td,4,d}]},\n                           {tb,[mrbb@localhost],[{tb,1,a},{tb,2,a}]},\n                           {ta,[mrba@localhost],[{ta,1,a},{ta,2,a}]},\n                           {tr,[mrba@localhost,mrbb@localhost],[]}]}]\ndelete_tb: {atomic,ok}\nrestore_deleted: {atomic,[tb]}\ntables_recreated: [{a,[{td,[mrba@localhost,mrbb@localhost],\n                           [{td,1,a},{td,2,a},{td,4,d}]},\n                       {tb,[mrbb@localhost],[{tb,1,a},{tb,2,a}]},\n                       {ta,[mrba@localhost],[{ta,1,a},{ta,2,a}]},\n                       {tr,[mrba@localhost,mrbb@localhost],[]}]},\n                   {b,[{td,[mrba@localhost,mrbb@localhost],\n                           [{td,1,a},{td,2,a},{td,4,d}]},\n                       {tb,[mrbb@localhost],[{tb,1,a},{tb,2,a}]},\n                       {ta,[mrba@localhost],[{ta,1,a},{ta,2,a}]},\n                       {tr,[mrba@localhost,mrbb@localhost],[]}]}]\nglobal_fallback_from_b: ok\nwrites_e: {atomic,[ok,ok,ok]}\nstop: [stopped,stopped]\nfallbacks_stopped: [{a,{true,[\"FALLBACK.BUP\"]}},{b,{true,[\"FALLBACK.BUP\"]}}]\nboth_start: [{ok,ok},{ok,ok}]\nfallbacks_taken: [{a,{false,[]}},{b,{false,[]}}]\ntables_started: [{a,[{td,[mrba@localhost,mrbb@localhost],[{td,1,a},{td,2,a}]},\n                     {tb,[mrbb@localhost],[{tb,1,a},{tb,2,a}]},\n                     {ta,[mrba@localhost],[{ta,1,a},{ta,2,a}]},\n                     {tr,[mrba@localhost,mrbb@localhost],[]}]},\n                 {b,[{td,[mrba@localhost,mrbb@localhost],[{td,1,a},{td,2,a}]},\n                     {tb,[mrbb@localhost],[{tb,1,a},{tb,2,a}]},\n                     {ta,[mrba@localhost],[{ta,1,a},{ta,2,a}]},\n                     {tr,[mrba@localhost,mrbb@localhost],[]}]}]\nboth_stop: [stopped,stopped]\nmnesia_remote_backups: ok\n"
+        },
+        {
+          "name": "b",
+          "args": [
+            "b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname mrbb@localhost --setcookie mrb"
+          },
+          "otp_flags": "-sname mrbb@localhost -setcookie mrb",
+          "stderr": "(?si)^(?:(?!error)(?!=ERROR).|[^\\n]*fallback is installed[^\\n]*\\n?|=ERROR REPORT[^\\n]*\\n[^\\n]*fallback is installed[^\\n]*\\n?)*$",
+          "exit_status": 0,
+          "stdout": "mnesia_remote_backups: ok\n"
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "name": "a",
+          "kind": "otp",
+          "args": [
+            "a"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname mrba@localhost --setcookie mrb"
+          },
+          "otp_flags": "-sname mrba@localhost -setcookie mrb",
+          "stderr": "(?si)^(?:(?!error)(?!=ERROR).|[^\\n]*fallback is installed[^\\n]*\\n?|=ERROR REPORT[^\\n]*\\n[^\\n]*fallback is installed[^\\n]*\\n?)*$",
+          "exit_status": 0,
+          "stdout": "create_schema: ok\nstart: [{ok,ok},{ok,ok}]\ncreate_tables: [{atomic,ok},{atomic,ok},{atomic,ok},{atomic,ok}]\nwrites: {atomic,[ok,ok,ok,ok,ok,ok,ok,ok]}\nbackup: ok\nglobal_fallback: ok\nfallbacks: [{a,{true,[\"FALLBACK.BUP\"]}},{b,{true,[\"FALLBACK.BUP\"]}}]\nuninstalled_on_b: ok\nfallbacks_uninstalled: [{a,{false,[]}},{b,{false,[]}}]\nlocal_fallback_on_b: ok\nfallbacks_local: [{a,{false,[]}},{b,{true,[\"FALLBACK.BUP\"]}}]\nuninstalled_without_one: {error,enoent}\nfallbacks_left: [{a,{false,[]}},{b,{true,[\"FALLBACK.BUP\"]}}]\nuninstalled_local_on_b: ok\nfallbacks_none: [{a,{false,[]}},{b,{false,[]}}]\nwrites_c: {atomic,[ok,ok,ok,ok,ok,ok,ok,ok]}\nrestore_cleared: {atomic,[ta,tb,td,tr]}\ntables_cleared: [{a,[{td,[mrba@localhost,mrbb@localhost],[{td,1,a},{td,2,a}]},\n                     {tb,[mrbb@localhost],[{tb,1,a},{tb,2,a}]},\n                     {ta,[mrba@localhost],[{ta,1,a},{ta,2,a}]},\n                     {tr,[mrba@localhost,mrbb@localhost],[]}]},\n                 {b,[{td,[mrba@localhost,mrbb@localhost],[{td,1,a},{td,2,a}]},\n                     {tb,[mrbb@localhost],[{tb,1,a},{tb,2,a}]},\n                     {ta,[mrba@localhost],[{ta,1,a},{ta,2,a}]},\n                     {tr,[mrba@localhost,mrbb@localhost],[]}]}]\nwrites_d: {atomic,[ok,ok,ok,ok,ok,ok]}\nrestore_on_b: {atomic,[ta,tb,td,tr]}\ntables_restored_on_b: [{a,[{td,[mrba@localhost,mrbb@localhost],\n                               [{td,1,a},{td,2,a},{td,4,d}]},\n                           {tb,[mrbb@localhost],[{tb,1,a},{tb,2,a}]},\n                           {ta,[mrba@localhost],[{ta,1,a},{ta,2,a}]},\n                           {tr,[mrba@localhost,mrbb@localhost],[]}]},\n                       {b,[{td,[mrba@localhost,mrbb@localhost],\n                               [{td,1,a},{td,2,a},{td,4,d}]},\n                           {tb,[mrbb@localhost],[{tb,1,a},{tb,2,a}]},\n                           {ta,[mrba@localhost],[{ta,1,a},{ta,2,a}]},\n                           {tr,[mrba@localhost,mrbb@localhost],[]}]}]\ndelete_tb: {atomic,ok}\nrestore_deleted: {atomic,[tb]}\ntables_recreated: [{a,[{td,[mrba@localhost,mrbb@localhost],\n                           [{td,1,a},{td,2,a},{td,4,d}]},\n                       {tb,[mrbb@localhost],[{tb,1,a},{tb,2,a}]},\n                       {ta,[mrba@localhost],[{ta,1,a},{ta,2,a}]},\n                       {tr,[mrba@localhost,mrbb@localhost],[]}]},\n                   {b,[{td,[mrba@localhost,mrbb@localhost],\n                           [{td,1,a},{td,2,a},{td,4,d}]},\n                       {tb,[mrbb@localhost],[{tb,1,a},{tb,2,a}]},\n                       {ta,[mrba@localhost],[{ta,1,a},{ta,2,a}]},\n                       {tr,[mrba@localhost,mrbb@localhost],[]}]}]\nglobal_fallback_from_b: ok\nwrites_e: {atomic,[ok,ok,ok]}\nstop: [stopped,stopped]\nfallbacks_stopped: [{a,{true,[\"FALLBACK.BUP\"]}},{b,{true,[\"FALLBACK.BUP\"]}}]\nboth_start: [{ok,ok},{ok,ok}]\nfallbacks_taken: [{a,{false,[]}},{b,{false,[]}}]\ntables_started: [{a,[{td,[mrba@localhost,mrbb@localhost],[{td,1,a},{td,2,a}]},\n                     {tb,[mrbb@localhost],[{tb,1,a},{tb,2,a}]},\n                     {ta,[mrba@localhost],[{ta,1,a},{ta,2,a}]},\n                     {tr,[mrba@localhost,mrbb@localhost],[]}]},\n                 {b,[{td,[mrba@localhost,mrbb@localhost],[{td,1,a},{td,2,a}]},\n                     {tb,[mrbb@localhost],[{tb,1,a},{tb,2,a}]},\n                     {ta,[mrba@localhost],[{ta,1,a},{ta,2,a}]},\n                     {tr,[mrba@localhost,mrbb@localhost],[]}]}]\nboth_stop: [stopped,stopped]\nmnesia_remote_backups: ok\n"
+        },
+        {
+          "name": "b",
+          "args": [
+            "b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname mrbb@localhost --setcookie mrb"
+          },
+          "otp_flags": "-sname mrbb@localhost -setcookie mrb",
+          "stderr": "(?si)^(?:(?!error)(?!=ERROR).|[^\\n]*fallback is installed[^\\n]*\\n?|=ERROR REPORT[^\\n]*\\n[^\\n]*fallback is installed[^\\n]*\\n?)*$",
+          "exit_status": 0,
+          "stdout": "mnesia_remote_backups: ok\n"
+        }
+      ]
+    },
+    {
+      "nodes": [
+        {
+          "name": "a",
+          "args": [
+            "a"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname mrba@localhost --setcookie mrb"
+          },
+          "otp_flags": "-sname mrba@localhost -setcookie mrb",
+          "stderr": "(?si)^(?:(?!error)(?!=ERROR).|[^\\n]*fallback is installed[^\\n]*\\n?|=ERROR REPORT[^\\n]*\\n[^\\n]*fallback is installed[^\\n]*\\n?)*$",
+          "exit_status": 0,
+          "stdout": "create_schema: ok\nstart: [{ok,ok},{ok,ok}]\ncreate_tables: [{atomic,ok},{atomic,ok},{atomic,ok},{atomic,ok}]\nwrites: {atomic,[ok,ok,ok,ok,ok,ok,ok,ok]}\nbackup: ok\nglobal_fallback: ok\nfallbacks: [{a,{true,[\"FALLBACK.BUP\"]}},{b,{true,[\"FALLBACK.BUP\"]}}]\nuninstalled_on_b: ok\nfallbacks_uninstalled: [{a,{false,[]}},{b,{false,[]}}]\nlocal_fallback_on_b: ok\nfallbacks_local: [{a,{false,[]}},{b,{true,[\"FALLBACK.BUP\"]}}]\nuninstalled_without_one: {error,enoent}\nfallbacks_left: [{a,{false,[]}},{b,{true,[\"FALLBACK.BUP\"]}}]\nuninstalled_local_on_b: ok\nfallbacks_none: [{a,{false,[]}},{b,{false,[]}}]\nwrites_c: {atomic,[ok,ok,ok,ok,ok,ok,ok,ok]}\nrestore_cleared: {atomic,[ta,tb,td,tr]}\ntables_cleared: [{a,[{td,[mrba@localhost,mrbb@localhost],[{td,1,a},{td,2,a}]},\n                     {tb,[mrbb@localhost],[{tb,1,a},{tb,2,a}]},\n                     {ta,[mrba@localhost],[{ta,1,a},{ta,2,a}]},\n                     {tr,[mrba@localhost,mrbb@localhost],[]}]},\n                 {b,[{td,[mrba@localhost,mrbb@localhost],[{td,1,a},{td,2,a}]},\n                     {tb,[mrbb@localhost],[{tb,1,a},{tb,2,a}]},\n                     {ta,[mrba@localhost],[{ta,1,a},{ta,2,a}]},\n                     {tr,[mrba@localhost,mrbb@localhost],[]}]}]\nwrites_d: {atomic,[ok,ok,ok,ok,ok,ok]}\nrestore_on_b: {atomic,[ta,tb,td,tr]}\ntables_restored_on_b: [{a,[{td,[mrba@localhost,mrbb@localhost],\n                               [{td,1,a},{td,2,a},{td,4,d}]},\n                           {tb,[mrbb@localhost],[{tb,1,a},{tb,2,a}]},\n                           {ta,[mrba@localhost],[{ta,1,a},{ta,2,a}]},\n                           {tr,[mrba@localhost,mrbb@localhost],[]}]},\n                       {b,[{td,[mrba@localhost,mrbb@localhost],\n                               [{td,1,a},{td,2,a},{td,4,d}]},\n                           {tb,[mrbb@localhost],[{tb,1,a},{tb,2,a}]},\n                           {ta,[mrba@localhost],[{ta,1,a},{ta,2,a}]},\n                           {tr,[mrba@localhost,mrbb@localhost],[]}]}]\ndelete_tb: {atomic,ok}\nrestore_deleted: {atomic,[tb]}\ntables_recreated: [{a,[{td,[mrba@localhost,mrbb@localhost],\n                           [{td,1,a},{td,2,a},{td,4,d}]},\n                       {tb,[mrbb@localhost],[{tb,1,a},{tb,2,a}]},\n                       {ta,[mrba@localhost],[{ta,1,a},{ta,2,a}]},\n                       {tr,[mrba@localhost,mrbb@localhost],[]}]},\n                   {b,[{td,[mrba@localhost,mrbb@localhost],\n                           [{td,1,a},{td,2,a},{td,4,d}]},\n                       {tb,[mrbb@localhost],[{tb,1,a},{tb,2,a}]},\n                       {ta,[mrba@localhost],[{ta,1,a},{ta,2,a}]},\n                       {tr,[mrba@localhost,mrbb@localhost],[]}]}]\nglobal_fallback_from_b: ok\nwrites_e: {atomic,[ok,ok,ok]}\nstop: [stopped,stopped]\nfallbacks_stopped: [{a,{true,[\"FALLBACK.BUP\"]}},{b,{true,[\"FALLBACK.BUP\"]}}]\nboth_start: [{ok,ok},{ok,ok}]\nfallbacks_taken: [{a,{false,[]}},{b,{false,[]}}]\ntables_started: [{a,[{td,[mrba@localhost,mrbb@localhost],[{td,1,a},{td,2,a}]},\n                     {tb,[mrbb@localhost],[{tb,1,a},{tb,2,a}]},\n                     {ta,[mrba@localhost],[{ta,1,a},{ta,2,a}]},\n                     {tr,[mrba@localhost,mrbb@localhost],[]}]},\n                 {b,[{td,[mrba@localhost,mrbb@localhost],[{td,1,a},{td,2,a}]},\n                     {tb,[mrbb@localhost],[{tb,1,a},{tb,2,a}]},\n                     {ta,[mrba@localhost],[{ta,1,a},{ta,2,a}]},\n                     {tr,[mrba@localhost,mrbb@localhost],[]}]}]\nboth_stop: [stopped,stopped]\nmnesia_remote_backups: ok\n"
+        },
+        {
+          "name": "b",
+          "kind": "otp",
+          "args": [
+            "b"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname mrbb@localhost --setcookie mrb"
+          },
+          "otp_flags": "-sname mrbb@localhost -setcookie mrb",
+          "stderr": "(?si)^(?:(?!error)(?!=ERROR).|[^\\n]*fallback is installed[^\\n]*\\n?|=ERROR REPORT[^\\n]*\\n[^\\n]*fallback is installed[^\\n]*\\n?)*$",
+          "exit_status": 0,
+          "stdout": "mnesia_remote_backups: ok\n"
+        }
+      ]
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
+  },
+  "inputs": {
+    "mnesia_remote_backups.erl": "d9deffe871ca714f799b86c1ffaaf03c2ebe4c96c158e6aa0334b6371e8d63ee"
+  }
+}

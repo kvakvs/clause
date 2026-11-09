@@ -269,11 +269,11 @@ dependencies, non-test sources.
       backups reading the other node's retainers (`tab_copier`/`tab_receiver`). Golden `mnesia_remote_checkpoints`.
       Not observed: more than two nodes (the node order of a checkpoint), transactions pending at activation on
       OTP (Clause waits for them), `change_table_copy_type/3` of a retained table.
-    - **MIM1H11b Fallbacks and restores over nodes:** global fallbacks installed on every disc node of the backup's
-      schema (`fallback_receiver`, already used by `create_schema/1`), `uninstall_fallback/0` everywhere
-      (`mnesia_bup:local_uninstall_fallback/2`: `started`, `do_uninstall`, `ok`), local scope only here, `restore/2`
-      over nodes (`restore_recreate` and `clear_table` operations with the records in the commit), the nodes started
-      again from a global fallback. Golden `mnesia_remote_backups`. Observed in scratch/mim1h11 obs2.
+    - **MIM1H11b done** (`21-finished.md`): global fallbacks on every disc node of the backup's schema, global
+      uninstall through `local_uninstall_fallback`, `restore/2` over nodes with the records in each node's commit,
+      both nodes started from a global fallback. Golden `mnesia_remote_backups`. Not covered: a refused global
+      installation (OTP names whichever refusal comes first), fallbacks with `mnesia_dir`, `skip_tables` or
+      `keep_tables` over nodes.
   - **MIM1H12 Events and fragments over nodes:** table subscriptions where the replica is elsewhere
     (`not_active_local`), `{mnesia_down, Node}` and `{mnesia_up, Node}` system events, activity events of
     distributed transactions; fragmented tables spread over a `node_pool` of OTP and Clause nodes (`frag_dist`,
@@ -337,7 +337,7 @@ dependencies, non-test sources.
 
 ### Order
 
-1. MIM9's record wildcard fix, MIM6, MIM7 (MIM1A-MIM1G, MIM1H1-H10, MIM1H11a done 2026-11-02/09; MIM1H11b-H12 optional, in order)
+1. MIM9's record wildcard fix, MIM6, MIM7 (MIM1A-MIM1G, MIM1H1-H11 done 2026-11-02/09; MIM1H12 optional)
    (small), MIM3, MIM4, MIM2, MIM5; MIM8 after a user decision.
 2. LIB81D3c, LIB81D4b and LIB81E on request.
 3. LIB82, LIB83 last (test support).

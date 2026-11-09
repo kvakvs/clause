@@ -370,3 +370,9 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   other node's retainers through OTP's copier protocol (`mnesia_log:tab_copier/3`, unlinking before its last answer);
   a node preparing a checkpoint waits for the commits applying there; new OTP-named `mnesia_checkpoint` and
   `mnesia_log`; `mnesia_remote_checkpoints` golden identical to OTP both ways — `ce769fc3`
+- **MIM1H11b** mnesia fallbacks and restores over nodes: global `install_fallback` relayed to OTP's fallback receivers
+  on every disc node of the backup's schema (`{records, Items}` chunks after the schema, shared with `create_schema/1`),
+  global `uninstall_fallback` through OTP's `local_uninstall_fallback` (`started`, `do_uninstall`, `ok`); `restore/2`
+  reads the backup while the transaction prepares and commits each node's records with the operations, participants
+  clear or recreate before writing them, and each node restores only its replicas; `mnesia_remote_backups` golden
+  identical to OTP both ways — `HASH`

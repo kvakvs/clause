@@ -54,9 +54,8 @@ applied(Changes, Ops) ->
             {aborted, Reason} -> mnesia:abort(Reason)
         end
     end,
-    Remote = clause_mnesia_commit:schema(
-        Tid, [node() | lists:delete(node(), val({schema, active_replicas}))], Ops, Local
-    ),
+    Nodes = [node() | lists:delete(node(), val({schema, active_replicas}))],
+    Remote = clause_mnesia_commit:schema(Tid, Nodes, Ops, clause_mnesia_ops:restore_items(Changes), Local),
     % A schema change counts as a write: its transaction completes an activity (MIM1E). Its other nodes committed it
     % and need no simple_commit (MIM1H10b).
     true = ets:insert(Store, [{op, schema_change} | [{schema_participant, N} || N <- Remote]]),

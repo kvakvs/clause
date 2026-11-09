@@ -6,7 +6,7 @@
 %% pre-commit and applies once committed. A participant going down before the commit restarts the transaction; a
 %% refusal aborts it. The participants' side is clause_mnesia_participant.
 -module(clause_mnesia_commit).
--export([updates/1, update/1, commit/4, schema/4]).
+-export([updates/1, update/1, commit/4, schema/4, schema/5]).
 
 -include("clause_mnesia.hrl").
 
@@ -55,11 +55,15 @@ alone(_, _) ->
 % A schema transaction's operations committed on this node and on the other nodes of Nodes (asym_trans); Local applies
 % them here under the transaction's decision, which names this node alone when it commits alone (MIM1H10a), and the
 % schema's disc nodes as the operations leave them (MIM1H10b). It returns the other nodes, which took part.
-schema(Tid, [_], _, Local) ->
+schema(Tid, Nodes, Ops, Local) ->
+    schema(Tid, Nodes, Ops, [], Local).
+
+% With the records a restore writes on each node, {Node, Storage, Item} (MIM1H11b).
+schema(Tid, [_], _, _, Local) ->
     Local(#decision{tid = Tid, outcome = presume_abort, disc_nodes = [node()], ram_nodes = []}),
     [];
-schema(Tid, Nodes, Ops, Local) ->
-    Remote = [#commit{node = N, schema_ops = Ops} || N <- Nodes, N =/= node()],
+schema(Tid, Nodes, Ops, Items, Local) ->
+    Remote = [with_items(#commit{node = N, schema_ops = Ops}, Items) || N <- Nodes, N =/= node()],
     Split = lists:partition(fun(N) -> lists:member(N, schema_disc_nodes(Ops)) end, Nodes),
     asym(Tid, Remote, Split, Local, lists:member({op, sync_trans}, Ops)),
     [N || #commit{node = N} <- Remote].
@@ -103,6 +107,12 @@ add_item(Node, Storage, Item, Commits) ->
         false -> [with_item(#commit{node = Node, decision = presume_commit}, Storage, Item) | Commits];
         Commit -> lists:keyreplace(Node, #commit.node, Commits, with_item(Commit, Storage, Item))
     end.
+
+with_items(#commit{node = Node} = C, Items) ->
+    lists:foldl(fun({_, Storage, Item}, Acc) -> with_item(Acc, Storage, Item) end, C, [
+        I
+     || {N, _, _} = I <- Items, N =:= Node
+    ]).
 
 with_item(#commit{ram_copies = Items} = C, ram_copies, Item) ->
     C#commit{ram_copies = Items ++ [Item]};

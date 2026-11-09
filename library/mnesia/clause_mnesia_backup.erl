@@ -4,8 +4,9 @@
 %% checkpoint's table is its records now followed by what its retainer kept, which restores the table at activation.
 -module(clause_mnesia_backup).
 -export([backup/2, backup_checkpoint/3, traverse_backup/6, iterate/4, read_schema/2, lookup_schema/2]).
--export([install_fallback/2, uninstall_fallback/1, backup_module/1, restore_args/2, restore_op/2, restore_tables/3]).
--export([fallback_receiver/2, install_on_nodes/2, tab_copier/3]).
+-export([install_fallback/2, uninstall_fallback/1, backup_module/1, restore_args/2, restore_op/2]).
+-export([restore_updates/2, restore_tables/3]).
+-export([fallback_receiver/2, local_uninstall_fallback/2, install_on_nodes/2, tab_copier/3]).
 
 -include("clause_mnesia.hrl").
 
@@ -481,6 +482,7 @@ fallback_arg({default_op, Op}, FA) when Op =:= keep_tables; Op =:= skip_tables -
 atoms(List) -> lists:all(fun erlang:is_atom/1, List).
 
 % The backup's schema decides that this node holds a disc schema; its items are copied to FALLBACK.TMP, then renamed.
+% A global fallback of a schema on other disc nodes too goes to each of them (MIM1H11b).
 install(#fallback_args{module = Module, opaque = Opaque} = FA) ->
     iterate(Module, fun copy_items/4, Opaque, {start, FA}).
 
@@ -494,8 +496,16 @@ copy_items(Items, Header, Schema, {start, FA}) ->
         end,
     lists:member(node(), Cs#cstruct.disc_copies) orelse
         throw({error, {"No disc resident schema on local node", Cs#cstruct.disc_copies}}),
-    FA2 = fallback_dir(FA),
-    copy_items(Items, Header, Schema, start_copy(FA2, Header, Schema));
+    case {FA#fallback_args.scope, Cs#cstruct.disc_copies} of
+        {global, [_, _ | _] = Nodes} ->
+            copy_items(Items, Header, Schema, relay_start(Nodes, FA#fallback_args.opaque, Header, Schema));
+        _ ->
+            copy_items(Items, Header, Schema, start_copy(fallback_dir(FA), Header, Schema))
+    end;
+copy_items([], _, _, {relaying, _, _, _} = Relay) ->
+    relay_end(relay(Relay, swap));
+copy_items(Items, _, _, {relaying, _, _, _} = Relay) ->
+    relay(Relay, {records, Items});
 copy_items([], _, _, {copying, FA, Backup}) ->
     {ok, File} = mnesia_backup:commit_write(Backup),
     ok = file:rename(File, FA#fallback_args.bup),
@@ -526,26 +536,49 @@ start_copy(#fallback_args{mnesia_dir = Dir, bup = Bup, tmp = Tmp} = FA, Header, 
 % or Clause's, gets the backup's header and schema items, then swaps them in as its FALLBACK.BUP; ok or {error, Reason}.
 install_on_nodes(Nodes, [Header | Schema]) ->
     in_process(fun() ->
-        process_flag(trap_exit, true),
-        Lock = {{mnesia_table_lock, schema}, self()},
-        true = global:set_lock(Lock, Nodes),
-        try
-            % OTP's #fallback_args{}: the opaque backup name, scope, module, default dir and table choices.
-            Opaque = filename:join(clause_mnesia_monitor:get_env(dir), lists:concat([node(), erlang:unique_integer()])),
-            Args =
-                {fallback_args, Opaque, global, mnesia_backup, true, undefined, undefined, undefined, [], [],
-                    keep_tables},
-            % The literal fun links this node's receiver into programs, which other nodes spawn by name.
-            _ = fun mnesia_bup:fallback_receiver/2,
-            Receivers = [spawn_link(N, mnesia_bup, fallback_receiver, [self(), Args]) || N <- Nodes],
-            Result = steps(Receivers, [{start, Header, Schema}, swap]),
-            [R ! {self(), stop} || R <- Receivers],
-            [ended(R) || R <- Receivers],
-            Result
-        after
-            global:del_lock(Lock, Nodes)
+        Opaque = filename:join(clause_mnesia_monitor:get_env(dir), lists:concat([node(), erlang:unique_integer()])),
+        try relay_start(Nodes, Opaque, Header, Schema) of
+            Relay -> relay_end(relay(Relay, swap))
+        catch
+            throw:{error, _} = Error -> Error
         end
     end).
+
+% A fallback relayed to a receiver on each of Nodes under OTP's global lock of the schema (MIM1H10a, MIM1H11b): the
+% header and schema items first, then each chunk of records ({records, Items}), then swap; a refusal ends them all.
+relay_start(Nodes, Opaque, Header, Schema) ->
+    process_flag(trap_exit, true),
+    Lock = {{mnesia_table_lock, schema}, self()},
+    true = global:set_lock(Lock, Nodes),
+    % The literal fun links this node's receiver into programs, which other nodes spawn by name.
+    _ = fun mnesia_bup:fallback_receiver/2,
+    Receivers = [spawn_link(N, mnesia_bup, fallback_receiver, [self(), otp_args(Opaque)]) || N <- Nodes],
+    relay({relaying, Lock, Nodes, Receivers}, {start, Header, Schema}).
+
+relay({relaying, _, _, Receivers} = Relay, Message) ->
+    case steps(Receivers, [Message]) of
+        ok ->
+            Relay;
+        Error ->
+            relay_abort(Relay),
+            throw(Error)
+    end.
+
+% After a refusal the receivers are told to stop and the lock goes; a refusing OTP receiver does not end on stop.
+relay_abort({relaying, Lock, Nodes, Receivers}) ->
+    [R ! {self(), stop} || R <- Receivers],
+    global:del_lock(Lock, Nodes).
+
+% The receivers stopped, then the lock released: ok.
+relay_end({relaying, Lock, Nodes, Receivers}) ->
+    [R ! {self(), stop} || R <- Receivers],
+    [ended(R) || R <- Receivers],
+    global:del_lock(Lock, Nodes),
+    ok.
+
+% OTP's #fallback_args{}: the opaque backup name, scope, module, default dir and table choices.
+otp_args(Opaque) ->
+    {fallback_args, Opaque, global, mnesia_backup, true, undefined, undefined, undefined, [], [], keep_tables}.
 
 % Each message to every receiver, which answers it ok before the next one goes.
 steps(_, []) ->
@@ -592,8 +625,12 @@ fallback_receiver(Master, _Args) ->
     end,
     exit(stopped).
 
-swapped(Master, #fallback_args{bup = Bup}, Backup) ->
+swapped(Master, #fallback_args{bup = Bup} = FA, Backup) ->
     receive
+        {Master, {records, Records}} ->
+            {ok, Backup2} = mnesia_backup:write(Backup, Records),
+            Master ! {self(), ok},
+            swapped(Master, FA, Backup2);
         {Master, swap} ->
             {ok, File} = mnesia_backup:commit_write(Backup),
             ok = file:rename(File, Bup),
@@ -625,24 +662,80 @@ fallback_dir_arg(#fallback_args{scope = local, mnesia_dir = Dir}) ->
 fallback_dir_arg(#fallback_args{scope = global}) ->
     throw({error, {combine_error, global, dir, node()}}).
 
-% The installed fallback removed, when its schema holds this node's disc schema.
+% The installed fallback removed, when its schema holds this node's disc schema; a global one on each disc node of
+% its schema (MIM1H11b).
 uninstall_fallback(Args) ->
     case fallback_args(Args, #fallback_args{module = default_module()}) of
         {ok, FA} -> in_process(fun() -> uninstall(FA) end);
         Error -> Error
     end.
 
-uninstall(FA) ->
+uninstall(#fallback_args{scope = Scope} = FA) ->
     try
         #fallback_args{bup = Bup, tmp = Tmp} = fallback_dir(FA),
         Schema = schema_list(read_schema(mnesia_backup, Bup)),
         Cs = clause_mnesia_schema:list2cs(Schema),
         lists:member(node(), Cs#cstruct.disc_copies) orelse
             throw({error, {"No disc resident schema on local node", Cs#cstruct.disc_copies}}),
-        _ = file:delete(Tmp),
-        file:delete(Bup)
+        case {Scope, Cs#cstruct.disc_copies} of
+            {global, [_, _ | _] = Nodes} -> uninstall_on_nodes(Nodes);
+            _ -> remove_fallback(Tmp, Bup)
+        end
     catch
         throw:{error, _} = Error -> Error
+    end.
+
+remove_fallback(Tmp, Bup) ->
+    _ = file:delete(Tmp),
+    file:delete(Bup).
+
+% A global fallback removed under OTP's global lock of the schema, by OTP's uninstaller on each node: each answers
+% started, then removes its fallback at do_uninstall and answers ok; ok or the first error.
+uninstall_on_nodes(Nodes) ->
+    process_flag(trap_exit, true),
+    Lock = {{mnesia_table_lock, schema}, self()},
+    true = global:set_lock(Lock, Nodes),
+    % The literal fun links this node's uninstaller into programs, which other nodes spawn by name.
+    _ = fun mnesia_bup:local_uninstall_fallback/2,
+    Pids = [spawn_link(N, mnesia_bup, local_uninstall_fallback, [self(), otp_args(undefined)]) || N <- Nodes],
+    Result =
+        case first_error([started(P) || P <- Pids]) of
+            ok ->
+                [P ! {self(), do_uninstall} || P <- Pids],
+                first_error([answer(P) || P <- Pids]);
+            Error ->
+                Error
+        end,
+    global:del_lock(Lock, Nodes),
+    Result.
+
+started(Pid) ->
+    case answer(Pid) of
+        started -> ok;
+        Other -> Other
+    end.
+
+first_error(Answers) ->
+    case [A || A <- Answers, A =/= ok] of
+        [] -> ok;
+        [Error | _] -> Error
+    end.
+
+% The uninstaller that a node removing its global fallback spawns here (OTP's mnesia_bup:local_uninstall_fallback/2):
+% registered as mnesia_fallback while it runs, it removes this node's fallback when told.
+local_uninstall_fallback(Master, _Args) ->
+    _ = application:load(mnesia),
+    try register(mnesia_fallback, self()) of
+        true ->
+            Master ! {self(), started},
+            receive
+                {Master, do_uninstall} ->
+                    #fallback_args{bup = Bup, tmp = Tmp} = fallback_dir(#fallback_args{}),
+                    _ = remove_fallback(Tmp, Bup),
+                    Master ! {self(), ok}
+            end
+    catch
+        error:badarg -> Master ! {self(), {error, {already_exists, node()}}}
     end.
 
 schema_list({error, _} = Error) ->
@@ -694,49 +787,51 @@ restore_op(Tab, #{options := Options, default := Default}) ->
         false -> Default
     end.
 
-% The restore applied in mnesia_monitor: tables deleted, cleared or created anew, then the backup's records of the
-% restored tables written; {logged, Updates} gives the writes to the log, as OTP's commit holds them (MIM1H2).
-restore_tables(Plan, #{module := Module, opaque := Opaque}, Tid) ->
-    InOrder = lists:reverse(Plan),
-    RecordNames = maps:from_list([{Tab, prepare_table(Tab, Op, Tid)} || {Tab, Op} <- InOrder, Tab =/= deleted]),
-    [delete_table(Tab, Tid) || {deleted, Tab} <- InOrder],
-    Write = fun(Items, _, _, Acc) ->
-        lists:foldl(fun(Item, Updates) -> restore_item(Item, RecordNames, Tid) ++ Updates end, Acc, Items)
-    end,
-    case iterate(Module, Write, Opaque, []) of
-        {ok, Updates} -> {logged, lists:reverse(Updates)};
+% The backup's records of the restored tables as {Tab, Key, Update}, in order, read while the transaction prepares
+% (MIM1H11b): records written under their table's record name, {Tab, Key} items deleting their key.
+restore_updates(Plan, #{module := Module, opaque := Opaque}) ->
+    RecordNames = maps:from_list([{Tab, record_name(Op)} || {Tab, Op} <- Plan, Tab =/= deleted]),
+    Read = fun(Items, _, _, Acc) -> lists:reverse([U || I <- Items, U <- restore_item(I, RecordNames)], Acc) end,
+    case iterate(Module, Read, Opaque, []) of
+        {ok, Updates} -> lists:reverse(Updates);
         {error, Reason} -> mnesia:abort(Reason)
     end.
 
-% A restored table before its records come: its record name.
-prepare_table(Tab, {clear, RecordName}, Tid) ->
-    clause_mnesia_access:update(Tid, Tab, '_', {clear_table, clause_mnesia_monitor:val({Tab, wild_pattern})}),
-    RecordName;
-prepare_table(_, {keep, RecordName}, _) ->
-    RecordName;
-prepare_table(Tab, {recreate, #cstruct{record_name = RecordName} = Cs}, Tid) ->
+record_name({recreate, #cstruct{record_name = RecordName}}) -> RecordName;
+record_name({_, RecordName}) -> RecordName.
+
+% The restore applied in mnesia_monitor: tables deleted, cleared or created anew, then the records of the restored
+% tables with a replica here written; {logged, Updates} gives the writes to the log, as OTP's commit holds them
+% (MIM1H2). Another node's restore comes with its records in its commit, Updates [] (MIM1H11b).
+restore_tables(Plan, Updates, Tid) ->
+    InOrder = lists:reverse(Plan),
+    [prepare_table(Tab, Op, Tid) || {Tab, Op} <- InOrder, Tab =/= deleted],
+    [delete_table(Tab, Tid) || {deleted, Tab} <- InOrder],
+    Local = [U || {Tab, _, _} = U <- Updates, local_replica(Tab)],
+    [clause_mnesia_access:update(Tid, Tab, Key, Update) || {Tab, Key, Update} <- Local],
+    {logged, Local}.
+
+% A restored table before its records come: a replica here cleared, or the table made again.
+prepare_table(Tab, {clear, _}, Tid) ->
+    local_replica(Tab) andalso
+        clause_mnesia_access:update(Tid, Tab, '_', {clear_table, clause_mnesia_monitor:val({Tab, wild_pattern})});
+prepare_table(_, {keep, _}, _) ->
+    ok;
+prepare_table(Tab, {recreate, Cs}, Tid) ->
     delete_table(Tab, Tid),
-    clause_mnesia_schema:apply_change({create, Cs}, Tid),
-    RecordName.
+    clause_mnesia_schema:apply_change({create, Cs}, Tid).
+
+local_replica(Tab) ->
+    not lists:member(ets:lookup(?GVAR, {Tab, storage_type}), [[], [{{Tab, storage_type}, unknown}]]).
 
 delete_table(Tab, Tid) ->
     ets:member(?GVAR, {Tab, cstruct}) andalso clause_mnesia_schema:apply_change({delete, Tab}, Tid).
 
-% A backup item of a restored table: a record written under its table's record name, or a {Tab, Key} delete; the
-% update made, if any.
-restore_item(Item, RecordNames, Tid) ->
+% A backup item of a restored table: a record written under its table's record name, or a {Tab, Key} delete.
+restore_item(Item, RecordNames) ->
     Tab = element(1, Item),
-    Key = element(2, Item),
-    Update =
-        case RecordNames of
-            #{Tab := _} when tuple_size(Item) =:= 2 -> delete;
-            #{Tab := RecordName} -> {write, setelement(1, Item, RecordName)};
-            _ -> none
-        end,
-    case Update of
-        none ->
-            [];
-        _ ->
-            clause_mnesia_access:update(Tid, Tab, Key, Update),
-            [{Tab, Key, Update}]
+    case RecordNames of
+        #{Tab := _} when tuple_size(Item) =:= 2 -> [{Tab, element(2, Item), delete}];
+        #{Tab := RecordName} -> [{Tab, element(2, Item), {write, setelement(1, Item, RecordName)}}];
+        _ -> []
     end.

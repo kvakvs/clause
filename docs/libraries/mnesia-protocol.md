@@ -578,3 +578,32 @@ this node writes it. Otherwise the backup spawns `mnesia_log:tab_copier(Self, B,
   then ends.
 
 The receiver writes each chunk to the backup with the table's name as the records' first element.
+
+## Fallbacks and restores over nodes (MIM1H11b)
+
+Observed with two disc nodes a and b. A fallback's arguments are OTP's `#fallback_args{}`:
+`{fallback_args, Opaque, Scope, Module, UseDefaultDir, MnesiaDir, FallbackBup, FallbackTmp, SkipTables, KeepTables,
+DefaultOp}`.
+
+- **Installing globally:** `install_fallback/1,2` with the default `{scope, global}` reads the backup's schema; the
+  installing node must be one of its disc nodes. Under the global lock `{{mnesia_table_lock, schema}, Pid}` on those
+  nodes it spawns `mnesia_bup:fallback_receiver(Master, FA)` on each, itself included, and sends each in turn
+  `{Master, {start, Header, SchemaItems}}`, then `{Master, {records, Items}}` for each chunk of records, then
+  `{Master, swap}`, each answered `{Receiver, ok}` before the next goes; then `{Master, stop}`. A receiver registers as
+  `mnesia_fallback` and answers `{Receiver, {error, {already_exists, Node}}}` when its node holds a fallback or
+  installs one; the installation then fails with the first refusal OTP's master hears, so with fallbacks on both
+  nodes the node named differs between runs.
+- **Local scope:** `{scope, local}` installs on this node alone.
+- **Uninstalling globally:** `uninstall_fallback/0` reads this node's `FALLBACK.BUP` (`{error, enoent}` without one,
+  a fallback elsewhere left alone), then under the same lock spawns `mnesia_bup:local_uninstall_fallback(Master, FA)`
+  on each disc node of the fallback's schema. Each, registered as `mnesia_fallback`, answers `{Pid, started}`; after
+  all started the master sends `{Master, do_uninstall}`, and each removes its fallback and answers `{Pid, ok}`.
+- **Starting:** both nodes stopped with a global fallback start from it, each node's tables with the backup's records.
+  A node with a fallback installed that hears another node's mnesia go down stops too, reporting "(ignoring core) **
+  FATAL ** A fallback is installed and Mnesia must be restarted. Forcing shutdown after mnesia_down from Node...":
+  stopping both nodes one after the other may report it on the second.
+- **Restoring:** `restore/2` is a schema transaction committed on every node running mnesia (`asym_trans`): each node's
+  commit holds the operations (`{op, clear_table, Def}` and `{op, restore_recreate, Def}`, a deleted table's
+  `delete_table`) and the backup's records of the tables that node holds after the restore, in the commit's field of
+  their storage there. A node clears or makes its tables first, then writes the records. The result lists the
+  tables, the last of the backup's schema first.
