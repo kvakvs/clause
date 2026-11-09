@@ -1,0 +1,6 @@
+%% OTP 29 xmerl_xs exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
+{built_in_rules, 2, internal, declined}.
+{select, 2, default, implemented}.
+{value_of, 1, internal, declined}.
+{xslapply, 2, internal, declined}.

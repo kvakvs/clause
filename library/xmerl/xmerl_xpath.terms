@@ -1,0 +1,9 @@
+%% OTP 29 xmerl_xpath exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
+{axis, 3, internal, declined}.
+{axis, 4, internal, declined}.
+{eval_path, 3, internal, declined}.
+{string, 2, default, implemented}.
+{string, 3, default, implemented}.
+{string, 5, internal, declined}.
+{write_node, 1, internal, declined}.

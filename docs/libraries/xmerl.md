@@ -8,7 +8,7 @@ jiffy and rabbit_common convert text with `xmerl_ucs`. The library is Erlang, in
 macros are OTP 29's, observed from a module including it: the record definitions from its debug information, the
 macros through `epp`.
 
-Steps: MIM3a (`xmerl.hrl`, `xmerl_ucs`, `xmerl_scan`) done; MIM3b `xmerl_xpath` and `xmerl_xs:select/2`, MIM3c
+Steps: MIM3a (`xmerl.hrl`, `xmerl_ucs`, `xmerl_scan`) and MIM3b (`xmerl_xpath`, `xmerl_xs:select/2`) done; MIM3c
 `xmerl:export_simple/2,3` with the `xmerl_xml` callback to come.
 
 ## xmerl_scan
@@ -50,6 +50,34 @@ whitespace (the rest's bytes as given). A binary is `function_clause`, as in OTP
   are where Clause's scan was, which differs from OTP's ([differences](../differences.md)).
 
 `file/1,2` and the state functions are declined.
+
+## xmerl_xpath
+
+`string/2,3` evaluate an XPath 1.0 expression on a scanned element, document, text, attribute, comment or processing
+instruction, as OTP 29's xmerl evaluates it (which differs from XPath 1.0 in places). The expression is parsed into
+OTP's parse trees (`clause_xmerl_xpath`); a syntax error is OTP's
+`{badmatch, {error, {1, xmerl_xpath_parse, ["syntax error before: ", [Token]]}}}`. `string/3` takes the options
+`namespace`, `bindings` and `functions` (unused, as by OTP for name tests); another option is `function_clause`.
+`xmerl_xs:select/2` is `string/2`.
+
+- **Results:** a location path gives its nodes as records (`/` the `#xmlDocument{}` around the element given, or the
+  document given); a function call, literal or number gives an `#xmlObj{}`; other expressions (comparisons, `and`,
+  `or`, arithmetic, negation, variables) exit with `{primary_expression, {not_implemented, Tree}}`, as OTP's do.
+- **Steps:** each step applies its axis and node test to every context node and joins the results in that order,
+  without removing duplicates (`a/following-sibling::*`); its predicates then apply to the whole joined result, so
+  `//b[2]` is the second `b` of the document. A number predicate past the last node gives none; before the first, or
+  not an integer, it is `function_clause`. Unions remove duplicates and sort the nodes in their records' term order.
+- **Axes:** all but `namespace` (empty), in document order; the attribute axis leaves out namespace declarations;
+  the ancestors stop below the root. An ancestor step with predicates fails with `{badarg, Name}`, as OTP's.
+- **Values:** an element's string value is its own text children; equality compares the first node of a node-set
+  (two empty node-sets are equal), numerically against a number; `!=` is the negation of `=`; OTP's relational
+  operators all compare as greater-than on Erlang terms (an empty node-set as `[]`). `substring-before` and
+  `substring-after` keep the separator, `floor` and `ceiling` give integers, `name/1` of a prefixed element is
+  `{URI}local`, `last()` at the top is 0, and `processing-instruction()` without a target matches nothing, as in OTP.
+  `id`, `string-length`, `normalize-space`, `sum` and `round`, which fail in OTP's xmerl, fail with
+  `{not_implemented, {function, Name}}`; `substring` and unknown functions exit `{not_a_core_function, Name}`.
+
+`string/5`, `axis/3,4`, `eval_path/3`, `write_node/1` and `xmerl_xs`'s transformation functions are declined.
 
 ## xmerl_ucs
 
