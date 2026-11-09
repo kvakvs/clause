@@ -120,25 +120,25 @@ handle_cast({what_decision, Node, #decision{tid = Tid} = Asked}, State) ->
     {noreply, State};
 handle_cast({note_decision, Tid, Outcome}, State) ->
     {noreply, noted(Tid, Outcome, State)};
-% A commit over several nodes was logged here (MIM1H10a): its decision names the disc nodes not yet certain, and the
-% other disc nodes hear that this one is, unless its coordinator told them already (MIM1H10b).
+% A commit over several nodes was logged here (MIM1H10a): its decision names the other disc nodes, then each node
+% certain before is logged as for its im_certain (MIM1H10c), and the other disc nodes hear that this one is certain,
+% unless its coordinator told them already (MIM1H10b).
 handle_cast({committed, #decision{tid = Tid, disc_nodes = Disc} = Decision}, #state{certain = Certain} = State) ->
     Others = lists:delete(node(), Disc),
     Kept = maps:get(Tid, Certain, []),
-    Remaining = Others -- known(Kept),
-    Logged = Decision#decision{outcome = committed, disc_nodes = Remaining, ram_nodes = []},
-    clause_mnesia_disc:log_decision(Logged),
-    is_tuple(Kept) orelse gen_server:abcast(Others, mnesia_recover, {im_certain, node(), Logged}),
-    {noreply, State#state{certain = still_unsure(Tid, {committed, Remaining}, Certain)}};
-% Node is certain of a commit: logged again without it, or kept for when this node commits.
+    Known = [N || N <- lists:reverse(known(Kept)), lists:member(N, Others)],
+    log_committed(Decision, Others),
+    Told = Decision#decision{outcome = committed, disc_nodes = Others -- Known, ram_nodes = []},
+    is_tuple(Kept) orelse gen_server:abcast(Others, mnesia_recover, {im_certain, node(), Told}),
+    Left = lists:foldl(fun(N, Unsure) -> log_committed(Decision, lists:delete(N, Unsure)) end, Others, Known),
+    {noreply, State#state{certain = still_unsure(Tid, {committed, Left}, Certain)}};
+% Node is certain of a commit: logged again without it, or kept until this node logged its own decision (MIM1H10c).
 handle_cast({im_certain, Node, #decision{tid = Tid} = Decision}, #state{certain = Certain} = State) ->
     case maps:get(Tid, Certain, []) of
         {committed, Remaining} ->
-            Left = lists:delete(Node, Remaining),
-            clause_mnesia_disc:log_decision(Decision#decision{outcome = committed, disc_nodes = Left, ram_nodes = []}),
+            Left = log_committed(Decision, lists:delete(Node, Remaining)),
             {noreply, State#state{certain = still_unsure(Tid, {committed, Left}, Certain)}};
         Known ->
-            clause_mnesia_disc:log_decision(Decision#decision{outcome = committed, disc_nodes = [], ram_nodes = []}),
             {noreply, State#state{certain = Certain#{Tid => with_known(Node, Known)}}}
     end;
 handle_cast({mnesia_down, Node}, State) ->
@@ -156,6 +156,11 @@ handle_cast(_Request, State) ->
 
 handle_info(_Message, State) ->
     {noreply, State}.
+
+% A committed decision logged with the disc nodes Unsure of it, which it returns.
+log_committed(Decision, Unsure) ->
+    clause_mnesia_disc:log_decision(Decision#decision{outcome = committed, disc_nodes = Unsure, ram_nodes = []}),
+    Unsure.
 
 % The nodes certain of a commit before this node logged it, announced or not.
 known({announced, Known}) -> Known;

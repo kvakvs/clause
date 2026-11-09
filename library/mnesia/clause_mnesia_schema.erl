@@ -570,7 +570,9 @@ make_storage(#cstruct{name = Tab, type = Type, storage_properties = Properties},
     end.
 
 % A replica's records from its files when it loads from this node's disc (MIM1H10a), as master nodes or the user
-% decide too (MIM1H10b), else its new files.
+% decide too (MIM1H10b), or as an adopted orphan (MIM1H10c), else its new files.
+files(Tab, Storage, {adopt_orphan, _}) ->
+    clause_mnesia_disc:load(Tab, Storage);
 files(Tab, Storage, Reason) ->
     case lists:member(Reason, [local_only, initial, local_master, forced_by_user]) of
         true -> clause_mnesia_disc:load(Tab, Storage);

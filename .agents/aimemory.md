@@ -1005,3 +1005,9 @@ gotchas and user directions not recorded elsewhere.
   pids). Never make mnesia_monitor call mnesia_recover: recover's connect_nodes calls the monitor (deadlock). Two
   nodes started at once race for RAM-only tables (who loads ram_only); start them in turn in goldens. A schema
   decision's disc nodes come from the new schema (OTP's RAM participant ignores a change it is told it is RAM for).
+- MIM1H10c mnesia (2026-11-09): partitions on one host: erlang:disconnect_node/1, then net_adm:ping/1 rejoins;
+  writes on the far side come from a process armed there beforehand (rpc reconnects). The starting node's
+  inconsistent_database event fires before any subscriber exists: assert it with a stderr regex counting reports
+  (tempered `(?:(?!partitioned_network).)*`). OTP's orphan reason names the adopting node, not the one that came up;
+  orphans go through the late loader's disc_load_intents (else a node adopts a table the other loads from its newer
+  disc). Probes obs15-18 and cmp3.sh/cmp4.py (normalized diffs) in scratch/mim1h10.

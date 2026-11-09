@@ -40,7 +40,8 @@ Clause's `mnesia` application (plan 21, MIM1) exports the OTP 29 interface of `m
   [dirty access](#dirty-access) to tables held on another node. MIM1H7, done: [locks](#locks) on other nodes. MIM1H8,
   done: [commits](#transactions) over several nodes. MIM1H9, done: [table copies](#schema-changes) and loads over
   several nodes. MIM1H10a, done: [disc nodes](#disc-nodes) created and started together. MIM1H10b, done: master
-  nodes, majority and copies between disc nodes. What OTP writes and sends is recorded in
+  nodes, majority and copies between disc nodes. MIM1H10c, done: partitions of disc nodes and adopted orphans. What
+  OTP writes and sends is recorded in
   [mnesia's files and protocol](mnesia-protocol.md).
 
 Every other documented function works. See the [function inventory](../../library/mnesia/mnesia.terms) and
@@ -135,7 +136,10 @@ Clause's mnesia connects to other nodes' mnesia, OTP's or Clause's, as OTP's doe
 - **Going down:** when a linked node's mnesia stops or its connection breaks, the node leaves `recover_nodes`, this node
   records its `mnesia_down` (`mnesia_recover:has_mnesia_down/1`) and reports the `{mnesia_down, Node}` system event.
 - **Partitions:** two running nodes that recorded each other down report `{inconsistent_database,
-  running_partitioned_network, Node}` when they meet again, and `starting_partitioned_network` when they connect.
+  running_partitioned_network, Node}` when they meet again, unless the other node has master nodes for the schema, and
+  stay apart; a node starting again reports `starting_partitioned_network`, unless it has master nodes itself, and
+  takes the running node's replicas (MIM1H10c,
+  [protocol](mnesia-protocol.md#partitions-and-orphans-mim1h10c)).
 
 Each node keeps the outcomes of the transactions it took part in ([transactions](#transactions), MIM1H8), and a disc
 node logs them until each disc node taking part is certain ([disc nodes](#disc-nodes), MIM1H10a); a decision another
@@ -193,8 +197,12 @@ Nodes whose schemas are on disc, OTP's or Clause's, are created and start togeth
 - **Copies between disc nodes:** `add_table_copy/3`, `move_table_copy/3` and `change_table_copy_type/3` work for
   another node's disc replicas, and `del_table_copy(schema, Node)` removes a stopped disc node, whose files
   `delete_schema/1` then removes.
-- **Not yet:** a waiting replica is not adopted when the other node comes up without loading it (OTP's
-  `{adopt_orphan, Node}` load); partitions of disc nodes (MIM1H10c).
+- **Orphans:** replicas that wait for each other at start are adopted when a node comes up (plan 21 step MIM1H10c,
+  [protocol](mnesia-protocol.md#orphans)): the smallest disc holder loads them from its files (`{adopt_orphan,
+  Node}`) through its late loader, leaving the tables another node loads from its own disc, or asks their master
+  nodes to load them.
+- **Commits** choose OTP's protocol: `asym_trans`, logged under its decision even on one node, when the written tables
+  differ in nodes or storage.
 
 ### Global variables
 
@@ -790,6 +798,11 @@ index of its rows by SNMP row index, as OTP's `mnesia_snmp_hook` does
   nodes while running and while stopped, refuse majority writes with one node down, start alone and force their
   loads; then replicas are added, moved and changed between the nodes, b leaves the schema while stopped, its files
   go, and it joins again as a RAM node made a disc node. Its runs pair Clause nodes with OTP nodes both ways.
+- **`mnesia_partitions` golden:** generated from OTP
+  ([fixture](../../tests/fixtures/executables/mnesia_partitions/mnesia_partitions.erl)). The connection between two
+  running disc nodes breaks three times; each side writes alone, the nodes report the partition when they meet (on
+  stderr) and b starts again, with and without master nodes. Then replicas wait for each other at start and a adopts
+  them, alone, while starting, and through its master node b. Its runs pair Clause nodes with OTP nodes both ways.
 - **What `mnesia_dirty` covers:** answers before starting, system information, every `create_table` option and error, table
   properties, dirty access of each table type, indexes, counters, argument errors, schema changes, `schema/1`'s
   printout, error descriptions, and stopping and restarting.

@@ -355,3 +355,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   no `simple_commit` to schema participants, `im_certain` sent right after `committed` (coordinator) and on hearing
   it (participant) so OTP peers dump no unsure decisions; replicas loaded from files by masters or force no longer
   get an empty DCD; `mnesia_disc_masters` golden identical to OTP both ways — `0964deb7`
+- **MIM1H10c** mnesia partitions of disc nodes and adopted orphans: partition reports of running and starting disc
+  nodes as OTP's (already there since MIM1H4, now observed over disc nodes with master nodes keeping them away); orphans
+  adopted on `adopt_orphans` by the smallest disc holder (`{adopt_orphan, A}`) through its late loader, which leaves
+  the tables other nodes intend to load from disc, or by their master nodes (`maybe_async_late_disc_load` both ways);
+  `asym_trans` when the written tables differ in storage too, with a local `#decision{}` (and RAM writes) on one node;
+  an early `im_certain` logged after the node's own decision; master nodes logged synchronously;
+  `mnesia_partitions` golden identical to OTP both ways — `HASH`

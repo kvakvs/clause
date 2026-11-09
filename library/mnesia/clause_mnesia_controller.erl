@@ -4,7 +4,8 @@
 %% other which tables they hold, and each reports the other's mnesia up. The controller starts a sender for each
 %% table another node loads from this one, and takes the requests of senders that make a replica active (MIM1H9).
 %% It runs the loads of this node's replicas, one process per table, once the start decided them or when another node
-%% loaded a table that this one waits for (MIM1H10a); its process dictionary keeps {loading, Tab} meanwhile.
+%% loaded a table that this one waits for (MIM1H10a); its process dictionary keeps {loading, Tab} meanwhile. Replicas
+%% that wait for each other are adopted when a node comes up, loaded through the late loader (MIM1H10c).
 -module(clause_mnesia_controller).
 -behaviour(gen_server).
 -export([start_link/0, start_late_loader/0, call/1]).
@@ -64,11 +65,17 @@ handle_cast({im_running, _Node, Friends}, controller) ->
     Tabs = loaded(lists:delete(schema, val({schema, local_tables}))),
     gen_server:abcast(Friends, mnesia_controller, {adopt_orphans, node(), Tabs}),
     {noreply, controller};
-% Node runs with this node and holds Tabs: they are read and written there, and its mnesia is up (MIM1H5).
+% Node runs with this node and holds Tabs: they are read and written there, and its mnesia is up (MIM1H5); the replicas
+% that no node will load are adopted (MIM1H10c).
 handle_cast({adopt_orphans, Node, Tabs}, controller) ->
     [clause_mnesia_schema:add_active(Tab, Node) || Tab <- [schema | Tabs], ets:member(schema, Tab)],
     ok = clause_mnesia_recover:log_mnesia_up(Node),
     clause_mnesia_subscr:report_system_event({mnesia_up, Node}),
+    Node =/= node() andalso adopt(Node),
+    {noreply, controller};
+% Another node's adoption asks this node to load Tabs (MIM1H10c), through its late loader.
+handle_cast({late_disc_load, Tabs, Reason}, controller) ->
+    [start_load(Tab, clause_mnesia_loader:adopted(Tab, Reason)) || Tab <- Tabs, clause_mnesia_loader:pending(Tab)],
     {noreply, controller};
 % Another node loads Tab from this node's replica (MIM1H9).
 handle_cast({send_table, Tab, Receiver, Storage, Reason}, controller) ->
@@ -89,8 +96,23 @@ handle_cast({load_done, Tab}, controller) ->
 handle_cast(_Request, Role) ->
     {noreply, Role}.
 
+% Loads of adopted orphans (MIM1H10c), this node's or those another node asks its master nodes for, as OTP's late
+% loader does: the tables no other running node will load from its own disc.
+handle_info({_From, {maybe_async_late_disc_load, Tabs, Reason}}, late_loader) ->
+    Intended = clause_mnesia_loader:intents(lists:delete(node(), val(recover_nodes))),
+    gen_server:cast(mnesia_controller, {late_disc_load, Tabs -- Intended, Reason}),
+    {noreply, late_loader};
 handle_info(_Message, Role) ->
     {noreply, Role}.
+
+% The orphans this node adopts when Node comes up (MIM1H10c): loaded here from disc, or by their master nodes, each
+% through its late loader.
+adopt(Node) ->
+    {Local, Remote} = clause_mnesia_loader:orphans(Node),
+    Reason = {adopt_orphan, node()},
+    Loads = [{node(), Local} || Local =/= []] ++ Remote,
+    [{mnesia_late_loader, N} ! {self(), {maybe_async_late_disc_load, Tabs, Reason}} || {N, Tabs} <- Loads],
+    ok.
 
 % A process loading a replica that waits and is not loading yet (MIM1H10a).
 start_load(_, wait) ->

@@ -215,7 +215,8 @@ behavior (`docs/differences.md` lists gaps).
   (active elsewhere, own disc by down records, ram_only, or i_have_tab later); asym commits logged under #decision
   with im_certain bookkeeping in clause_mnesia_recover; MIM1H10b: master nodes in clause_mnesia_loader:source/1
   (local_master, masters only, wait), force_load via the controller, no_majority in the locker's write locks,
-  im_certain announced at committed (recover {certain, D});
+  im_certain announced at committed (recover {certain, D}); MIM1H10c: orphans in clause_mnesia_loader:orphans/1,
+  adopted through the late loader (controller handle_info maybe_async_late_disc_load, disc_load_intents filter);
   SNMP row index per table kept by updates).
   Distribution and tracing
   answer as a non-alive node.

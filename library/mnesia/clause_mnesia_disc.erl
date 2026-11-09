@@ -529,9 +529,10 @@ alone(#decision{disc_nodes = Disc, ram_nodes = Ram}) -> Disc -- [node()] =:= [] 
 
 stored(Updates) -> [{val({Tab, storage_type}), item(Tab, Key, U)} || {Tab, Key, U} <- Updates].
 
-% The log's terms of a commit: a presume_commit commit of disc writes, or a commit under its decision when it wrote or
-% changed anything, then the committed decision. A commit over several nodes also keeps its RAM writes, and
-% mnesia_recover logs its committed decision once the others hear of it (MIM1H10a).
+% The log's terms of a commit: a presume_commit commit of disc writes, or a commit under its decision, with its RAM
+% writes (MIM1H10c), when it wrote on disc or changed anything, then the committed decision. A commit over several
+% nodes is logged even for RAM writes alone, and mnesia_recover logs its committed decision once the others hear of it
+% (MIM1H10a).
 terms(#decision{tid = Tid} = Decision, Items, Ops) ->
     case alone(Decision) of
         true ->
@@ -550,7 +551,9 @@ terms(Decision, Items, Ops) ->
         Tid when Disc =:= [], DiscOnly =:= [], Ops =:= [] ->
             [{decision, Tid, committed, [], []}];
         Tid ->
-            [Commit#commit{decision = {decision, Tid, presume_abort, [node()], []}}, {decision, Tid, committed, [], []}]
+            Ram = [I || {ram_copies, I} <- Items],
+            Logged = {decision, Tid, presume_abort, [node()], []},
+            [Commit#commit{ram_copies = Ram, decision = Logged}, {decision, Tid, committed, [], []}]
     end.
 
 commit(Items, Ops) ->
@@ -574,7 +577,8 @@ set_master_nodes(Tab, Nodes) ->
     case clause_mnesia_monitor:is_running() of
         yes ->
             masters(Tab, Nodes),
-            use_dir() andalso disk_log:alog(latest_log, {master_nodes, Tab, Nodes});
+            % Logged at once, as OTP's entries are in the file when the call returns (MIM1H10c).
+            use_dir() andalso disk_log:log(latest_log, {master_nodes, Tab, Nodes});
         _ ->
             % While mnesia is stopped the entry goes to the log at once, as OTP's (MIM1H10b).
             append_latest({master_nodes, Tab, Nodes})

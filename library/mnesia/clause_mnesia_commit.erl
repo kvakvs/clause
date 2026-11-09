@@ -33,7 +33,7 @@ commit(Tid, Store, Kind, Local) ->
     Commits = records(Updates),
     case [C || #commit{node = N} = C <- Commits, N =/= node()] of
         [] ->
-            Local(presume_commit),
+            Local(alone(Tid, protocol(Updates, Kind))),
             [];
         Remote ->
             Nodes = [N || #commit{node = N} <- Commits],
@@ -43,6 +43,14 @@ commit(Tid, Store, Kind, Local) ->
             end,
             [N || #commit{node = N} <- Remote]
     end.
+
+% A commit on this node alone: under a #decision{} naming this node when it is an asym_trans one (partitions of disc
+% nodes, MIM1H10c), else presume_commit.
+alone(Tid, asym_trans) ->
+    {Disc, Ram} = split_nodes([node()]),
+    #decision{tid = Tid, outcome = presume_abort, disc_nodes = Disc, ram_nodes = Ram};
+alone(_, _) ->
+    presume_commit.
 
 % A schema transaction's operations committed on this node and on the other nodes of Nodes (asym_trans); Local applies
 % them here under the transaction's decision, which names this node alone when it commits alone (MIM1H10a), and the
@@ -111,10 +119,11 @@ commit_nodes(Tab) ->
         false -> Where
     end.
 
-% asym_trans when a written table has a majority or the written tables commit on different nodes.
+% asym_trans when a written table has a majority or the written tables commit on different nodes or storage
+% (MIM1H10c).
 protocol(Updates, Kind) ->
     Tabs = lists:usort([Tab || {Tab, _, _} <- Updates]),
-    Placements = lists:usort([lists:sort([N || {N, _} <- commit_nodes(Tab)]) || Tab <- Tabs]),
+    Placements = lists:usort([lists:sort(commit_nodes(Tab)) || Tab <- Tabs]),
     Majority = lists:any(fun(Tab) -> val({Tab, majority}) end, Tabs),
     if
         Majority; length(Placements) > 1 -> asym_trans;

@@ -466,3 +466,49 @@ table, as `del_table_copy(schema, Node)` locks each table of the node, aborts th
 A coordinator casts `{im_certain, Node, Decision}` to the other disc nodes right after it sends `committed`, before
 its own part of the commit; a participant sends it before its `schema_commit`. A node that dumps its log while a
 decision is not yet certain keeps that decision in `DECISION_TAB.LOG`.
+
+A coordinator logs its commit, then its committed decision naming the other disc nodes, then the decision again
+without each node whose `im_certain` came. A participant hears the coordinator's `im_certain` about when it logs its
+own decision, so it logs `[A]` then `[]`, or `[]` twice.
+
+## Partitions and orphans (MIM1H10c)
+
+Observed with two disc nodes a and b, as [disc nodes](#disc-nodes-mim1h10a); the connection broke with
+`erlang:disconnect_node/1` while both ran.
+
+### Partitions
+
+- **Apart:** each node logs the other's mnesia down and goes on alone: its tables are read and written on it only,
+  and a transaction on it commits on it alone.
+- **Meeting again:** when the nodes connect again, each asks the other's `has_remote_mnesia_down`, as when
+  [connecting](#connecting-mim1h4), and reports `{inconsistent_database, running_partitioned_network, Node}` when the
+  other node logged it down too and has no master nodes for the schema. The nodes stay apart: `running_db_nodes`
+  lists each node alone and writes stay on each side.
+- **Starting again:** a node that starts while the other runs reports `{inconsistent_database,
+  starting_partitioned_network, Node}`, unless it has master nodes for the schema; the running node reports nothing.
+  The starting node merges with the running one, both drop their down records, and its replicas load from the
+  running node (`{active_remote, Node}`): what it wrote apart is gone.
+
+### Orphans
+
+A replica that waits at start (see [starting](#starting)) is an orphan once another node comes up while no node will
+load it:
+
+- **Who adopts:** when a node comes up (its `adopt_orphans`), the smallest of the table's disc holders adopts the
+  replicas that wait there, when the node that came up holds the table on disc, no replica is active and every disc
+  holder runs. The load reason names the adopting node, `{adopt_orphan, A}`, whether a was the node starting or the
+  node running.
+- **Loading:** an adopted table loads from the adopting node's files through its `mnesia_late_loader`, which takes the
+  lock of late disc loads, asks the other running nodes' `disc_load_intents` and leaves them the tables they will load
+  from their own disc; those load from them once they announce them (`i_have_tab`).
+- **Master nodes:** a table with master nodes on the adopting node is loaded by them instead: the controller sends
+  `{Pid, {maybe_async_late_disc_load, Tabs, {adopt_orphan, A}}}` to each running master's `mnesia_late_loader`, which
+  loads them from its files with that reason; the adopting node then loads them from the master.
+
+### Commit protocol
+
+A transaction commits with `asym_trans` when the tables it writes differ in `where_to_commit`, nodes and storage alike
+(`disc_copies` and `ram_copies` tables on the same nodes, for one), or have a majority; it then logs its commit under
+`{decision, Tid, presume_abort, DiscNodes, RamNodes}` even when this node commits alone (one node, or a partition),
+with its RAM writes beside the disc ones when it wrote on disc. Tables committing on the same nodes with the same
+storage use `sym_trans`.

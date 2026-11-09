@@ -6,7 +6,19 @@
 %% here loads from a node that has it loaded, or from this node's disc when no other node may hold it newer, or waits
 %% for another node to load it (MIM1H10a).
 -module(clause_mnesia_loader).
--export([send/4, receive_table/4, copy/4, load_pending/0, pending/1, source/1, announced/2, load/2]).
+-export([
+    orphans/1,
+    adopted/2,
+    intents/1,
+    send/4,
+    receive_table/4,
+    copy/4,
+    load_pending/0,
+    pending/1,
+    source/1,
+    announced/2,
+    load/2
+]).
 
 -include("clause_mnesia.hrl").
 
@@ -204,7 +216,7 @@ load_pending() ->
         [] ->
             ok;
         Pending ->
-            ok = intents(lists:delete(node(), val(recover_nodes))),
+            _ = intents(lists:delete(node(), val(recover_nodes))),
             gen_server:cast(mnesia_controller, {load_tables, Pending})
     end.
 
@@ -213,22 +225,23 @@ pending(Tab) ->
     ets:member(schema, Tab) andalso clause_mnesia_schema:storage(val({Tab, cstruct})) =/= unknown andalso
         not clause_mnesia_schema:is_loaded(Tab).
 
-% The running nodes' disc load intents, asked under OTP's lock of late disc loads; their answers are not needed.
+% The running nodes' disc load intents, asked under OTP's lock of late disc loads: the tables they hold loaded or will
+% load from their own disc, which adopted orphans leave to them (MIM1H10c).
 intents([]) ->
-    ok;
+    [];
 intents(Nodes) ->
-    {atomic, ok} = mnesia:transaction(fun() ->
+    {atomic, Tabs} = mnesia:transaction(fun() ->
         mnesia:lock({global, mnesia_late_disc_load, [node() | Nodes]}, write),
-        [catch_exit(fun() -> gen_server:call({mnesia_controller, N}, disc_load_intents) end) || N <- Nodes],
-        ok
+        lists:usort(lists:append([intended(N) || N <- Nodes]))
     end),
-    ok.
+    Tabs.
 
-catch_exit(F) ->
-    try
-        F()
+intended(Node) ->
+    try gen_server:call({mnesia_controller, Node}, disc_load_intents) of
+        {ok, _, Tabs} -> Tabs;
+        _ -> []
     catch
-        exit:_ -> ok
+        exit:_ -> []
     end.
 
 % Where a table loads from, in the controller: {remote, Node} with the latest running node whose replica is active,
@@ -259,6 +272,30 @@ announced(Tab, Node) ->
     case Masters =:= [] orelse lists:member(Node, Masters) of
         true -> {remote, Node};
         false -> wait
+    end.
+
+% The waiting replicas this node adopts when Node comes up (MIM1H10c): those Node holds on disc that no node loaded
+% and this node's start leaves waiting while every disc holder runs, when this node is the smallest disc holder.
+% {Local, Remote}: those loaded here from disc, and per master node those its master nodes load instead.
+orphans(Node) ->
+    Running = val({current, db_nodes}),
+    Orphans = [T || T <- val({schema, local_tables}), T =/= schema, pending(T), orphan(T, Node, Running)],
+    {Local, Mastered} = lists:partition(fun(T) -> masters(T) =:= [] end, Orphans),
+    Masters = lists:usort([M || T <- Mastered, M <- masters(T), lists:member(M, Running)]),
+    {Local, [{M, [T || T <- Mastered, lists:member(M, masters(T))]} || M <- Masters]}.
+
+orphan(Tab, Node, Running) ->
+    #cstruct{disc_copies = Disc, disc_only_copies = DiscOnly} = val({Tab, cstruct}),
+    OnDisc = Disc ++ DiscOnly,
+    lists:member(Node, OnDisc) andalso val({Tab, active_replicas}) =:= [] andalso OnDisc -- Running =:= [] andalso
+        lists:min(OnDisc) =:= node() andalso source(Tab) =:= wait.
+
+% How a replica that another node's adoption asks this node to load does (MIM1H10c): from an active replica, else from
+% this node's disc.
+adopted(Tab, Reason) ->
+    case [N || N <- val({Tab, active_replicas}), N =/= node(), lists:member(N, val(recover_nodes))] of
+        [Node | _] -> {remote, Node};
+        [] -> {local, Reason}
     end.
 
 masters(Tab) ->
