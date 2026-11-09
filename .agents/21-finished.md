@@ -413,4 +413,4 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   response, connections left unused after a user's close or a new connection's redirect), retries, timeouts,
   receivers, streams to self, cancellation, an http proxy, option reports in OTP's order, profile options and
   profiles as inets services; `http_uri` over `uri_string`; `ssl` accepts combined certificates in `cacerts`;
-  `httpc_requests` golden — `HASH`
+  `httpc_requests` golden — `41ed2d48`
