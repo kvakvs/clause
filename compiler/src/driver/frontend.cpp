@@ -515,6 +515,44 @@ std::optional<std::u32string> library_start_module(const std::filesystem::path &
     return std::u32string(name.begin(), name.end());
 }
 
+// Where the batch's application resources come from: its modules' directories (library ones where their application
+// has a resource), the project's applications and the library's directories. Added for application resources (LIB24).
+ApplicationPlaces application_places(const Inputs &inputs, const FrontendRequest &request,
+                                     const LibraryModules &library) {
+    const auto absolute = [](const std::filesystem::path &path) {
+        return std::filesystem::absolute(path).lexically_normal();
+    };
+    ApplicationPlaces places;
+    for (const auto &input : inputs) {
+        const auto module = semantic::declared_module(input.syntax);
+        // Library modules count where their application has a resource beside them (library/crypto/crypto.app),
+        // which then lists them. Library resources added for the crypto application (plan 21 step LIB79).
+        if (module && (!input.library_ || library_resource(input.source_path))) {
+            places.modules_.emplace_back(absolute(input.source_path).parent_path(), utf8(*module));
+        }
+    }
+    for (const auto &[name, directory] : request.preprocessing.applications) {
+        places.applications_.emplace_back(name, absolute(directory));
+    }
+    places.library_ = library.directories_;
+    return places;
+}
+
+// The start modules of the library applications the batch's resources name, those only another resource depends on
+// too (mongooseim's sasl), once application_controller is in the batch; true on a failure. Added for MIM6.
+bool add_library_starts(const FrontendRequest &request, const DiagnosticSink &sink, Inputs &inputs,
+                        Discovery &discovery) {
+    if (!defined(inputs, U"application_controller")) {
+        return false;
+    }
+    bool failed = false;
+    for (const auto &module : library_start_modules(application_places(inputs, request, discovery.library))) {
+        const std::u32string name(module.begin(), module.end());
+        failed = add_module(name, "its application resource", discovery, request, sink, inputs) || failed;
+    }
+    return failed;
+}
+
 // Add the modules one input names (inputs grow meanwhile, so it is read by index), and the start module of its
 // library application (added for the ssl application, plan 21 step LIB81A); true on a failure.
 bool add_named_by(const std::size_t scanned, const FrontendRequest &request, const DiagnosticSink &sink, Inputs &inputs,
@@ -546,9 +584,19 @@ bool add_kernel_services(const FrontendRequest &shared, const DiagnosticSink &si
     return parse_and_print(session, request, sink, source, path, false, inputs, untimed);
 }
 
-// Add the modules every input names, those added meanwhile too. clause_dist_start joins once net_kernel did, as the
-// runtime starts distribution through it (plan 30 step DIST4b1b), and clause_kernel_services once kernel did, before
-// kernel is scanned (DIST4b1e). True on a failure.
+// The modules added once every input is scanned: clause_dist_start when net_kernel joined, as the runtime starts
+// distribution through it (plan 30 step DIST4b1b), and the start modules of library applications that resources
+// name (MIM6). True on a failure.
+bool add_after_scan(const FrontendRequest &request, const DiagnosticSink &sink, Inputs &inputs, Discovery &discovery) {
+    bool failed = false;
+    if (defined(inputs, U"net_kernel")) {
+        failed = add_module(U"clause_dist_start", "net_kernel", discovery, request, sink, inputs);
+    }
+    return add_library_starts(request, sink, inputs, discovery) || failed;
+}
+
+// Add the modules every input names, those added meanwhile too, then those added after the scan (which may name
+// more), and clause_kernel_services once kernel joined, before kernel is scanned (DIST4b1e). True on a failure.
 bool add_all_named(const FrontendRequest &request, const DiagnosticSink &sink, Inputs &inputs, Discovery &discovery) {
     bool failed = false;
     for (std::size_t scanned = 0; scanned < inputs.size(); ++scanned) {
@@ -556,8 +604,8 @@ bool add_all_named(const FrontendRequest &request, const DiagnosticSink &sink, I
         if (defined(inputs, U"kernel") && !defined(inputs, U"clause_kernel_services")) {
             failed = add_kernel_services(request, sink, inputs) || failed;
         }
-        if (scanned + 1 == inputs.size() && defined(inputs, U"net_kernel")) {
-            failed = add_module(U"clause_dist_start", "net_kernel", discovery, request, sink, inputs) || failed;
+        if (scanned + 1 == inputs.size()) {
+            failed = add_after_scan(request, sink, inputs, discovery) || failed;
         }
     }
     return failed;
@@ -625,22 +673,7 @@ bool add_applications(const Discovery &discovery, const FrontendRequest &shared,
     if (!defined(inputs, U"application_controller")) {
         return false;
     }
-    const auto absolute = [](const std::filesystem::path &path) {
-        return std::filesystem::absolute(path).lexically_normal();
-    };
-    ApplicationPlaces places;
-    for (const auto &input : inputs) {
-        const auto module = semantic::declared_module(input.syntax);
-        // Library modules count where their application has a resource beside them (library/crypto/crypto.app),
-        // which then lists them. Library resources added for the crypto application (plan 21 step LIB79).
-        if (module && (!input.library_ || library_resource(input.source_path))) {
-            places.modules_.emplace_back(absolute(input.source_path).parent_path(), utf8(*module));
-        }
-    }
-    for (const auto &[name, directory] : shared.preprocessing.applications) {
-        places.applications_.emplace_back(name, absolute(directory));
-    }
-    places.library_ = discovery.library.directories_;
+    const auto places = application_places(inputs, shared, discovery.library);
     FrontendRequest request;
     request.compile = true;
     SourceManager sources;

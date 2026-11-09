@@ -1,0 +1,14 @@
+%% OTP 29 alarm_handler exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
+{add_alarm_handler, 1, default, implemented}.
+{add_alarm_handler, 2, default, implemented}.
+{clear_alarm, 1, default, implemented}.
+{delete_alarm_handler, 1, default, implemented}.
+{get_alarms, 0, default, implemented}.
+{handle_call, 2, default, implemented}.
+{handle_event, 2, default, implemented}.
+{handle_info, 2, default, implemented}.
+{init, 1, default, implemented}.
+{set_alarm, 1, default, implemented}.
+{start_link, 0, default, implemented}.
+{terminate, 2, default, implemented}.

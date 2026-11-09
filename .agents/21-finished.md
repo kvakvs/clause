@@ -385,3 +385,9 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   (MongooseIM's `mod_muc_mnesia` match specifications); the value is never evaluated, its reads are still checked
   and names it binds are unsafe (OTP's compiler crashes there); a pattern's wildcard still needs an omitted field;
   `record_wildcards` golden — `2b50db0f`
+- **MIM6** application resources for MongooseIM: `sasl`, `inets`, `tools`, `runtime_tools`, `eldap`, `xmerl` and
+  `compiler` `.app` files with OTP 29's keys; start modules `clause_sasl_app` (`sasl_sup`, `sasl_safe_sup`,
+  OTP's `alarm_handler`, `release_handler`), `clause_inets_app` (`inets_sup`, `httpc_sup`, `httpc_profile_sup` with
+  an idle `httpc_manager`, `httpc_handler_sup`, `httpd_sup`) and `clause_runtime_tools_app` (`runtime_tools_sup`,
+  `ttb_autostart`) with OTP's names, order and child modules; discovery adds the start modules of library
+  applications reached only as dependencies; `mim_applications` golden — `HASH`

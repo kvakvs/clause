@@ -1029,3 +1029,5 @@ gotchas and user directions not recorded elsewhere.
   on b right after a's transaction needs a pause before reading events. Events of a multi-record transaction
   coordinated by Clause arrive on other nodes in Clause's write order (known difference): goldens write one record a
   transaction there. Probe obs9 in scratch/mim1h11.
+- mnesia_remote_backups flakes under full-suite load (2026-11-09, MIM6 run): b's forced fallback shutdown can also
+  kill mnesia_locker (supervisor shutdown_error report), which its stderr pattern rejects; passes alone.

@@ -98,6 +98,15 @@ std::optional<Resource> library_resource(const ApplicationPlaces &places, const 
     return std::nullopt;
 }
 
+// The module a resource's `mod` key names; empty when it has none.
+std::string start_module(const std::filesystem::path &file) {
+    std::ifstream stream(file, std::ios::binary);
+    const std::string text{std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
+    static const std::regex MOD(R"(\{\s*mod\s*,\s*\{\s*([a-z][A-Za-z0-9_@]*)\s*,)");
+    std::smatch match;
+    return std::regex_search(text, match, MOD) ? match.str(1) : std::string();
+}
+
 // The library applications the found resources depend on, in turn, so that application:ensure_all_started/1 finds
 // them (ssl's public_key and asn1). Added for the ssl application (plan 21 step LIB81A).
 void add_library_dependencies(const ApplicationPlaces &places, std::vector<Resource> &found) {
@@ -179,6 +188,18 @@ std::string resource_function(const std::size_t index, const Resource &resource)
     return "-file(" + path_literal(resource.file_) + ", 1).\napp_" + std::to_string(index) + "() -> " + text + "\n";
 }
 } // namespace
+
+std::vector<std::string> library_start_modules(const ApplicationPlaces &places) {
+    std::vector<std::string> modules;
+    for (const auto &resource : resources(places)) {
+        auto module = std::ranges::contains(places.library_, resource.modules_directory_) ? start_module(resource.file_)
+                                                                                          : std::string();
+        if (!module.empty()) {
+            modules.push_back(std::move(module));
+        }
+    }
+    return modules;
+}
 
 std::string applications_source(const ApplicationPlaces &places) {
     const auto found = resources(places);

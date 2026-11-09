@@ -297,12 +297,9 @@ dependencies, non-test sources.
 - **MIM5 `runtime_tools`:** `msacc:start/0,1`, `stop/0`, `stats/0` (rabbit_common) and `dbg`'s
   `tracer`, `p`, `tp`, `ctp`, `stop`, `trace_port` (hackney's debug helper). `dbg` needs the real
   tracing of "Later"; until then OTP's answers where tracing is unavailable.
-- **MIM6 application resources** for `application:ensure_all_started(mongooseim)`
-  (`mongooseim:start/0`, the target's entry): MongooseIM's `.app.src` lists `sasl`, `inets`,
-  `tools`, `runtime_tools`, `asn1` and `eldap`, its dependencies `xmerl`, `compiler` and
-  `syntax_tools`. Each needs an `.app` in `library/` (and the application callback module where OTP
-  has one: `sasl`'s `alarm_handler`/`release_handler` processes, `inets`' supervisor) so the
-  start order and `{error, {not_started, App}}` answers match OTP.
+- **MIM6 done** (`21-finished.md`): resources of `sasl`, `inets`, `tools`, `runtime_tools`, `eldap`, `xmerl` and
+  `compiler`, start modules with OTP's trees, OTP's `alarm_handler`. Left: MongooseIM's `.app.src` has
+  `{vsn, {cmd, "tools/generate_vsn.sh"}}` (rebar runs the command): not checked how Clause loads it.
 - **MIM7 undocumented modules real code calls** (plan rule: internals stay out unless needed; these
   are needed). Decide per function, provide with OTP's results or decline in `.terms`:
   `inet_parse:ntoa/1`, `address/1`, `domain/1` (amqp_client, hackney, lhttpc, rabbit_common,
@@ -335,7 +332,7 @@ dependencies, non-test sources.
 
 ### Order
 
-1. MIM6, MIM7 (MIM1A-MIM1G, MIM1H1-H12 and MIM9's record wildcard done 2026-11-02/09)
+1. MIM7 (MIM1A-MIM1G, MIM1H1-H12, MIM9's record wildcard and MIM6 done 2026-11-02/09)
    (small), MIM3, MIM4, MIM2, MIM5; MIM8 after a user decision.
 2. LIB81D3c, LIB81D4b and LIB81E on request.
 3. LIB82, LIB83 last (test support).

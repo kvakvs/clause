@@ -21,6 +21,9 @@ struct ApplicationPlaces {
 // The Erlang source of clause_applications: specs/0 gives each resource's term with the modules beside it, and
 // library_modules/1 the modules of Clause's library applications.
 std::string applications_source(const ApplicationPlaces &places);
+// The start modules the library resources of a program name (`{mod, {clause_sasl_app, []}}`), those reached only as
+// another resource's dependency too: no module calls them. Added for application resources (plan 21 step MIM6).
+std::vector<std::string> library_start_modules(const ApplicationPlaces &places);
 // The synthetic path naming the generated module in diagnostics and progress.
 std::filesystem::path applications_path();
 } // namespace clause::cli

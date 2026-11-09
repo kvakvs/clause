@@ -167,7 +167,8 @@ behavior (`docs/differences.md` lists gaps).
   C++ halves to the public Erlang APIs.
 - **Connection to compiler**: `clau` carries the library catalog (provided vs reserved-missing
   modules); library modules join a batch only when referenced; `erlang.erl` is generated from its
-  inventory; application resources pull in their start modules and dependent applications.
+  inventory; application resources pull in their start modules and dependent applications, and (MIM6) the start
+  modules of library applications reached only as dependencies (discovery's `add_library_starts`).
 - **Applications**: erts and kernel (processes, files, networking, code, applications), stdlib
   (text, collections, behaviours, logging, ETS-based structures, front-end tools: scanner, parser,
   linter, evaluator, module interpreter, `compile`), syntax_tools, crypto, public_key + asn1, ssl
