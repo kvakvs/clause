@@ -380,4 +380,4 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   as OTP's; `add_frag`/`del_frag` read a fragment held elsewhere there and each node moves only its fragments' records
   (participants take `change_table_frag` and `rec` operations); `frag_size`/`frag_memory` asked of the node a fragment
   is read from; `del_table_copy(schema, Node)` takes Node out of the fragmented tables' node pools;
-  `mnesia_remote_frag` golden identical to OTP both ways — `HASH`
+  `mnesia_remote_frag` golden identical to OTP both ways — `bff21c07`
