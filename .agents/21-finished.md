@@ -418,4 +418,4 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   RFC 4511's module (with RFC 3062's and RFC 2696's values; `legacy_erlang_types`, as OTP's); OTP's options and
   their errors, results, search argument checks in field order, message identifiers (kept after successes, late
   answers read as the next request's), lost-connection errors, log calls, paged results; `eldap.hrl`;
-  `eldap_requests` golden — `HASH`
+  `eldap_requests` golden — `386a6e1c`
