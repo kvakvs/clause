@@ -384,4 +384,4 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **MIM9 record wildcard** (compiler): a record construction naming every field accepts `_ = Value` as OTP does
   (MongooseIM's `mod_muc_mnesia` match specifications); the value is never evaluated, its reads are still checked
   and names it binds are unsafe (OTP's compiler crashes there); a pattern's wildcard still needs an omitted field;
-  `record_wildcards` golden — `HASH`
+  `record_wildcards` golden — `2b50db0f`
