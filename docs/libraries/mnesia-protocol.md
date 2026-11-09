@@ -512,3 +512,69 @@ A transaction commits with `asym_trans` when the tables it writes differ in `whe
 `{decision, Tid, presume_abort, DiscNodes, RamNodes}` even when this node commits alone (one node, or a partition),
 with its RAM writes beside the disc ones when it wrote on disc. Tables committing on the same nodes with the same
 storage use `sym_trans`.
+
+## Checkpoints over nodes (MIM1H11a)
+
+Observed with two disc nodes a and b. A checkpoint is OTP's `#checkpoint_args{}`, which nodes pass to each other:
+`{checkpoint_args, Name, AllowRemote, RamOverridesDump, Nodes, Node, Now, Cookie, Min, Max, PendingTab, WaitForOld,
+IsActivated, IgnoreNew, Retainers, Iterators, Supervisor, Pid}`, its retainers `{retainer, Name, Tab, Store, Writers,
+ReallyRetain}`. `RamOverridesDump` is the list of tables, `[]` without the option.
+
+### Activating
+
+- **Writers:** a `max` table's retainer is written by each active replica (`[a, b]` for a table on both, in the order
+  of `active_replicas`); a `min` table's by the replica on the activating node, else by the first active one unless
+  `{allow_remote, false}`. The checkpoint's nodes are the writers of all its retainers, observed greater node first
+  (`[b, a]`), which `activate_checkpoint/1` returns.
+- **Preparing:** the activating node calls `mnesia_tm:prepare_checkpoint(Cp)` on each node of the checkpoint (an rpc),
+  with the stores `undefined` and its process fields unset; each answers `{ok, Name, IgnoreNew, Node}`. Then it calls
+  `mnesia_checkpoint:call(Name, collect_pending)` on each, answered `{ok, PendingTids}`, then
+  `mnesia_checkpoint:call(Name, {activate, Pending})`, answered `activated`. A node that is not a writer of any
+  retainer has no part: neither a process nor the checkpoint's rows.
+- **Each node's part:** a process under `mnesia_checkpoint_sup` and the gvar rows `{checkpoint, Name}`, `checkpoints`
+  and a `{Tab, {retainer, Name}}` row for each retainer of the checkpoint. A node writing a table's retainer has an
+  ets store `{ets, Ref}` in its row, `{Tab, checkpoints}` and the `{checkpoints, Names}` entry of the table's commit
+  work; a RAM table's row there says `false` (its dump is kept, nothing retained). On a node not writing it, the row
+  keeps the store it was given (`undefined` at activation) and the table has no checkpoint entries.
+- **Retaining:** each node retains its own replica's updates, `{Tab, Key, OldRecords}` in its store for the first
+  change of a key; the transactions pending at activation are not retained. Clause's node waits for the other nodes'
+  commits applying on it to end before it makes its stores.
+
+### Nodes coming and going
+
+- **A node goes:** each node's checkpoints drop it from their retainers' writers (`{mnesia_down, Node}` to each
+  checkpoint process); a checkpoint left with a retainer without writers ends there with the error report "Checkpoint
+  'Name' has been deactivated, last table copy deleted." and the system event `{mnesia_checkpoint_deactivated, Name}`,
+  before the `{mnesia_down, Node}` event. The node that went loses its checkpoints with its processes.
+- **A node gets a replica:** the sender of a replica (a start loading from a running node, or `add_table_copy/3`)
+  calls `mnesia_checkpoint:tm_add_copy(Tab, Node)` after it made the replica active. Each checkpoint of the table
+  that keeps it with most redundancy then calls `mnesia_checkpoint:tm_prepare(Cp)` on the node (an rpc, its current
+  `#checkpoint_args{}`), tells its other nodes `{add_retainer, R, Node}` with the new writers appended, and the node
+  too (an rpc of `mnesia_checkpoint:cast/2`), then sends each record retained so far as
+  `{retain, {dirty, send_retainer}, Tab, Key, OldRecords}`. Messages to another node's checkpoint go through
+  `erpc:cast(Node, mnesia_checkpoint, cast, [Name, Msg])`, which answers `{ok, Pid}`. A checkpoint keeping the table
+  with least redundancy does not take the new copy.
+- **Retaining after joining:** OTP's node that joined a checkpoint this way keeps none of its own later updates, and
+  an update drops a key it had been sent; Clause's retains them ([differences](../differences.md#mnesia)).
+- **A replica goes:** the node losing its replica of a table (`del_table_copy/2`, or the table deleted) drops itself
+  from the retainer's writers on each node of its checkpoints (`{del_retainer, R, Node}`) and its store; a retainer
+  left without writers ends the checkpoint with the same report and event. The other node's row keeps its store
+  reference with the remaining writers.
+- **Deactivating:** `deactivate_checkpoint/1` on a node holding the checkpoint calls
+  `mnesia_checkpoint:remote_deactivate(Name)` on each of its nodes, answered `deactivated`; without the checkpoint
+  here it returns `{error, {no_exists, Name}}`.
+
+### Backups over nodes
+
+A backup of a checkpoint runs where it is asked and needs the checkpoint there: elsewhere it fails with
+`{error, {'EXIT', {error, {error, {no_exists, Name}}}}}`. Each table is read where its retainer is written, here when
+this node writes it. Otherwise the backup spawns `mnesia_log:tab_copier(Self, B, Tab)` on a writer, with OTP's
+`#backup_args{}` (`{backup_args, Name, Module, Opaque, Scope, PrevName, Tables, Cookie}`), links it and receives:
+
+- it sends `{Self, more, N}`, starting from 0, for each chunk; the copier answers `{Copier, {more, N + 1, Items}}`;
+- the copier's chunks: the table's records now (or the keys changed since the previous checkpoint), then an empty
+  chunk, then the retained deletes and records;
+- after the last chunk is asked for, the copier unlinks from the receiver and answers `{Copier, {last, {ok, dummy}}}`,
+  then ends.
+
+The receiver writes each chunk to the backup with the table's name as the records' first element.

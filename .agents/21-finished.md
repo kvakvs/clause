@@ -362,3 +362,11 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   `asym_trans` when the written tables differ in storage too, with a local `#decision{}` (and RAM writes) on one node;
   an early `im_certain` logged after the node's own decision; master nodes logged synchronously;
   `mnesia_partitions` golden identical to OTP both ways — `39b84e75`
+- **MIM1H11a** mnesia checkpoints and backups over nodes: OTP's `#checkpoint_args{}` exchanged between nodes, each
+  node writing a retainer holding the checkpoint's process and gvar rows (non-writers' rows with the store given),
+  activation through `mnesia_tm:prepare_checkpoint/1`, `collect_pending` and `{activate, Pending}`; checkpoints end
+  when a node goes or a replica is deleted with no writer left (report and event before `mnesia_down`), a new
+  replica joins `max` checkpoints with the records retained so far, deactivation on every node; backups read the
+  other node's retainers through OTP's copier protocol (`mnesia_log:tab_copier/3`, unlinking before its last answer);
+  a node preparing a checkpoint waits for the commits applying there; new OTP-named `mnesia_checkpoint` and
+  `mnesia_log`; `mnesia_remote_checkpoints` golden identical to OTP both ways — `HASH`

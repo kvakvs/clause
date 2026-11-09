@@ -55,13 +55,14 @@ acked(Ref, Kind) ->
         {'DOWN', Ref, process, _, Reason} -> {receiver_down, Reason}
     end.
 
-% The new replica active on its node and here, its table blocked there first, as OTP's sender does.
+% The new replica active on its node and here, its table blocked there first, as OTP's sender does; the table's
+% checkpoints then join the node (MIM1H11a).
 activate(Tab, Node, Storage) ->
     Replica = [Tab, Node, Storage, clause_mnesia_monitor:val({Tab, access_mode})],
     _ = gen_server:call({mnesia_controller, Node}, {block_table, [Tab], self()}, infinity),
     _ = gen_server:call({mnesia_controller, Node}, {add_active_replica, Replica, self()}, infinity),
     _ = clause_mnesia_controller:call({add_active_replica, Replica, self()}),
-    ok.
+    clause_mnesia_checkpoint:add_copy(Tab, Node).
 
 % The records in chunks of about max_transfer_size bytes, compressed with send_compressed above 0.
 chunks(Records) ->

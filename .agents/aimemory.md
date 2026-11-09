@@ -1011,3 +1011,11 @@ gotchas and user directions not recorded elsewhere.
   (tempered `(?:(?!partitioned_network).)*`). OTP's orphan reason names the adopting node, not the one that came up;
   orphans go through the late loader's disc_load_intents (else a node adopts a table the other loads from its newer
   disc). Probes obs15-18 and cmp3.sh/cmp4.py (normalized diffs) in scratch/mim1h10.
+- MIM1H11a mnesia (2026-11-09): obs.erl's trace helper has pattern/1 (call + return tracing); OTP's internal
+  protocol (prepare_checkpoint results, tab_copier messages, tm_add_copy, abcast through erpc:cast) came from it.
+  OTP's backup receiver links its copier and traps exits: a copier must unlink before its last answer. Clause's
+  asym_trans participant applies a commit after the coordinator returned, so a checkpoint prepared right after a
+  write retained [] old records there until tm_prepare waited for clause_mnesia_tm:committing/0. BEAM ets tab2list
+  and select run opposite to first/next, so backup item order differs from OTP's on the BEAM: goldens sort items.
+  OTP's node joined to a checkpoint by add_copy retains nothing of its own (differences row). Probes obs1-6 and
+  shim.py (writes an OTP-named shim from its .terms) in scratch/mim1h11.

@@ -1,9 +1,9 @@
-%% OTP's mnesia_tm as other nodes call it (plan 21 step MIM1H7,
+%% OTP's mnesia_tm as other nodes call it (plan 21 steps MIM1H7 and MIM1H11a,
 %% docs/libraries/mnesia-protocol.md#remote-locks-mim1h7): a peer's transaction fixes a table here before it walks it,
-%% through mnesia_rpc. The server registered as mnesia_tm is clause_mnesia_tm. OTP's other internal functions are
-%% declined: no other node calls them.
+%% through mnesia_rpc, and a peer activating a checkpoint prepares it here. The server registered as mnesia_tm is
+%% clause_mnesia_tm. OTP's other internal functions are declined: no other node calls them.
 -module(mnesia_tm).
--export([fixtable/3]).
+-export([fixtable/3, prepare_checkpoint/1]).
 %% OTP 29 exports implemented natively or not yet: catalog builtins, whose clause_builtin_placeholder body the runtime's
 %% builtin replaces, and stubs raising error({not_implemented, F, A}) (docs/libraries/library.md#runtime-module-replacements).
 -export([
@@ -21,7 +21,6 @@
     mnesia_down/1,
     new_cr_format/1,
     non_transaction/5,
-    prepare_checkpoint/1,
     prepare_checkpoint/2,
     prepare_snmp/3,
     put_activity_id/1,
@@ -40,6 +39,10 @@
 fixtable(_Tab, _Lock, _Requester) ->
     node().
 
+% A peer's checkpoint prepared here, OTP's #checkpoint_args{} (MIM1H11a): {ok, Name, IgnoreNew, node()}.
+prepare_checkpoint(Cp) ->
+    clause_mnesia_checkpoint:tm_prepare(Cp).
+
 block_tab(_) -> erlang:error({not_implemented, block_tab, 1}).
 commit_participant(_, _, _, _, _, _) -> erlang:error({not_implemented, commit_participant, 6}).
 dirty(_, _) -> erlang:error({not_implemented, dirty, 2}).
@@ -54,7 +57,6 @@ init(_) -> erlang:error({not_implemented, init, 1}).
 mnesia_down(_) -> erlang:error({not_implemented, mnesia_down, 1}).
 new_cr_format(_) -> erlang:error({not_implemented, new_cr_format, 1}).
 non_transaction(_, _, _, _, _) -> erlang:error({not_implemented, non_transaction, 5}).
-prepare_checkpoint(_) -> erlang:error({not_implemented, prepare_checkpoint, 1}).
 prepare_checkpoint(_, _) -> erlang:error({not_implemented, prepare_checkpoint, 2}).
 prepare_snmp(_, _, _) -> erlang:error({not_implemented, prepare_snmp, 3}).
 put_activity_id(_) -> erlang:error({not_implemented, put_activity_id, 1}).

@@ -148,6 +148,8 @@ handle_cast({mnesia_down, Node}, State) ->
     % Its replicas are no longer active, and its transactions' locks go (MIM1H5).
     [clause_mnesia_schema:del_active(Tab, Node) || Tab <- tables()],
     clause_mnesia_locker:mnesia_down(Node),
+    % Its checkpoints' retainers lose it before its down is reported, as OTP's (MIM1H11a).
+    clause_mnesia_checkpoint:mnesia_down(Node),
     ets:delete(?GVAR, {node_up, Node}),
     clause_mnesia_subscr:report_system_event({mnesia_down, Node}),
     {noreply, State};

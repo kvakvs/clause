@@ -217,6 +217,9 @@ behavior (`docs/differences.md` lists gaps).
   (local_master, masters only, wait), force_load via the controller, no_majority in the locker's write locks,
   im_certain announced at committed (recover {certain, D}); MIM1H10c: orphans in clause_mnesia_loader:orphans/1,
   adopted through the late loader (controller handle_info maybe_async_late_disc_load, disc_load_intents filter);
+  MIM1H11a: checkpoints over nodes in clause_mnesia_checkpoint (OTP's #checkpoint_args{} via mnesia_tm:
+  prepare_checkpoint and mnesia_checkpoint call/cast; joined by the loader's sender, left on mnesia_down in recover
+  and on drop_replica), remote retainers backed up through mnesia_log:tab_copier (clause_mnesia_backup);
   SNMP row index per table kept by updates).
   Distribution and tracing
   answer as a non-alive node.

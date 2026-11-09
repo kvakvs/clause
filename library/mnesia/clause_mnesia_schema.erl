@@ -498,7 +498,7 @@ drop_replica(Tab) ->
         unknown ->
             ok;
         Storage ->
-            clause_mnesia_checkpoint:table_gone(Tab),
+            clause_mnesia_checkpoint:del_copy(Tab, node()),
             clause_mnesia_snmp:drop(Tab),
             clause_mnesia_index:drop_all(Tab),
             Tab =/= schema andalso close_storage(Tab, Storage),

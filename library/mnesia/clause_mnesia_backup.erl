@@ -5,7 +5,7 @@
 -module(clause_mnesia_backup).
 -export([backup/2, backup_checkpoint/3, traverse_backup/6, iterate/4, read_schema/2, lookup_schema/2]).
 -export([install_fallback/2, uninstall_fallback/1, backup_module/1, restore_args/2, restore_op/2, restore_tables/3]).
--export([fallback_receiver/2, install_on_nodes/2]).
+-export([fallback_receiver/2, install_on_nodes/2, tab_copier/3]).
 
 -include("clause_mnesia.hrl").
 
@@ -134,18 +134,32 @@ abort_write(#backup_args{module = Module, opaque = Opaque}, Reason) ->
     end,
     throw({error, Reason}).
 
-% A table's records: all of them now, then the retained ones; an incremental backup's records since the previous
-% checkpoint instead; a RAM table without a retainer of its own, its dumped records.
+% A table's records from its retainer here, or from a copier on the node writing it (MIM1H11a).
 backup_table(Tab, #backup_args{name = Name, prev_name = Prev} = B) ->
+    case clause_mnesia_checkpoint:retainer(Name, Tab) of
+        {remote, Node} ->
+            received(Node, Tab, B);
+        _ ->
+            case passes(Tab, Name, Prev) of
+                {First, Last} -> write_chunks(write_chunks(B, First), Last);
+                Error -> abort_write(B, Error)
+            end
+    end.
+
+% A table's backup items in OTP's two passes: all its records now, or for an incremental backup the keys changed since
+% the previous checkpoint; then the retained ones. A RAM table without a retainer of its own has its dumped records.
+passes(Tab, Name, Prev) ->
     case {clause_mnesia_checkpoint:retainer(Name, Tab), first_source(Tab, Name, Prev)} of
-        {{error, _} = Error, _} ->
-            abort_write(B, Error);
         {{ok, Store, true}, {retainer, PrevStore}} ->
-            write_keys(write_keys(B, Tab, PrevStore, latest), Tab, Store, checkpoint);
+            {keys(Tab, PrevStore, latest), keys(Tab, Store, checkpoint)};
         {{ok, Store, true}, table} ->
-            write_keys(write_table(B, Tab), Tab, Store, checkpoint);
+            {[setelement(1, R, Tab) || R <- table_records(Tab)], keys(Tab, Store, checkpoint)};
         {{ok, Store, false}, _} ->
-            write_keys(B, Tab, Store, checkpoint)
+            {[], keys(Tab, Store, checkpoint)};
+        {{remote, _}, _} ->
+            {error, {"No retainer attached to table", [Tab, Name]}};
+        {Error, _} ->
+            Error
     end.
 
 % Where a backup's records start: the table, or the previous checkpoint's retainer for an incremental backup.
@@ -159,11 +173,6 @@ first_source(Tab, _, Prev) ->
         _ -> table
     end.
 
-% The table's records now, KEYS keys at a time.
-write_table(B, Tab) ->
-    Records = [setelement(1, R, Tab) || R <- table_records(Tab)],
-    write_chunks(B, Records).
-
 table_records(schema) -> [defined(R) || R <- ets:tab2list(schema)];
 table_records(Tab) -> clause_mnesia_db:match_object(Tab, '_').
 
@@ -172,9 +181,8 @@ table_records(Tab) -> clause_mnesia_db:match_object(Tab, '_').
 defined({schema, Tab, _}) -> {schema, Tab, clause_mnesia_schema:cs2list(clause_mnesia_monitor:val({Tab, cstruct}))}.
 
 % Each retained key as a delete of the key, then its records now (latest) or at activation (checkpoint).
-write_keys(B, Tab, Store, Val) ->
-    Items = lists:append([key_items(Tab, Key, Old, Val) || {_, Key, Old} <- ets:tab2list(Store)]),
-    write_chunks(B, Items).
+keys(Tab, Store, Val) ->
+    lists:append([key_items(Tab, Key, Old, Val) || {_, Key, Old} <- ets:tab2list(Store)]).
 
 key_items(Tab, Key, _, latest) -> [{Tab, Key} | [setelement(1, R, Tab) || R <- table_records(Tab, Key)]];
 key_items(Tab, Key, Old, checkpoint) -> [{Tab, Key} | [setelement(1, R, Tab) || R <- Old]].
@@ -182,11 +190,73 @@ key_items(Tab, Key, Old, checkpoint) -> [{Tab, Key} | [setelement(1, R, Tab) || 
 table_records(schema, Key) -> [defined(R) || R <- ets:lookup(schema, Key)];
 table_records(Tab, Key) -> clause_mnesia_db:lookup(Tab, Key).
 
-write_chunks(B, Items) when length(Items) > ?KEYS ->
-    {Chunk, Rest} = lists:split(?KEYS, Items),
-    write_chunks(safe_write(B, Chunk), Rest);
 write_chunks(B, Items) ->
-    safe_write(B, Items).
+    lists:foldl(fun(Chunk, B2) -> safe_write(B2, Chunk) end, B, chunks(Items)).
+
+% Items KEYS at a time.
+chunks(Items) when length(Items) > ?KEYS ->
+    {Chunk, Rest} = lists:split(?KEYS, Items),
+    [Chunk | chunks(Rest)];
+chunks([]) ->
+    [];
+chunks(Items) ->
+    [Items].
+
+%% Tables backed up from another node (MIM1H11a), with OTP's tab_receiver and tab_copier protocol.
+
+% Tab's items from the copier spawned on the node writing its retainer: each chunk asked for with {self(), more, N}
+% and answered {Copier, {more, N2, Items}}, up to {Copier, {last, {ok, _}}}.
+received(Node, Tab, B) ->
+    % The literal fun links this node's copier into programs, which other nodes spawn by name.
+    _ = fun mnesia_log:tab_copier/3,
+    Copier = spawn(Node, mnesia_log, tab_copier, [self(), B, Tab]),
+    Ref = erlang:monitor(process, Copier),
+    try
+        received(Copier, Ref, Tab, B, 0)
+    after
+        erlang:demonitor(Ref, [flush])
+    end.
+
+received(Copier, Ref, Tab, B, Count) ->
+    Copier ! {self(), more, Count},
+    receive
+        {Copier, {more, Next, Items}} ->
+            received(Copier, Ref, Tab, safe_write(B, [setelement(1, I, Tab) || I <- Items]), Next);
+        {Copier, {last, {ok, _}}} ->
+            B;
+        {Copier, {last, {error, Reason}}} ->
+            abort_write(B, Reason);
+        {'DOWN', Ref, process, _, Reason} ->
+            abort_write(B, {'EXIT', Reason})
+    end.
+
+% The copier that a backup on another node spawns here (OTP's mnesia_log:tab_copier/3): its first pass, closed by an
+% empty chunk, then its retained items, each chunk sent when the receiver asks for more; then its last answer, after
+% it unlinks from the receiver, whose master traps exits.
+tab_copier(Receiver, #backup_args{name = Name, prev_name = Prev}, Tab) ->
+    Ref = erlang:monitor(process, Receiver),
+    {Count, Result} =
+        case passes(Tab, Name, Prev) of
+            {First, Last} ->
+                Chunks = chunks(First) ++ [[]] ++ chunks(Last),
+                {lists:foldl(fun(Chunk, N) -> send_chunk(Receiver, Ref, N, Chunk) end, 0, Chunks), {ok, dummy}};
+            Error ->
+                {0, Error}
+        end,
+    asked(Receiver, Ref, Count),
+    unlink(Receiver),
+    Receiver ! {self(), {last, Result}}.
+
+send_chunk(Receiver, Ref, Count, Chunk) ->
+    asked(Receiver, Ref, Count),
+    Receiver ! {self(), {more, Count + 1, Chunk}},
+    Count + 1.
+
+asked(Receiver, Ref, Count) ->
+    receive
+        {Receiver, more, Count} -> ok;
+        {'DOWN', Ref, process, _, Reason} -> exit(Reason)
+    end.
 
 header() ->
     {ok, Vsn} = application:get_key(mnesia, vsn),

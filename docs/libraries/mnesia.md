@@ -40,8 +40,9 @@ Clause's `mnesia` application (plan 21, MIM1) exports the OTP 29 interface of `m
   [dirty access](#dirty-access) to tables held on another node. MIM1H7, done: [locks](#locks) on other nodes. MIM1H8,
   done: [commits](#transactions) over several nodes. MIM1H9, done: [table copies](#schema-changes) and loads over
   several nodes. MIM1H10a, done: [disc nodes](#disc-nodes) created and started together. MIM1H10b, done: master
-  nodes, majority and copies between disc nodes. MIM1H10c, done: partitions of disc nodes and adopted orphans. What
-  OTP writes and sends is recorded in
+  nodes, majority and copies between disc nodes. MIM1H10c, done: partitions of disc nodes and adopted orphans.
+  MIM1H11a, done: [checkpoints](#checkpoints) and [backups](#backups) over nodes. What OTP writes and sends is recorded
+  in
   [mnesia's files and protocol](mnesia-protocol.md).
 
 Every other documented function works. See the [function inventory](../../library/mnesia/mnesia.terms) and
@@ -119,7 +120,11 @@ provides those modules, with the functions other nodes call and OTP's answers
 - [mnesia_schema](../../library/mnesia/mnesia_schema.erl): `remote_read_schema/0`, where a start would take the schema
   from, and `delete_schema2/0`;
 - [mnesia_controller](../../library/mnesia/mnesia_controller.erl): `get_remote_cstructs/0`, the table definitions;
-- [mnesia_rpc](../../library/mnesia/mnesia_rpc.erl): the server for `{apply, M, F, Args}` calls, and `call/4`.
+- [mnesia_rpc](../../library/mnesia/mnesia_rpc.erl): the server for `{apply, M, F, Args}` calls, and `call/4`;
+- [mnesia_checkpoint](../../library/mnesia/mnesia_checkpoint.erl): `tm_prepare/1`, `call/2`, `cast/2` and
+  `remote_deactivate/1`, with `mnesia_tm:prepare_checkpoint/1`, for checkpoints over nodes (MIM1H11a);
+- [mnesia_log](../../library/mnesia/mnesia_log.erl): `tab_copier/3`, which a backup on another node spawns
+  (MIM1H11a).
 
 `create_schema/1` and `delete_schema/1` ask each node through these queries, so they work with OTP nodes too.
 
@@ -621,6 +626,13 @@ A checkpoint keeps its tables as they were when it was activated
   `{Tab, {retainer, Name}}` variables and a `{checkpoints, Names}` entry first in the table's `commit_work`.
 - **Deactivating:** `deactivate_checkpoint/1` returns `ok`, or `{error, {no_exists, Name}}`. A checkpoint also ends when
   its table's replica here goes, with the `{mnesia_checkpoint_deactivated, Name}` system event and OTP's error report.
+- **Over nodes** (plan 21 step MIM1H11a, [protocol](mnesia-protocol.md#checkpoints-over-nodes-mim1h11a)): a retainer is
+  written by each active replica of a `max` table, by one replica of a `min` table, here when there is one. Each node
+  writing a retainer has the checkpoint's process and retains its own replica's updates, with OTP's calls, so OTP and
+  Clause nodes share checkpoints. A node going ends the checkpoints it alone wrote a table of; a node getting a new
+  replica (by its start or `add_table_copy/3`) joins the checkpoints keeping the table with most redundancy, with the
+  records retained so far; a replica deleted leaves its retainers. `deactivate_checkpoint/1` ends the checkpoint on
+  each of its nodes.
 
 ## Backups
 
@@ -641,6 +653,8 @@ by default `mnesia_backup` ([mnesia_backup](../../library/mnesia/mnesia_backup.e
     `abort_write/1` fails gets OTP's error report.
 - **`backup/1,2`:** a checkpoint of every table, backed up and deactivated. A table without a replica here makes it
   fail.
+- **Over nodes** (MIM1H11a, [protocol](mnesia-protocol.md#backups-over-nodes)): a table whose retainer another node
+  writes is read there, by OTP's copier `mnesia_log:tab_copier/3`. The checkpoint must be on the node backing it up.
 - **`traverse_backup/4,6`:** passes each schema item and record to the fun, and writes what it returns to the target,
   or nothing with the target module `read_only`. The result is `{ok, Acc}` or OTP's errors, such as
   `{"Backup traversal failed", Reason}`.
@@ -803,6 +817,12 @@ index of its rows by SNMP row index, as OTP's `mnesia_snmp_hook` does
   running disc nodes breaks three times; each side writes alone, the nodes report the partition when they meet (on
   stderr) and b starts again, with and without master nodes. Then replicas wait for each other at start and a adopts
   them, alone, while starting, and through its master node b. Its runs pair Clause nodes with OTP nodes both ways.
+- **`mnesia_remote_checkpoints` golden:** generated from OTP
+  ([fixture](../../tests/fixtures/executables/mnesia_remote_checkpoints/mnesia_remote_checkpoints.erl)). Checkpoints
+  are activated on a and b with retainers on either node or both, records change on both, and backups read the
+  other node's retainers; b stops (its checkpoints' end reported on stderr) and starts again, a new copy joins a
+  checkpoint with the records retained so far, and deactivations and a deleted copy end checkpoints. Its runs pair
+  Clause nodes with OTP nodes both ways.
 - **What `mnesia_dirty` covers:** answers before starting, system information, every `create_table` option and error, table
   properties, dirty access of each table type, indexes, counters, argument errors, schema changes, `schema/1`'s
   printout, error descriptions, and stopping and restarting.

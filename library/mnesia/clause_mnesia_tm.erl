@@ -10,7 +10,7 @@
 %% of their asym_trans commits (clause_mnesia_participant).
 -module(clause_mnesia_tm).
 -behaviour(gen_server).
--export([start_link/0, transaction/6, non_transaction/5, transactions/0, send_dirty/5, dirty_results/1]).
+-export([start_link/0, transaction/6, non_transaction/5, transactions/0, committing/0, send_dirty/5, dirty_results/1]).
 -export([apply_commit/3]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2]).
 
@@ -32,6 +32,10 @@ start_link() ->
 % system_info(transactions): {Counter, Pid, coordinator} for each transaction running.
 transactions() ->
     gen_server:call(mnesia_tm, info, infinity).
+
+% Other nodes' commits voted on or taking part here and not yet applied, which a checkpoint waits for (MIM1H11a).
+committing() ->
+    gen_server:call(mnesia_tm, committing, infinity).
 
 %% Client side.
 
@@ -357,7 +361,9 @@ handle_call({commit, #tid{pid = Pid} = Tid, Kind, Decision}, _From, #state{store
     unlink(Pid),
     {reply, committed, forget(Tid, State)};
 handle_call(info, _From, #state{stores = Stores} = State) ->
-    {reply, [{C, Pid, coordinator} || #tid{counter = C, pid = Pid} <- lists:sort(maps:keys(Stores))], State}.
+    {reply, [{C, Pid, coordinator} || #tid{counter = C, pid = Pid} <- lists:sort(maps:keys(Stores))], State};
+handle_call(committing, _From, #state{pending = Pending, participants = Participants} = State) ->
+    {reply, maps:keys(Pending) ++ maps:keys(Participants), State}.
 
 handle_cast({delete_transaction, Tid}, State) ->
     unlink(Tid#tid.pid),
