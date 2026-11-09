@@ -1,0 +1,8 @@
+%% OTP 29 pubkey_pbe exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
+{decode, 4, internal, declined}.
+{decrypt_parameters, 1, internal, declined}.
+{encode, 4, internal, declined}.
+{encrypt_parameters, 1, internal, declined}.
+{pbdkdf1, 4, internal, declined}.
+{pbdkdf2, 7, default, implemented}.

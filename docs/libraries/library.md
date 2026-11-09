@@ -109,6 +109,7 @@ Each provided module exports the complete OTP 29 interface for that module name.
 | [`clause_inets_app`](../../library/inets/clause_inets_app.erl), [`clause_httpc_manager`](../../library/inets/clause_httpc_manager.erl) | Application `inets`, with [`inets.app`](../../library/inets/inets.app) (plan 21 MIM6): its supervisors and the default profile's `httpc_manager`; `httpc` and `inets` come with MIM4 ([OTP applications](#otp-applications)) |
 | [`clause_runtime_tools_app`](../../library/runtime_tools/clause_runtime_tools_app.erl) | Application `runtime_tools`, with [`runtime_tools.app`](../../library/runtime_tools/runtime_tools.app) (plan 21 MIM6): `runtime_tools_sup` and its `ttb_autostart` child; `msacc` and `dbg` come with MIM5 ([OTP applications](#otp-applications)) |
 | [`tools.app`](../../library/tools/tools.app), [`eldap.app`](../../library/eldap/eldap.app), [`xmerl.app`](../../library/xmerl/xmerl.app), [`compiler.app`](../../library/compiler/compiler.app) | The resources of applications without a start module (plan 21 MIM6), so that resources depending on them start; their modules come with their steps (`eldap` MIM2, `xmerl` MIM3) |
+| [`inet_parse`](../../library/kernel/inet_parse.erl), [`inet_db`](../../library/kernel/inet_db.erl), [`ram_file`](../../library/kernel/ram_file.erl), [`io_lib_format`](../../library/stdlib/io_lib_format.erl), [`io_lib_pretty`](../../library/stdlib/io_lib_pretty.erl), [`pubkey_cert`](../../library/public_key/pubkey_cert.erl), [`pubkey_pbe`](../../library/public_key/pubkey_pbe.erl) | Undocumented OTP functions libraries call (plan 21 MIM7), the rest of each module declined ([undocumented modules](#undocumented-modules)) |
 
 Results and error reasons match OTP 29, including those produced by Erlang implementations
 and BIFs. For example, `lists:map(F, x)` raises `{case_clause, x}`, `lists:nth(0, L)` raises
@@ -373,6 +374,31 @@ cannot use that service at run time. Starting the complete OTP `kernel` applicat
 - **Logger dependency:** `logger` and `clause_logger` reference `application` through a runtime
   module name. These references do not cause application support to be linked unless the program
   otherwise references `application`.
+
+### Undocumented modules
+
+Some libraries call undocumented OTP functions (plan 21 MIM7). Clause provides those, with OTP's results; each
+module's other functions are declined in its inventory:
+
+- **`inet_parse`:** `address/1`, `strict_address/1`, `ipv4_address/1`, `ipv4strict_address/1`, `ipv6_address/1`,
+  `ipv6strict_address/1` and `ntoa/1` as `inet`'s `parse_*` functions and `ntoa/1`. `domain/1` checks a domain
+  name as OTP's: dot-separated labels of ASCII letters, digits, `-` and `_`, each starting with a letter or digit
+  and, but for the last, ending with one, with no length limit; a name whose last four labels are all digits is
+  not one.
+- **`inet_db`:** `gethostname/0` and `res_option/1`: the resolver's options as `inet_res` uses them (`domain`,
+  `nameserver` and `search` from the resolver configuration, `lookup` `[native]`, OTP's defaults), `badarg` for
+  another name.
+- **`ram_file`:** `open/2` opens a file in memory through `file:open/2` with `ram`; `get_size/1` answers its size
+  (`{error, einval}` once closed, `function_clause` for another file); `read/2`, `write/2`, `pread/2,3`,
+  `pwrite/2,3`, `position/2`, `truncate/1`, `sync/1`, `datasync/1` and `close/1` are `file`'s.
+- **`io_lib_format`:** `fwrite_g/1`, a float's shortest text (`float_to_list(F, [short])`).
+- **`io_lib_pretty`:** `print/1-6` over Clause's pretty printer: options, or a `record_print_fun`, which is asked
+  about each tuple of the term with an atom first; `print/3` takes a depth, `print/4,5,6` the column, line
+  length, depth and line characters. The text is OTP's; the deep list holding it differs
+  ([differences](../differences.md)).
+- **`pubkey_cert`:** `time_str_2_gregorian_sec/1` of a `utcTime` (its year in OTP's sliding window) or
+  `generalTime`.
+- **`pubkey_pbe`:** `pbdkdf2/7`, PBKDF2 over the pseudo-random function given, called as OTP calls it.
 
 ### OTP applications
 

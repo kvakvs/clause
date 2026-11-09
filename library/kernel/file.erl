@@ -583,6 +583,9 @@ file_request(Port, _, Raw, {pwrite, At, Bytes}) ->
     pwrite_request(Port, Raw, At, Bytes);
 file_request(_, _, Raw, raw) ->
     Raw;
+% ram_file:get_size/1 of a file not in memory (plan 21 step MIM7).
+file_request(_, _, _, get_size) ->
+    not_ram;
 file_request(Port, _, Raw, truncate) ->
     stopping(Raw, ok_reply(reply(port_control(Port, ?TRUNCATE, []))));
 file_request(Port, _, Raw, {advise, Offset, Length, Advice}) ->
@@ -1272,6 +1275,9 @@ ram_request({allocate, _, _}, State) ->
     {ok, State};
 ram_request(raw, State) ->
     {false, State};
+% ram_file:get_size/1 (plan 21 step MIM7).
+ram_request(get_size, #{contents := Contents} = State) ->
+    {{ok, byte_size(Contents)}, State};
 ram_request(_, State) ->
     % OTP's ram files have no line reads.
     {{error, enotsup}, State}.

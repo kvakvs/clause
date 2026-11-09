@@ -391,3 +391,8 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   an idle `httpc_manager`, `httpc_handler_sup`, `httpd_sup`) and `clause_runtime_tools_app` (`runtime_tools_sup`,
   `ttb_autostart`) with OTP's names, order and child modules; discovery adds the start modules of library
   applications reached only as dependencies; `mim_applications` golden — `320c738a`
+- **MIM7** undocumented OTP functions libraries call: `inet_parse` (addresses, `ntoa/1`, `domain/1`), `inet_db`
+  (`gethostname/0`, `res_option/1`), `ram_file` (`open/2`, `get_size/1`, file's functions), `io_lib_format:fwrite_g/1`,
+  `io_lib_pretty:print/1-6` (record funs as record lists), `pubkey_cert:time_str_2_gregorian_sec/1`,
+  `pubkey_pbe:pbdkdf2/7`; each module's rest declined; `dist_util:split_node/1` and `net_address.hrl` were already
+  there; `mim_undocumented` golden — `HASH`

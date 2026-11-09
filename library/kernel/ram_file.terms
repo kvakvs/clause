@@ -1,0 +1,20 @@
+%% OTP 29 ram_file exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
+{advise, 4, internal, declined}.
+{allocate, 3, internal, declined}.
+{close, 1, default, implemented}.
+{copy, 3, internal, declined}.
+{datasync, 1, default, implemented}.
+{get_file, 1, internal, declined}.
+{get_size, 1, default, implemented}.
+{ipread_s32bu_p32bu, 3, internal, declined}.
+{open, 2, default, implemented}.
+{position, 2, default, implemented}.
+{pread, 2, default, implemented}.
+{pread, 3, default, implemented}.
+{pwrite, 2, default, implemented}.
+{pwrite, 3, default, implemented}.
+{read, 2, default, implemented}.
+{sync, 1, default, implemented}.
+{truncate, 1, default, implemented}.
+{write, 2, default, implemented}.

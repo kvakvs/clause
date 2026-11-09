@@ -1,0 +1,14 @@
+%% OTP 29 io_lib_format exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
+{build, 1, internal, declined}.
+{build, 2, internal, declined}.
+{build_bin, 1, internal, declined}.
+{build_bin, 2, internal, declined}.
+{fwrite, 2, internal, declined}.
+{fwrite, 3, internal, declined}.
+{fwrite_bin, 2, internal, declined}.
+{fwrite_bin, 3, internal, declined}.
+{fwrite_g, 1, default, implemented}.
+{indentation, 2, internal, declined}.
+{scan, 2, internal, declined}.
+{unscan, 1, internal, declined}.

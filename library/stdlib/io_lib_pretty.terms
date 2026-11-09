@@ -1,0 +1,12 @@
+%% OTP 29 io_lib_pretty exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
+{intermediate, 7, internal, declined}.
+{print, 1, default, implemented}.
+{print, 2, default, implemented}.
+{print, 3, default, implemented}.
+{print, 4, default, implemented}.
+{print, 5, default, implemented}.
+{print, 6, default, implemented}.
+{print_bin, 2, internal, declined}.
+{write, 1, internal, declined}.
+{write, 2, internal, declined}.
