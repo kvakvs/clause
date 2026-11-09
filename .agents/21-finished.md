@@ -395,4 +395,4 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   (`gethostname/0`, `res_option/1`), `ram_file` (`open/2`, `get_size/1`, file's functions), `io_lib_format:fwrite_g/1`,
   `io_lib_pretty:print/1-6` (record funs as record lists), `pubkey_cert:time_str_2_gregorian_sec/1`,
   `pubkey_pbe:pbdkdf2/7`; each module's rest declined; `dist_util:split_node/1` and `net_address.hrl` were already
-  there; `mim_undocumented` golden — `HASH`
+  there; `mim_undocumented` golden — `e3a20880`
