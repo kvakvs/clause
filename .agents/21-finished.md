@@ -375,4 +375,4 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   global `uninstall_fallback` through OTP's `local_uninstall_fallback` (`started`, `do_uninstall`, `ok`); `restore/2`
   reads the backup while the transaction prepares and commits each node's records with the operations, participants
   clear or recreate before writing them, and each node restores only its replicas; `mnesia_remote_backups` golden
-  identical to OTP both ways — `HASH`
+  identical to OTP both ways — `e4334eb7`
