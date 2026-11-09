@@ -1,0 +1,19 @@
+%% OTP 29 xmerl_scan exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
+{accumulate_whitespace, 4, internal, declined}.
+{cont_state, 1, internal, declined}.
+{cont_state, 2, internal, declined}.
+{event_state, 1, internal, declined}.
+{event_state, 2, internal, declined}.
+{fetch_state, 1, internal, declined}.
+{fetch_state, 2, internal, declined}.
+{file, 1, internal, declined}.
+{file, 2, internal, declined}.
+{hook_state, 1, internal, declined}.
+{hook_state, 2, internal, declined}.
+{rules_state, 1, internal, declined}.
+{rules_state, 2, internal, declined}.
+{string, 1, default, implemented}.
+{string, 2, default, implemented}.
+{user_state, 1, internal, declined}.
+{user_state, 2, internal, declined}.

@@ -1031,3 +1031,7 @@ gotchas and user directions not recorded elsewhere.
   transaction there. Probe obs9 in scratch/mim1h11.
 - mnesia_remote_backups flakes under full-suite load (2026-11-09, MIM6 run): b's forced fallback shutdown can also
   kill mnesia_locker (supervisor shutdown_error report), which its stderr pattern rejects; passes alone.
+- MIM3a xmerl (2026-11-09): observe xmerl_scan by differential runs: scratch/mim3 cmp.erl/cmp2.erl compiled into
+  otp/ and cl/ (Clause's module compiled by erlc into cl/, first on the path), outputs diffed. Its report numbers
+  are OTP source lines; invalid_name keeps 6 characters, invalid_target_name 10. xmerl.hrl's ?whitespace is a
+  guard sequence: combined with another guard it ORs (use an orelse macro).

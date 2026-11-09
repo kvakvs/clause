@@ -396,3 +396,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   `io_lib_pretty:print/1-6` (record funs as record lists), `pubkey_cert:time_str_2_gregorian_sec/1`,
   `pubkey_pbe:pbdkdf2/7`; each module's rest declined; `dist_util:split_node/1` and `net_address.hrl` were already
   there; `mim_undocumented` golden — `e3a20880`
+- **MIM3a** xmerl scanning: `xmerl.hrl` (records and macros observed from OTP's), `xmerl_ucs` UTF conversions,
+  `xmerl_scan:string/1,2` in Erlang with OTP's text pieces, positions, languages, namespaces, the single-slot
+  xmlbase cache, options, fatal errors and their reports; `include_lib("xmerl/...")` resolves to the library;
+  `xmerl_scanning` golden — `HASH`

@@ -287,9 +287,15 @@ dependencies, non-test sources.
   the ELDAPv3 BER codec (Clause's ASN.1 BER engine, LIB84). MongooseIM's
   `ejabberd_auth_ldap`, `eldap_pool`, `mod_shared_roster_ldap` and `mod_vcard_ldap` are in
   `ignore_modules` until then.
-- **MIM3 `xmerl`:** `xmerl.hrl` records (`#xmlElement{}`, `#xmlText{}`, ...), `xmerl_scan:string/1,2`,
-  `xmerl_xpath:string/2` (erlcloud), `xmerl_ucs:from_utf8/1`, `to_utf8/1`, `is_unicode/1`,
-  `from_utf16be/1` (jiffy, rabbit_common). The scanner in C++, XPath over C++ helpers.
+- **MIM3 `xmerl`** (`docs/libraries/xmerl.md`), in Erlang (the C++ scanner of the first plan is not needed for
+  erlcloud's AWS responses; speed in "Later" if it matters):
+  - **MIM3a done** (`21-finished.md`): `xmerl.hrl`, `xmerl_ucs` (`from_utf8/1`, `to_utf8/1`, `is_unicode/1`,
+    `from_utf16be/1`), `xmerl_scan:string/1,2`.
+  - **MIM3b `xmerl_xpath:string/2,3`** over scanned documents: erlcloud's paths (absolute and relative child
+    steps, `*`, `//`, `/@attr`, `/text()`, a trailing `/`) and `xmerl_xs:select/2`; OTP's results for the rest of
+    XPath 1.0 as far as observed.
+  - **MIM3c `xmerl:export_simple/2,3`** with the `xmerl_xml` callback (erlcloud's request bodies, `prolog`
+    option).
 - **MIM4 `inets` client side:** `httpc:request/1,4` (erlcloud, MongooseIM) and
   `http_uri:encode/1`, `decode/1` (erlcloud, lhttpc, MongooseIM; OTP 29 exports only these two,
   erlcloud's `parse` calls sit behind `?OTP_RELEASE` guards). `httpc` over `gen_tcp`/`ssl` with OTP's profile,
@@ -332,7 +338,7 @@ dependencies, non-test sources.
 
 ### Order
 
-1. MIM3, MIM4, MIM2, MIM5 (MIM1A-MIM1G, MIM1H1-H12, MIM9's record wildcard, MIM6 and MIM7 done
+1. MIM3b, MIM3c, MIM4, MIM2, MIM5 (MIM1A-MIM1G, MIM1H1-H12, MIM9's record wildcard, MIM6, MIM7 and MIM3a done
    2026-11-02/09); MIM8 after a user decision.
 2. LIB81D3c, LIB81D4b and LIB81E on request.
 3. LIB82, LIB83 last (test support).
