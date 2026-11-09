@@ -369,4 +369,4 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   replica joins `max` checkpoints with the records retained so far, deactivation on every node; backups read the
   other node's retainers through OTP's copier protocol (`mnesia_log:tab_copier/3`, unlinking before its last answer);
   a node preparing a checkpoint waits for the commits applying there; new OTP-named `mnesia_checkpoint` and
-  `mnesia_log`; `mnesia_remote_checkpoints` golden identical to OTP both ways — `HASH`
+  `mnesia_log`; `mnesia_remote_checkpoints` golden identical to OTP both ways — `ce769fc3`
