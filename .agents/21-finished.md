@@ -361,4 +361,4 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   the tables other nodes intend to load from disc, or by their master nodes (`maybe_async_late_disc_load` both ways);
   `asym_trans` when the written tables differ in storage too, with a local `#decision{}` (and RAM writes) on one node;
   an early `im_certain` logged after the node's own decision; master nodes logged synchronously;
-  `mnesia_partitions` golden identical to OTP both ways — `HASH`
+  `mnesia_partitions` golden identical to OTP both ways — `39b84e75`
