@@ -422,4 +422,4 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
 - **MIM5a** msacc: the runtime accounts each worker's time running processes, port tasks, waiting and in between
   (`system_flag(microstate_accounting, true | false | reset)`, `statistics(microstate_accounting)` as scheduler
   threads in perf_counter units); `msacc`'s switching, microsecond counters, analyses, printed tables and files as
-  OTP's; `msacc_accounting` golden — `HASH`
+  OTP's; `msacc_accounting` golden — `e622018d`
