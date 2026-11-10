@@ -181,11 +181,28 @@ std::string path_literal(const std::filesystem::path &path) {
     return literal + "\"";
 }
 
-// The function returning one resource's term: its text, its lines kept so diagnostics point into the file.
-std::string resource_function(const std::size_t index, const Resource &resource) {
+// The function returning one resource's term: its text, its lines kept so diagnostics point into the file; with a vsn
+// from application_vsn, the term with that vsn (added for application versions, plan 21 step MIM9f).
+std::string resource_function(const std::size_t index, const Resource &resource,
+                              const std::map<std::string, std::string> &versions) {
     std::ifstream file(resource.file_, std::ios::binary);
-    const std::string text{std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
+    std::string text{std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
+    if (const auto found = versions.find(resource.name_); found != versions.end()) {
+        // The resource ends with its term's dot; the call goes around the term.
+        const auto dot = text.find_last_of('.');
+        text = "with_vsn(" + text.substr(0, dot) + ", " + string_source(found->second) + ")" +
+               (dot == std::string::npos ? "" : text.substr(dot));
+    }
     return "-file(" + path_literal(resource.file_) + ", 1).\napp_" + std::to_string(index) + "() -> " + text + "\n";
+}
+
+// Whether a resource's vsn is something other than a string: rebar3 computes such a vsn at build time.
+bool computed_vsn(const std::filesystem::path &file) {
+    std::ifstream stream(file, std::ios::binary);
+    const std::string text{std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
+    static const std::regex VSN(R"(\{\s*vsn\s*,\s*(\S))");
+    std::smatch match;
+    return std::regex_search(text, match, VSN) && match.str(1) != "\"";
 }
 } // namespace
 
@@ -215,10 +232,25 @@ std::string applications_source(const ApplicationPlaces &places) {
         source << library_clause(directory);
     }
     source << "library_modules(_) -> [].\n";
+    // Added for application versions (plan 21 step MIM9f).
+    source << "with_vsn({application, Name, Keys}, Vsn) -> {application, Name, lists:keystore(vsn, 1, Keys, {vsn, "
+              "Vsn})}.\n";
     for (std::size_t i = 0; i < found.size(); ++i) {
-        source << resource_function(i, found[i]);
+        source << resource_function(i, found[i], places.versions_);
     }
     return source.str();
+}
+
+std::vector<std::string> vsn_warnings(const ApplicationPlaces &places) {
+    std::vector<std::string> warnings;
+    for (const auto &resource : resources(places)) {
+        if (!places.versions_.contains(resource.name_) && computed_vsn(resource.file_)) {
+            warnings.push_back(project::path_text(resource.file_) + ": the vsn of application " + resource.name_ +
+                               " is not a string (rebar3 computes it while building); set it with the project "
+                               "option application_vsn");
+        }
+    }
+    return warnings;
 }
 
 std::filesystem::path applications_path() { return project::native_path("clause_applications.erl"); }

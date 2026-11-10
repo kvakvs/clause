@@ -65,3 +65,8 @@ disable_features = []
 # erts, kernel, stdlib and public_key headers come from Clause's library.
 [targets.options.applications]
 mongooseim = "references/MongooseIM"
+
+# mongooseim.app.src has {vsn, {cmd, "tools/generate_vsn.sh"}}, which rebar3 runs while building (git describe, else
+# the VERSION file); Clause runs no commands, so the version is given here (VERSION's).
+[targets.options.application_vsn]
+mongooseim = "6.10.0"

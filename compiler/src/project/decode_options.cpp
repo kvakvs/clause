@@ -21,6 +21,23 @@ std::map<std::string, Text> applications(const toml::table &values, const schema
     return result;
 }
 
+// Application versions by name, each a string. Added for application versions (plan 21 step MIM9f).
+std::map<std::string, Text> application_vsn(const toml::table &values, const schema::Context &context) {
+    const auto *node = values.get("application_vsn");
+    if (!node) {
+        return {};
+    }
+    std::map<std::string, Text> result;
+    for (const auto &[key, value] : schema::table(*node, context, "application_vsn")) {
+        if (key.str().empty()) {
+            fail(schema::site(value, context, "application_vsn"), "empty application name");
+        }
+        result.emplace(std::string(key.str()),
+                       schema::text(value, context, "application_vsn." + std::string(key.str())));
+    }
+    return result;
+}
+
 // Reject contradictory feature declarations before applying ordered CLI changes.
 // Every excluded kernel service is one kernel_sup can leave out. Added for opting out of kernel services (DIST4b1e).
 void check_kernel_services(const TargetOptions &options) {
@@ -47,10 +64,26 @@ void check_features(const TargetOptions &options) {
 TargetOptions decode_options(const toml::node &node, const schema::Context &context) {
     const auto &values = schema::table(node, context, "options");
     schema::keys(values,
-                 {"source_search_paths", "include_dirs", "application_include_dirs", "defines", "enable_features",
-                  "disable_features", "applications", "parse_transforms", "transform_paths", "ignore_dirs",
-                  "ignore_modules", "keep_exports", "shell", "epmd_executable", "bundled_epmd", "runtime_options",
-                  "distribution", "exclude_kernel_services", "cache_inference_in_dirs"},
+                 {"source_search_paths",
+                  "include_dirs",
+                  "application_include_dirs",
+                  "defines",
+                  "enable_features",
+                  "disable_features",
+                  "applications",
+                  "parse_transforms",
+                  "transform_paths",
+                  "ignore_dirs",
+                  "ignore_modules",
+                  "keep_exports",
+                  "shell",
+                  "epmd_executable",
+                  "bundled_epmd",
+                  "runtime_options",
+                  "distribution",
+                  "exclude_kernel_services",
+                  "cache_inference_in_dirs",
+                  "application_vsn"},
                  context);
     TargetOptions result;
     result.source_search_paths = schema::strings(values, "source_search_paths", context);
@@ -60,6 +93,7 @@ TargetOptions decode_options(const toml::node &node, const schema::Context &cont
     result.enable_features = schema::strings(values, "enable_features", context);
     result.disable_features = schema::strings(values, "disable_features", context);
     result.applications = applications(values, context);
+    result.application_vsn_ = application_vsn(values, context);
     result.parse_transforms = schema::strings(values, "parse_transforms", context);
     result.transform_paths = schema::strings(values, "transform_paths", context);
     result.ignore_dirs = schema::strings(values, "ignore_dirs", context);

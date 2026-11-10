@@ -361,6 +361,9 @@ cannot use that service at run time. Starting the complete OTP `kernel` applicat
   `application_controller`. The first file for each application name takes precedence. A resource
   that lists no modules is assigned the batch modules beside it. Diagnostics identify locations in
   the resource file.
+- **Versions rebar3 computes:** a `vsn` written `{cmd, Cmd}`, `git` or `semver` stays as written, with a warning;
+  the project option [`application_vsn`](../projects.md#effective-options) gives the application's version instead
+  (plan 21 step MIM9f). Clause runs no commands while building.
 - **Library applications:** a resource's `applications` key brings in the resources of the library applications
   it names, in turn (an application's `ssl` brings `public_key` and `asn1`). Once the batch has
   `application_controller`, the start module each of those library resources names joins the batch too, as nothing

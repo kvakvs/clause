@@ -197,6 +197,17 @@ void print_distribution(const BackendOptions &backend) {
     print_array("exclude_kernel_services", quoted_texts(backend.excluded_kernel_services));
 }
 
+// Print the application_vsn table as an inline table. Added for application versions (plan 21 step MIM9f).
+void print_application_vsn(const BackendOptions &backend) {
+    std::cout << "application_vsn = {";
+    std::string_view separator = " ";
+    for (const auto &[name, vsn] : backend.application_vsn) {
+        std::cout << separator << toml_string(name) << " = " << toml_string(vsn);
+        separator = ", ";
+    }
+    std::cout << (backend.application_vsn.empty() ? "}\n" : " }\n");
+}
+
 // Print code generation settings with the defaults compilation applies when an option is absent.
 void print_backend(const BackendOptions &backend, const std::string &triple) {
     const auto level = backend.optimization.value_or(codegen::OptimizationLevel::none);
@@ -210,6 +221,7 @@ void print_backend(const BackendOptions &backend, const std::string &triple) {
     print_value("keep_exports", backend.keep_exports ? "true" : "false");
     print_value("shell", backend.shell ? "true" : "false");
     print_distribution(backend);
+    print_application_vsn(backend);
     print_value("with_crypto", backend.with_crypto ? "true" : "false"); // Added for the crypto runtime archive.
     print_value("fips", toml_path(backend.fips.value_or("")));          // Added for crypto's FIPS mode.
     print_value("emit", toml_string(emission_name(backend.emit)));

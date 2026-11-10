@@ -544,6 +544,7 @@ ApplicationPlaces application_places(const Inputs &inputs, const FrontendRequest
         places.applications_.emplace_back(name, absolute(directory));
     }
     places.library_ = library.directories_;
+    places.versions_ = request.backend.application_vsn; // Added for application versions (plan 21 step MIM9f).
     return places;
 }
 
@@ -697,6 +698,9 @@ bool add_applications(const Discovery &discovery, const FrontendRequest &shared,
         return false;
     }
     const auto places = application_places(inputs, shared, discovery.library);
+    for (const auto &warning : vsn_warnings(places)) {
+        sink("warning: " + warning); // Added for application versions (plan 21 step MIM9f).
+    }
     FrontendRequest request;
     request.compile = true;
     SourceManager sources;

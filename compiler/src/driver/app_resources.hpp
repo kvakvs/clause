@@ -3,6 +3,7 @@
 // `.app` and `.app.src` files at compile time and compiled into the generated module clause_applications, which
 // Clause's application_controller reads instead of searching a code path (docs/libraries/library.md#applications).
 #include <filesystem>
+#include <map>
 #include <string>
 #include <utility>
 #include <vector>
@@ -16,6 +17,9 @@ struct ApplicationPlaces {
     std::vector<std::pair<std::string, std::filesystem::path>> applications_;
     // The library's application directories (erts, kernel, stdlib), whose modules the virtual applications list.
     std::vector<std::filesystem::path> library_;
+    // The vsn replacing an application's resource's (the project option application_vsn). Added for application
+    // versions (plan 21 step MIM9f).
+    std::map<std::string, std::string> versions_ = {};
 };
 
 // The Erlang source of clause_applications: specs/0 gives each resource's term with the modules beside it, and
@@ -24,6 +28,9 @@ std::string applications_source(const ApplicationPlaces &places);
 // The start modules the library resources of a program name (`{mod, {clause_sasl_app, []}}`), those reached only as
 // another resource's dependency too: no module calls them. Added for application resources (plan 21 step MIM6).
 std::vector<std::string> library_start_modules(const ApplicationPlaces &places);
+// A warning for each resource whose vsn is not a string (rebar3's {cmd, Cmd}, git, semver) and that application_vsn
+// does not replace. Added for application versions (plan 21 step MIM9f).
+std::vector<std::string> vsn_warnings(const ApplicationPlaces &places);
 // The synthetic path naming the generated module in diagnostics and progress.
 std::filesystem::path applications_path();
 } // namespace clause::cli

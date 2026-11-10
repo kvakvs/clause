@@ -31,6 +31,7 @@ BackendOptions target_options(const Options &options, const project::Invocation 
     backend.runtime_options = target.runtime_options_;
     backend.distribution = backend.distribution || target.distribution_;
     std::ranges::copy(target.excluded_kernel_services_, std::back_inserter(backend.excluded_kernel_services));
+    backend.application_vsn = target.application_vsn_; // Added for application versions (plan 21 step MIM9f).
     return backend;
 }
 

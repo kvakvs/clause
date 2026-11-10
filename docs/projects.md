@@ -455,6 +455,7 @@ ignore_modules = ["telemetry", "*_SUITE"]
 | `source_search_paths` | Fallback roots for literal sources and the modules the target names but does not list; patterns expand like `include_dirs` (unmatched: `unmatched source search path pattern`) |
 | `defines` | Manifest first, then CLI; duplicates across both are errors |
 | `applications` | Manifest map; CLI entries replace matching names |
+| `application_vsn` | Manifest map only (`[targets.options.application_vsn]`, `mongooseim = "6.10.0"`): the `vsn` of the named applications' resources ([application resources](libraries/library.md#applications)) is replaced by the string, so `application:get_key/2` and `which_applications/0` give it. rebar3 computes a `vsn` written `{cmd, Cmd}`, `git` or `semver` while building; Clause runs no commands, keeps such a `vsn` as written and warns `the vsn of application A is not a string (rebar3 computes it while building); set it with the project option application_vsn` (plan 21 step MIM9f) |
 | Feature lists | Manifest settings, then ordered CLI changes; CLI wins |
 | `output` | Per target, executable targets only; CLI `-o` overrides for a single selected target |
 | `entry` | Per target; CLI `--entry` overrides for a single selected target |

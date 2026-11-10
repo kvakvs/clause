@@ -36,6 +36,9 @@ struct TargetOptions {
     std::vector<Text> disable_features;
     // Map include_lib application names to explicitly located roots.
     std::map<std::string, Text> applications;
+    // The vsn of applications whose resource has rebar3's build-time form ({cmd, Cmd}, git, semver), by name
+    // (docs/projects.md). Added for application versions (plan 21 step MIM9f).
+    std::map<std::string, Text> application_vsn_;
     // Parse transforms applied to every module of the target, and directories (or patterns) of precompiled
     // transform modules (docs/transforms.md). Added for parse transforms.
     std::vector<Text> parse_transforms;

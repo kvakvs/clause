@@ -145,8 +145,6 @@ stops in the frontend on the gaps below, so later stages are not surveyed yet.
   `jiffy`, `fast_pbkdf2`, `stringprep`), or NIF loading through the runtime.
 - **MIM9 compiler and project gaps** (not library: route to plan 11 when picked up):
   - `-nifs` is rejected (plan 11, 65A–65C); with MIM8.
-  - MongooseIM's `.app.src` has `{vsn, {cmd, "tools/generate_vsn.sh"}}` (rebar runs the command): not checked how
-    Clause loads it.
 
 ### Order
 

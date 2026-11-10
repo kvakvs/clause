@@ -73,6 +73,9 @@ cache_inference_in_dirs = []
 # Explicit include_lib application roots. Empty by default.
 # Example entry: my_dependency = "vendor/my_dependency"
 [targets.options.applications]
+
+# The vsn of applications whose .app.src computes it in rebar3 ({cmd, Cmd}, git, semver), e.g. my_app = "1.2.0".
+[targets.options.application_vsn]
 )PROJECT";
     const auto position = result.find("@OUTPUT@");
     result.replace(position, std::string_view("@OUTPUT@").size(), windows ? "build/app.exe" : "build/app");

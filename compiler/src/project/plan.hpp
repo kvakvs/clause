@@ -6,6 +6,7 @@
 #include "options.hpp"
 #include <chrono>
 #include <functional>
+#include <map>
 
 namespace clause::project {
 struct PlanOptions {
@@ -70,6 +71,8 @@ struct PlannedTarget {
     bool distribution_ = false;
     // The exclude_kernel_services ids. Added for opting out of kernel services (plan 30 step DIST4b1e).
     std::vector<std::string> excluded_kernel_services_ = {};
+    // The application_vsn table. Added for application versions (plan 21 step MIM9f).
+    std::map<std::string, std::string> application_vsn_ = {};
     // Where Clause keeps its temporary files and caches: --build-dir, else build_dir, else <manifest-dir>/build.
     // Added for the build directory (62D1).
     std::filesystem::path build_directory_ = {};

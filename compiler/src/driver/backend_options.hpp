@@ -1,5 +1,6 @@
 #pragma once
 #include "../codegen/request.hpp"
+#include <map>
 #include <optional>
 #include <span>
 #include <string>
@@ -58,6 +59,9 @@ struct BackendOptions {
     // kernel_sup's child ids it does not start, nor links for it (--exclude-kernel-service or the project option
     // exclude_kernel_services). Added for opting out of kernel services (plan 30 step DIST4b1e).
     std::vector<std::string> excluded_kernel_services = {};
+    // The vsn of applications, by name, replacing their resource's (the project option application_vsn). Added for
+    // application versions (plan 21 step MIM9f).
+    std::map<std::string, std::string> application_vsn = {};
     // Override the Clang driver and runtime archive used to link an explicit --output executable.
     std::optional<std::filesystem::path> linker;
     std::optional<std::filesystem::path> runtime_library;

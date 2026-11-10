@@ -139,6 +139,25 @@ std::vector<PlannedAsn1> asn1_groups(const Target &target, const std::filesystem
     }
     return result;
 }
+
+// The target's options for its program: exports, shell, epmd, distribution, kernel services, runtime options and
+// application versions (application_vsn added for plan 21 step MIM9f).
+void program_options(const TargetOptions &options, PlannedTarget &planned) {
+    planned.keep_exports_ = options.keep_exports_;
+    planned.shell_ = options.shell_;
+    planned.epmd_executable_ = options.epmd_executable_;
+    planned.bundled_epmd_ = options.bundled_epmd_;
+    planned.distribution_ = options.distribution_;
+    for (const auto &id : options.exclude_kernel_services_) {
+        planned.excluded_kernel_services_.push_back(id.value);
+    }
+    for (const auto &word : options.runtime_options_) {
+        planned.runtime_options_.push_back(word.value);
+    }
+    for (const auto &[name, vsn] : options.application_vsn_) {
+        planned.application_vsn_.emplace(name, vsn.value);
+    }
+}
 } // namespace
 
 Invocation prepare(const Manifest &manifest, const PlanOptions &options) {
@@ -165,17 +184,7 @@ Invocation prepare(const Manifest &manifest, const PlanOptions &options) {
              output_path(target, options, base), entry_selection(target, options), std::move(search)});
         transform_options(base, target, options.discovery, result.targets.back());
         result.targets.back().ignore_ = std::move(ignore);
-        result.targets.back().keep_exports_ = target.options.keep_exports_;
-        result.targets.back().shell_ = target.options.shell_;
-        result.targets.back().epmd_executable_ = target.options.epmd_executable_;
-        result.targets.back().bundled_epmd_ = target.options.bundled_epmd_;
-        result.targets.back().distribution_ = target.options.distribution_;
-        for (const auto &id : target.options.exclude_kernel_services_) {
-            result.targets.back().excluded_kernel_services_.push_back(id.value);
-        }
-        for (const auto &word : target.options.runtime_options_) {
-            result.targets.back().runtime_options_.push_back(word.value);
-        }
+        program_options(target.options, result.targets.back());
         result.targets.back().build_directory_ = build_directory(target, options, base);
         result.targets.back().cache_dirs_ = cache_dirs(target, options);
         result.targets.back().asn1_ =
