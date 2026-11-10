@@ -482,4 +482,4 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   `clause_applications` (`with_vsn/2` around the term); a resource whose `vsn` is not a string (rebar3's `{cmd, Cmd}`,
   `git`, `semver`) and has no override keeps it with a warning. `test-mim.toml` sets `mongooseim = "6.10.0"`
   (`VERSION`). `--print-env` prints it; the starter template lists the table. Checked by `project_applications`.
-  Commit: pending.
+  Commit 6b1f647e.
