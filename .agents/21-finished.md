@@ -449,4 +449,4 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   relative to the directory above the nearest `src` of each source) searched after the source's directory and the
   working directory, before `include_dirs`, as rebar3 compiles each application; part of the compile cache key and
   `--print-env`. `test-mim.toml` uses `["include"]`, so mysql and epgsql get their own `protocol.hrl`. Checked by
-  `project_workflow` (`application_include_dirs`, `shared_include_dirs`). Commit: pending.
+  `project_workflow` (`application_include_dirs`, `shared_include_dirs`). Commit bbade30f.
