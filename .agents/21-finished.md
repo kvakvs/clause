@@ -423,3 +423,25 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   (`system_flag(microstate_accounting, true | false | reset)`, `statistics(microstate_accounting)` as scheduler
   threads in perf_counter units); `msacc`'s switching, microsecond counters, analyses, printed tables and files as
   OTP's; `msacc_accounting` golden — `e622018d`
+- **MongooseIM phase summary** (MIM1-MIM7, 2026-10-30 to 2026-11-10; moved from `21-lib.md`):
+  - **mnesia design:** Erlang over `ets`, `dets` and `disk_log`, never OTP's sources; what programs observe is OTP's
+    (public named `ets` tables with keypos 2, `{aborted, Reason}`, `{tid, N, Pid}`, `table_info`/`system_info`
+    items, events, the backup callback interface, OTP's registered names); `add_backend_type/2` declined; docs
+    `docs/libraries/mnesia.md`, one golden per step.
+  - **mnesia over nodes (MIM1H):** Clause and OTP 29 nodes share one database (protocol `{8,6}`, accepting `{8,5}`;
+    OTP's files in each directory). Method: scenarios observed on two OTP nodes and written down as message tables
+    in `docs/libraries/mnesia-protocol.md`; records crossing nodes or files stay OTP's field for field; OTP's
+    internal module names peers `rpc` into are thin modules over the `clause_mnesia_*` servers (other functions
+    declined); raw-receive servers answer OTP's raw messages; multi-node goldens with OTP peers, both directions.
+  - **mnesia not covered over nodes:** more than two nodes (checkpoint node order, majority over more than two
+    replicas, orphans), RAM-only and `local_content` orphans, OTP's `early_connects` and `busy` while a down is
+    processed, `wait_for_decision`/`max_wait_for_decision`, `load_order`/`no_table_loaders` and blocking during
+    transfers (answered without blocking), `mnesia_late_loader` idle, the merge asks only the first node per
+    transaction, `mnesia:kill/0` multicalls `clause_mnesia_app`, SNMP dirty reads reach only Clause holders,
+    transactions pending at checkpoint activation (Clause waits), `change_table_copy_type/3` of a retained table,
+    refused global fallback installation order and fallbacks with `mnesia_dir`/`skip_tables`/`keep_tables` over
+    nodes; the event order of a multi-record transaction on other nodes is a difference.
+  - **Scope decisions:** inets' servers (`httpd`, `ftp`, `tftp`) stay out unless asked (prometheus_httpd's
+    `inets:start(httpd, ...)` is `undef`, no `httpd.hrl`); `pg2` not provided (removed in OTP 24); `eldap`'s
+    `parse_dn/1`, `parse_ldap_url/1` and `loop/2` declined; `dbg` declined (MIM5b, `00-reject.md`); MongooseIM's
+    LDAP modules left `ignore_modules` with MIM2.
