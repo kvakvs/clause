@@ -52,7 +52,8 @@ include_dirs = [
 application_include_dirs = ["include"]
 # Predefined macros, e.g. ["DEBUG", "LIMIT=100", 'LABEL="demo"'].
 # A bare name means true; values are Erlang literal terms. Duplicates are errors.
-defines = []
+# gen_fsm_compat's body is in -ifdef('20.0'): rebar's rebar_erl_vsn plugin defines a macro per OTP release.
+defines = ["'20.0'"]
 # Empty lists preserve compiler feature defaults; CLI feature settings apply last.
 # Example overrides: enable_features = ["maybe_expr"].
 # Do not list a feature in both arrays.

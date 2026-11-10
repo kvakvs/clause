@@ -474,3 +474,6 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   {on_load_function_failed,M,R}}},...}}`, exit 1 (observed on an OTP embedded-mode release). `module_info(attributes)`
   drops `on_load` as OTP does. Placeholder audit moved to `-nifs`. Checked by `on_load_modules` (OTP golden plus two
   authored failure runs) and `frontend_cli` cases. Commit 431ca11d.
+- **MIM9e `gen_fsm_compat`** (2026-11-10): project configuration, not a compiler gap: its whole body sits in
+  `-ifdef('20.0')`, a macro rebar's `rebar_erl_vsn` plugin defines per OTP release; `test-mim.toml` defines `'20.0'`,
+  so its callbacks exist and the `behaviour gen_fsm_compat undefined` warnings go. Commit: pending.
