@@ -450,3 +450,8 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   working directory, before `include_dirs`, as rebar3 compiles each application; part of the compile cache key and
   `--print-env`. `test-mim.toml` uses `["include"]`, so mysql and epgsql get their own `protocol.hrl`. Checked by
   `project_workflow` (`application_include_dirs`, `shared_include_dirs`). Commit bbade30f.
+- **MIM9b transform-time calls** (2026-11-10): a transform that fails on `undef` of a module the loader has no code
+  for (raised, or reported as an error `{undef, Stack}` as parse_trans's `ct_expand` does) gets a fourth reply
+  element naming it; clau adds that module's project source with its callees and reruns the chain, up to 64 modules
+  (`transforms/pipeline.cpp` `run_chain`). hackney's `ct_expand:term(... certifi:cacerts() ...)` now runs. Checked by
+  `transforms_project` (`compile_time` fixture, on erl and in the transform host). Commit: pending.

@@ -107,7 +107,8 @@ transform([Transform | Rest], Forms0, Options, File, Warnings) ->
             Forms = maybe_strip_columns(Forms0, Transform, Options),
             try Transform:parse_transform(Forms, Options) of
                 {error, Errors, More} ->
-                    {error, messages(Errors), Warnings ++ messages(More)};
+                    Reported = [Reason || {_, Items} <- Errors, {_, _, Reason} <- Items],
+                    with_missing({error, messages(Errors), Warnings ++ messages(More)}, Reported);
                 {warning, Next, More} ->
                     transform(Rest, Next, Options, File, Warnings ++ messages(More));
                 Next ->
@@ -116,11 +117,30 @@ transform([Transform | Rest], Forms0, Options, File, Warnings) ->
                 Class:Reason:Stack ->
                     Error =
                         {File, none, compile_error({parse_transform, Transform, {Class, Reason, Stack}})},
-                    {error, [Error], Warnings}
+                    with_missing({error, [Error], Warnings}, [{Class, Reason, Stack}])
             end
     end;
 transform([], Forms, Options, _File, Warnings) ->
     {ok, formatted(strip_columns_if(Forms, option_location(Options) =:= line)), Warnings}.
+
+%% A transform that called a module the loader has no code for (ct_expand evaluating the module's own calls) names it,
+%% so that clau can send that module's project source and run the chain again: the undef it raised, or the one it
+%% reported as an error (parse_trans reports {undef, Stack}). Added for transform-time calls (plan 21 step MIM9b).
+with_missing(Reply, Failures) ->
+    case [Module || Failure <- Failures, Module <- [undefined_module(Failure)], Module =/= none] of
+        [Module | _] -> erlang:append_element(Reply, atom_to_list(Module));
+        [] -> Reply
+    end.
+
+undefined_module({error, undef, Stack}) ->
+    undefined_module({undef, Stack});
+undefined_module({undef, [{Module, _, _, _} | _]}) when is_atom(Module) ->
+    case erlang:module_loaded(Module) orelse code:which(Module) =/= non_existing of
+        true -> none;
+        false -> Module
+    end;
+undefined_module(_) ->
+    none.
 
 %% Error and warning forms the transforms return, formatted here with Module:format_error/1 since clau cannot
 %% (plan 21 LIB77D); Clause's own source problems (clause_source) stay as they came.

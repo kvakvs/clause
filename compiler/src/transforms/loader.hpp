@@ -70,6 +70,9 @@ struct TransformReply {
     std::string output_;
     // The reply as the loader wrote it, which compile cache fingerprints hash. Added for the compile cache (62D4).
     std::string bytes_;
+    // A module a failed transform called that the loader has no code for; its project source may let the chain run.
+    // Added for transform-time calls (plan 21 step MIM9b).
+    std::optional<std::u32string> missing_;
 };
 
 // What a host erl run depends on besides the files it reads: its kind ("transform", "sticky"), the request (erl,

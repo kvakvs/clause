@@ -253,19 +253,26 @@ std::optional<std::filesystem::path> host_erl(const TransformSettings &settings,
     }
 }
 
+// The modules a request's runner has of its own, whose project sources are never sent: those Clause's transform host
+// links, or the host erl's sticky ones (added for transform source caching).
+HostModule runner_modules(const TransformSettings &settings, const TransformRequest &request) {
+    if (request.clause_host_) {
+        return [&settings](const std::u32string &module) { return settings.host_->provides(module); };
+    }
+    return [&settings, erl = request.erl_](const std::u32string &module) {
+        return settings.sticky_ &&
+               settings.sticky_->contains(erl, module, settings.temporary_directory_, settings.cache_.get());
+    };
+}
+
 // The request for the host erl, with the project sources it compiles, or none after an error. Added for the
 // transform host.
 std::optional<TransformRequest> erl_request(const std::filesystem::path &erl, std::vector<std::u32string> transforms,
                                             const TransformSettings &settings, const CompileOptions &options,
                                             const std::string &file, TransformOutcome &outcome,
                                             SourceManager &sources) {
-    // The host's own sticky modules need no sources. Added for transform source caching.
-    const HostModule sticky = [&](const std::u32string &module) {
-        return settings.sticky_ &&
-               settings.sticky_->contains(erl, module, settings.temporary_directory_, settings.cache_.get());
-    };
     auto request = request_for(erl, std::move(transforms), settings, options, file);
-    if (!add_sources(settings, sticky, request, outcome, sources)) {
+    if (!add_sources(settings, runner_modules(settings, request), request, outcome, sources)) {
         return std::nullopt;
     }
     return request;
@@ -306,8 +313,7 @@ std::optional<TransformRequest> host_request(std::vector<std::u32string> transfo
     }
     auto request = request_for(host, std::move(transforms), settings, options, file);
     request.clause_host_ = true;
-    const HostModule linked = [&](const std::u32string &module) { return settings.host_->provides(module); };
-    if (!add_sources(settings, linked, request, outcome, sources)) {
+    if (!add_sources(settings, runner_modules(settings, request), request, outcome, sources)) {
         return std::nullopt;
     }
     return request;
@@ -337,6 +343,39 @@ std::optional<TransformRequest> request_of(std::vector<std::u32string> transform
     }
     return std::nullopt;
 }
+
+// At most this many modules a chain calls are added to its request one by one. Added for transform-time calls.
+constexpr std::size_t MISSING_MODULES = 64;
+
+// Add the project sources of a module a failed chain called: false when the request already has them all or there
+// are none, or one could not be read. Added for transform-time calls (plan 21 step MIM9b).
+bool add_missing(const std::u32string &module, const TransformSettings &settings, TransformRequest &request,
+                 TransformOutcome &outcome, SourceManager &sources) {
+    if (!settings.find_sources_ || !settings.read_source_) {
+        return false;
+    }
+    const auto before = request.sources_.size();
+    for (auto &path : settings.find_sources_(module, runner_modules(settings, request))) {
+        if (!add_source(std::move(path), settings, request, outcome, sources)) {
+            return false;
+        }
+    }
+    return request.sources_.size() > before;
+}
+
+// Run the chain; while it fails calling a module with a project source (ct_expand evaluating the module's own calls,
+// as rebar3 has every dependency on the code path), run it again with that source. Added for transform-time calls.
+std::optional<TransformReply> run_chain(const AbstractModule &module, TransformRequest &request,
+                                        const TransformSettings &settings, TransformOutcome &outcome,
+                                        SourceManager &sources) {
+    auto reply = run(module, request, settings.cache_.get(), outcome, sources);
+    for (std::size_t round = 0; reply && reply->missing_ && round < MISSING_MODULES &&
+                                add_missing(*reply->missing_, settings, request, outcome, sources);
+         ++round) {
+        reply = run(module, request, settings.cache_.get(), outcome, sources);
+    }
+    return reply;
+}
 } // namespace
 
 bool wants_transforms(const ast::Module &syntax, const TransformSettings &settings) {
@@ -358,11 +397,11 @@ TransformOutcome transform_module(const ast::Module &syntax, const Source &main,
     if (missing_paths(settings, main.name, outcome, sources)) {
         return outcome;
     }
-    const auto request = request_of(std::move(transforms), settings, options, main.name, outcome, sources);
+    auto request = request_of(std::move(transforms), settings, options, main.name, outcome, sources);
     if (!request) {
         return outcome;
     }
-    const auto reply = run(module, *request, settings.cache_.get(), outcome, sources);
+    const auto reply = run_chain(module, *request, settings, outcome, sources);
     if (!reply) {
         return outcome;
     }

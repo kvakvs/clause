@@ -6,7 +6,8 @@ links a program that prints what OTP prints; ignored search directories and sour
 (with what they call) are left out of the transform's sources; a transform source the loader cannot compile is
 reported with the
 precompile hint; a precompiled .beam on a code path wins over the source. With --erl none, Clause's transform host
-interprets those .beam files from their debug_info, and asks for --erl for one without it (plan 21 LIB77C).
+interprets those .beam files from their debug_info, and asks for --erl for one without it (plan 21 LIB77C). A
+transform that evaluates the module's own calls gets the sources of the modules they call (plan 21 MIM9b).
 """
 import pathlib
 import shutil
@@ -99,6 +100,18 @@ def host_beams(tool, erl, root, fixtures):
     return failures
 
 
+def compile_time(tool, erl, fixtures, work):
+    """A transform evaluating the module's own calls (as ct_expand) gets the project sources of the modules they reach
+    as it finds them missing, on erl and in Clause's transform host. Added for transform-time calls (plan 21 MIM9b)."""
+    failures = []
+    for runner in (erl, "none"):
+        root = work / "compile_time"
+        shutil.rmtree(root, ignore_errors=True)
+        shutil.copytree(fixtures / "compile_time", root)
+        failures += [f"compile time ({runner}): {failure}" for failure in program(tool, runner, root)]
+    return failures
+
+
 def main():
     tool, erl, fixtures, work = sys.argv[1:]
     if erl == "-":
@@ -109,7 +122,8 @@ def main():
     root, failures = prepare(erl, fixtures, work)
     if not failures:
         failures = (program(tool, erl, root) + skipped_sources(tool, erl, root) + broken(tool, erl, root) +
-                    precompiled(tool, erl, root, fixtures) + host_beams(tool, erl, root, fixtures))
+                    precompiled(tool, erl, root, fixtures) + host_beams(tool, erl, root, fixtures) +
+                    compile_time(tool, erl, fixtures, work))
     if failures:
         print("\n".join(failures), file=sys.stderr)
         sys.exit(1)

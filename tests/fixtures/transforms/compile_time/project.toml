@@ -1,0 +1,11 @@
+# A transform that evaluates expressions while it runs (as parse_trans's ct_expand), calling project modules the
+# transformed module names: their sources reach the transform host as it finds them missing (plan 21 step MIM9b).
+schema_version = 1
+
+[[targets]]
+name = "app"
+sources = ["src/*.erl"]
+output = "app.exe"
+
+[targets.options]
+source_search_paths = ["transforms", "lib"]

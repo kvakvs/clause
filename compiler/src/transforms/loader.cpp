@@ -264,15 +264,19 @@ std::set<std::u32string> sticky_modules(const fs::path &erl, const std::optional
     return result;
 }
 
-// {ok, Forms, Warnings} | {error, Errors, Warnings} | {failed, Text}.
+// {ok, Forms, Warnings} | {error, Errors, Warnings} | {error, Errors, Warnings, MissingModule} | {failed, Text}.
 void parse_reply(const std::string &bytes, TransformReply &reply) {
     const auto root = decode_external(bytes, reply.terms_);
     const auto parts = reply.terms_.node(root).children_;
     if (parts.size() == 2 && reply.terms_.is_atom(parts[0], U"failed")) {
         throw LoaderError("parse transform loader failed: " + utf8(reply.terms_.text(parts[1]).value_or(U"?")));
     }
-    if (parts.size() != 3) {
+    const bool missing = parts.size() == 4 && reply.terms_.is_atom(parts[0], U"error");
+    if (parts.size() != 3 && !missing) {
         throw LoaderError("malformed loader reply");
+    }
+    if (missing) {
+        reply.missing_ = reply.terms_.text(parts[3]); // Added for transform-time calls (plan 21 step MIM9b).
     }
     reply.ok_ = reply.terms_.is_atom(parts[0], U"ok");
     if (reply.ok_) {

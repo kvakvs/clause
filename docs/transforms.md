@@ -271,7 +271,12 @@ A transform module is looked up in this order:
    [module search](projects.md#ignored-sources) does. Clause looks for these
    sources once per batch and keeps them in memory; the loader still compiles
    them for every module the transform runs on, so precompile a large transform
-   to save that time (with `debug_info` for the transform host). Modules the host loads from its sticky directories
+   to save that time (with `debug_info` for the transform host). A transform
+   that fails calling a module the loader has no code for, as parse_trans's
+   `ct_expand` does when it evaluates the module's own calls while compiling,
+   gets that module's project source the same way (with the modules it calls)
+   and runs again, for up to 64 such modules: rebar3 has every dependency on the
+   code path. Modules the host loads from its sticky directories
    (`kernel`, `stdlib`, `compiler`, such as `ms_transform` or `qlc_pt` when
    OTP's sources are on a search path) cannot be reloaded, so the host's own
    modules are used: their sources, and the modules only they call, are not
