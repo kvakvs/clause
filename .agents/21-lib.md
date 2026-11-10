@@ -27,8 +27,8 @@ internal functions stay out unless a public function needs them (user direction 
 - **Done** (`21-finished.md`): every documented module of `erts`, `kernel` and `stdlib`, `crypto` (LIB79),
   `public_key` (LIB80), `ssl` (LIB81A–D5); for MongooseIM `mnesia` with several nodes (MIM1), `eldap` (MIM2),
   `xmerl` (MIM3), inets' client (MIM4), `msacc` (MIM5a), application resources (MIM6) and undocumented functions
-  libraries call (MIM7).
-- **Left:** MongooseIM's NIF dependencies (MIM8, last) and compiler gaps (MIM9, plan 11), optional `ssl` steps on
+  libraries call (MIM7), the compiler and project gaps of its build (MIM9a-f).
+- **Left:** MongooseIM's NIF dependencies (MIM8, last), optional `ssl` steps on
   request (LIB81D3c, LIB81D4b, LIB81E) and test support (LIB82 `eunit`, LIB83 `common_test`, the appendix).
 - **Declined** (`00-reject.md`): the 20 `erlang` functions of the LIB9 remainder, LIB78
   `yecc`/`leex`, `ssl`'s SRP suites, `dbg` (MIM5b).
@@ -134,22 +134,22 @@ written from the documented records and macros.
 `test-mim.toml` builds `references/MongooseIM` (esl/MongooseIM `master`, shallow clone) with its
 73 rebar3 dependencies (`escript rebar3 get-deps`, in `_build/default/lib`) on
 `source_search_paths`, no OTP paths. The `.yrl`/`.xrl` parsers of MongooseIM, `eini`, `graphql`,
-`luerl` and `tomerl` are generated once with the host `erlc`. MIM1-MIM7 are done (`21-finished.md`); the build still
-stops in the frontend on the gaps below, so later stages are not surveyed yet.
+`luerl` and `tomerl` are generated once with the host `erlc`. MIM1-MIM7 and MIM9 are done (`21-finished.md`); the
+frontend and semantic analysis now pass except for the `-nifs` attributes of MIM8 (`stringprep`, `exml_nif`,
+`fast_pbkdf2`), so code generation and linking are not surveyed yet.
 
 - **MIM8 NIF dependencies** (user decision 2026-11-10: investigate NIF loading through the runtime later, last in
   the order): `exml_nif` (hexml, MongooseIM's XML parser), `jiffy`, `stringprep`, `cache_tab`'s `ets_cache`,
   `fast_pbkdf2`, `re2`, `lz4`, `snappy`, `syslogger` load C NIFs from their `-on_load` functions (accepted since
   MIM9d: their `erlang:load_nif/2` fails, so such a program halts at startup) and `-nifs` (rejected by the
   compiler). Either Clause-owned C++ replacements registered as library modules for the popular ones (`exml_nif`,
-  `jiffy`, `fast_pbkdf2`, `stringprep`), or NIF loading through the runtime.
-- **MIM9 compiler and project gaps** (not library: route to plan 11 when picked up):
-  - `-nifs` is rejected (plan 11, 65A–65C); with MIM8.
+  `jiffy`, `fast_pbkdf2`, `stringprep`), or NIF loading through the runtime. `-nifs` stays rejected (plan 11,
+  65A–65C) until then.
 
 ### Order
 
 1. LIB81D3c, LIB81D4b and LIB81E on request.
-2. LIB82, LIB83 (test support); MIM9's gaps when plan 11 picks them up.
+2. LIB82, LIB83 (test support).
 3. MIM8 last: investigate NIF loading through the runtime.
 
 ## Later (optional: speed and features beyond OTP's documented functions)

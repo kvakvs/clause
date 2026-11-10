@@ -482,4 +482,5 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   `clause_applications` (`with_vsn/2` around the term); a resource whose `vsn` is not a string (rebar3's `{cmd, Cmd}`,
   `git`, `semver`) and has no override keeps it with a warning. `test-mim.toml` sets `mongooseim = "6.10.0"`
   (`VERSION`). `--print-env` prints it; the starter template lists the table. Checked by `project_applications`.
-  Commit 6b1f647e.
+  Commit 6b1f647e. Then `pa` and `exometer_core` (`{vsn, git}`) got rebar3's form of their checkouts'
+  `git describe` in `test-mim.toml`; the MongooseIM build now stops only on MIM8's `-nifs`.

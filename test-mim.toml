@@ -67,6 +67,9 @@ disable_features = []
 mongooseim = "references/MongooseIM"
 
 # mongooseim.app.src has {vsn, {cmd, "tools/generate_vsn.sh"}}, which rebar3 runs while building (git describe, else
-# the VERSION file); Clause runs no commands, so the version is given here (VERSION's).
+# the VERSION file); Clause runs no commands, so the version is given here (VERSION's). pa and exometer_core have
+# {vsn, git}: rebar3's form of their checkouts' `git describe --tags` (0.2.0-6-g84b73c3, v2017-12-11-73-g123daa0).
 [targets.options.application_vsn]
 mongooseim = "6.10.0"
+pa = "0.2.0+build.6.ref84b73c3"
+exometer_core = "2017-12-11+build.73.ref123daa0"
