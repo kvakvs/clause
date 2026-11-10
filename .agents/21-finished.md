@@ -457,7 +457,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   `transforms_project` (`compile_time` fixture, on erl and in the transform host). Commit d0ba1288. Follow-up: an
   `undef` returned as an error form among the forms (`ct_expand`'s own way) counts too; transform sources get the
   library's `include_lib` roots; Clause's `public_key` gained `OTP-PUB-KEY.hrl` and `PKCS-FRAME.hrl` (one line each,
-  including `public_key.hrl`; hackney's `hackney_ssl_certificate`), checked by `otp_headers`. Commit: pending.
+  including `public_key.hrl`; hackney's `hackney_ssl_certificate`), checked by `otp_headers`. Commit 4a25107e.
 - **MIM9c `export_all`, `native`, `no_native`** (2026-11-10): `-compile(export_all)` exports every function
   (`semantic/declarations.cpp`; `module_info(exports)` lists them in definition order) with erl_lint's warning
   `export_all flag enabled - all functions will be exported` at each `-compile` attribute holding it unless
