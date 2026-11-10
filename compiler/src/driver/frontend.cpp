@@ -113,6 +113,9 @@ std::string options_text(const PreprocessorOptions &options) {
     for (const auto &path : options.include_paths) {
         text += "\n-I" + project::path_text(path);
     }
+    for (const auto &path : options.application_include_dirs) {
+        text += "\n-Iapp " + project::path_text(path);
+    }
     for (const auto &[name, path] : options.applications) {
         text += "\n-app " + name + "=" + project::path_text(path);
     }

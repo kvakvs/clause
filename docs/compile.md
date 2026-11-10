@@ -258,6 +258,7 @@ source_search_paths = []    # directories, patterns expanded
 include_dirs = []           # search order, patterns expanded
 defines = []
 applications = { "stdlib" = "/otp/lib/stdlib" }  # last mapping wins
+application_include_dirs = ["include"]           # relative to each source's application
 enabled_features = ["maybe_expr"]                # OTP defaults plus changes
 
 [targets.backend]

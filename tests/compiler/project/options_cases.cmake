@@ -63,6 +63,20 @@ check(include_dir_patterns 0 "value=1.*value=2.*value=3.*value=4" "^$" "${globbe
 file(WRITE "${globbed}/unmatched.toml" "schema_version=1\n[[targets]]\nname='app'\nsources=['main.erl']\n[targets.options]\ninclude_dirs=['deps/*/missing']\n")
 check(include_dir_unmatched 1 "^$" "unmatched include directory pattern: deps/\\*/missing" "${globbed}/unmatched.toml" --parse-check)
 
+# application_include_dirs: each source finds its own application's header first (the directory above its src), as
+# rebar3 compiles each application; the shared include_dirs alone give both sources the first application's.
+set(per_app "${WORK}/application_includes")
+file(WRITE "${per_app}/deps/a/include/protocol.hrl" "-define(V,1).\n")
+file(WRITE "${per_app}/deps/b/include/protocol.hrl" "-define(V,2).\n")
+file(WRITE "${per_app}/deps/a/src/a.erl" "-module(a).\n-include(\"protocol.hrl\").\nv() -> ?V.\n")
+file(WRITE "${per_app}/deps/b/src/nested/b.erl" "-module(b).\n-include(\"protocol.hrl\").\nv() -> ?V.\n")
+set(per_app_target "schema_version=1\n[[targets]]\nname='app'\nsources=['deps/a/src/a.erl','deps/b/src/nested/b.erl']\n")
+file(WRITE "${per_app}/project.toml"
+    "${per_app_target}[targets.options]\ninclude_dirs=['deps/*/include']\napplication_include_dirs=['include']\n")
+check(application_include_dirs 0 "name=a.*value=1.*name=b.*value=2" "^$" "${per_app}/project.toml" --print-ast)
+file(WRITE "${per_app}/shared.toml" "${per_app_target}[targets.options]\ninclude_dirs=['deps/*/include']\n")
+check(shared_include_dirs 0 "name=a.*value=1.*name=b.*value=1" "^$" "${per_app}/shared.toml" --print-ast)
+
 # source_search_paths patterns expand like include_dirs. Besides locating listed literal sources, the directories are
 # searched, before the library, for a module the batch names but no source defines (here helper, other and lists).
 set(searched "${WORK}/search_globs")

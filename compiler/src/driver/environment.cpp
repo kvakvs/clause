@@ -146,6 +146,13 @@ void print_options(const EnvironmentTarget &target) {
     print_array("include_dirs", quoted_paths(preprocessing.include_paths));
     print_array("defines", quoted_texts(preprocessing.definitions));
     print_applications(preprocessing);
+    // Added for per-application include directories (plan 21 step MIM9a).
+    std::vector<std::string> application_includes;
+    application_includes.reserve(preprocessing.application_include_dirs.size());
+    for (const auto &name : preprocessing.application_include_dirs) {
+        application_includes.push_back(toml_string(project::path_text(name)));
+    }
+    print_array("application_include_dirs", application_includes);
     print_array("enabled_features", quoted_texts(enabled_features(preprocessing)));
 }
 

@@ -21,6 +21,9 @@ void includes(PreprocessorOptions &result, const TargetOptions &target, const Ro
         const auto directories = pattern_directories(roots.manifest, pattern, "include directory", limits);
         result.include_paths.insert(result.include_paths.end(), directories.begin(), directories.end());
     }
+    for (const auto &name : target.application_include_dirs_) {
+        result.application_include_dirs.push_back(native_path(name.value));
+    }
 }
 
 // Keep macro spelling untouched so the existing preprocessor validates Erlang literals.

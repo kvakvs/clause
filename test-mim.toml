@@ -48,6 +48,8 @@ include_dirs = [
   "references/MongooseIM/_build/default/lib",
   "references/MongooseIM/_build/default/lib/*/include"
 ]
+# Each application's own include/ first, as rebar3 compiles it: mysql and epgsql both have a protocol.hrl.
+application_include_dirs = ["include"]
 # Predefined macros, e.g. ["DEBUG", "LIMIT=100", 'LABEL="demo"'].
 # A bare name means true; values are Erlang literal terms. Duplicates are errors.
 defines = []

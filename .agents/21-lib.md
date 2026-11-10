@@ -146,10 +146,6 @@ stops in the frontend on the gaps below, so later stages are not surveyed yet.
 - **MIM9 compiler and project gaps** (not library: route to plan 11 when picked up):
   - `-on_load`, `-nifs`, `-compile(export_all)` (`mongoose_xmpp_errors`) and `no_native`
     (`ets_cache`) are rejected (plan 11, 65A–65C).
-  - One include path per target: mysql and epgsql both `-include("protocol.hrl")` from their own
-    `include/`, so one of them gets the other's header (rebar compiles each application with its
-    own `include`). Needs per-application include directories (for example under
-    `source_search_paths` roots, or `[[targets.apps]]`). `test-mim.toml` keeps epgsql's.
   - Transform-time calls: hackney's `ct_expand` evaluates `certifi:cacerts()` while transforming
     `hackney_ssl` and gets `undef` in the transform host, which only receives the transform's own
     callees.

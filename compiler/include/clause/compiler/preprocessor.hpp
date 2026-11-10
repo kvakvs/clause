@@ -90,6 +90,9 @@ struct PreprocessorOptions {
     // Resolve host paths independently of the executable's eventual target.
     std::filesystem::path working_directory;
     std::vector<std::filesystem::path> include_paths;
+    // Directories relative to the source's application (the parent of the `src` it is in), searched before
+    // include_paths as rebar3 compiles each application. Added for per-application include directories (MIM9a).
+    std::vector<std::filesystem::path> application_include_dirs;
     // Ordered application overrides use the last matching entry; moving options cannot allocate.
     std::vector<std::pair<std::string, std::filesystem::path>> applications;
     // Initial macro names or NAME=TERM values and ordered feature changes.

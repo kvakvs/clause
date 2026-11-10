@@ -445,3 +445,8 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
     `inets:start(httpd, ...)` is `undef`, no `httpd.hrl`); `pg2` not provided (removed in OTP 24); `eldap`'s
     `parse_dn/1`, `parse_ldap_url/1` and `loop/2` declined; `dbg` declined (MIM5b, `00-reject.md`); MongooseIM's
     LDAP modules left `ignore_modules` with MIM2.
+- **MIM9a per-application include directories** (2026-11-10): target option `application_include_dirs` (names
+  relative to the directory above the nearest `src` of each source) searched after the source's directory and the
+  working directory, before `include_dirs`, as rebar3 compiles each application; part of the compile cache key and
+  `--print-env`. `test-mim.toml` uses `["include"]`, so mysql and epgsql get their own `protocol.hrl`. Checked by
+  `project_workflow` (`application_include_dirs`, `shared_include_dirs`). Commit: pending.

@@ -35,6 +35,17 @@ void append_application(std::vector<std::filesystem::path> &result, const std::f
         }
     }
 }
+
+// The application directory of a source: the parent of the nearest `src` directory above it, as rebar3 lays out
+// applications; empty when there is none. Added for per-application include directories (MIM9a).
+std::filesystem::path application_directory(const std::filesystem::path &source) {
+    for (auto directory = source.parent_path(); directory.has_relative_path(); directory = directory.parent_path()) {
+        if (directory.filename() == "src") {
+            return directory.parent_path();
+        }
+    }
+    return {};
+}
 } // namespace
 
 std::vector<std::filesystem::path> PreprocessorSession::State::search_bases() const {
@@ -43,7 +54,15 @@ std::vector<std::filesystem::path> PreprocessorSession::State::search_bases() co
         directory = options.working_directory / directory;
     }
     std::vector<std::filesystem::path> result{directory, options.working_directory};
-    result.reserve(2 + options.include_paths.size());
+    result.reserve(2 + options.application_include_dirs.size() + options.include_paths.size());
+    if (const auto application = options.application_include_dirs.empty()
+                                     ? std::filesystem::path{}
+                                     : application_directory(options.working_directory / files.front().path);
+        !application.empty()) {
+        for (const auto &name : options.application_include_dirs) {
+            result.push_back(application / name);
+        }
+    }
     for (auto include : options.include_paths) {
         if (include.is_relative()) {
             include = options.working_directory / include;

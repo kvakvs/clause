@@ -33,6 +33,9 @@ source_search_paths = []
 # Patterns expand to the matching directories. CLI -I directories take precedence; the last CLI -I
 # is searched first.
 include_dirs = []
+# Header directories of each source's own application (the directory above the src the source is in), searched
+# before include_dirs as rebar3 compiles each application, e.g. ["include"].
+application_include_dirs = []
 # Predefined macros, e.g. ["DEBUG", "LIMIT=100", 'LABEL="demo"'].
 # A bare name means true; values are Erlang literal terms. Duplicates are errors.
 defines = []

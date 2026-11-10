@@ -451,6 +451,7 @@ ignore_modules = ["telemetry", "*_SUITE"]
 | Setting | Manifest and CLI combination |
 | --- | --- |
 | `include_dirs` | Manifest order, after CLI `-I` (last CLI `-I` searched first); an entry with wildcards (`deps/*/include`, `apps/**/include`) expands in place to the existing directories it matches, sorted by UTF-8 path bytes (`**` also matches none, directory symlinks are skipped); an unmatched pattern is an error |
+| `application_include_dirs` | Manifest only: directories relative to each source's application, the directory above the nearest `src` the source is in (`deps/mysql` for `deps/mysql/src/mysql_protocol.erl`), searched for `-include` after the source's own directory and the working directory and before `include_dirs`, as rebar3 compiles each application with its own `include`; a source under no `src` gets none. `["include"]` lets applications keep same-named headers (mysql's and epgsql's `protocol.hrl`) |
 | `source_search_paths` | Fallback roots for literal sources and the modules the target names but does not list; patterns expand like `include_dirs` (unmatched: `unmatched source search path pattern`) |
 | `defines` | Manifest first, then CLI; duplicates across both are errors |
 | `applications` | Manifest map; CLI entries replace matching names |

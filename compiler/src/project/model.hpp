@@ -27,6 +27,9 @@ struct TargetOptions {
     // Retain ordered source fallback roots and header search paths.
     std::vector<Text> source_search_paths;
     std::vector<Text> include_dirs;
+    // Header directories relative to each source's application, searched before include_dirs (docs/projects.md).
+    // Added for per-application include directories (plan 21 step MIM9a).
+    std::vector<Text> application_include_dirs_;
     // Preserve Erlang term spellings and feature overrides for frontend validation.
     std::vector<Text> defines;
     std::vector<Text> enable_features;

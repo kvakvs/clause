@@ -47,14 +47,15 @@ void check_features(const TargetOptions &options) {
 TargetOptions decode_options(const toml::node &node, const schema::Context &context) {
     const auto &values = schema::table(node, context, "options");
     schema::keys(values,
-                 {"source_search_paths", "include_dirs", "defines", "enable_features", "disable_features",
-                  "applications", "parse_transforms", "transform_paths", "ignore_dirs", "ignore_modules",
-                  "keep_exports", "shell", "epmd_executable", "bundled_epmd", "runtime_options", "distribution",
-                  "exclude_kernel_services", "cache_inference_in_dirs"},
+                 {"source_search_paths", "include_dirs", "application_include_dirs", "defines", "enable_features",
+                  "disable_features", "applications", "parse_transforms", "transform_paths", "ignore_dirs",
+                  "ignore_modules", "keep_exports", "shell", "epmd_executable", "bundled_epmd", "runtime_options",
+                  "distribution", "exclude_kernel_services", "cache_inference_in_dirs"},
                  context);
     TargetOptions result;
     result.source_search_paths = schema::strings(values, "source_search_paths", context);
     result.include_dirs = schema::strings(values, "include_dirs", context);
+    result.application_include_dirs_ = schema::strings(values, "application_include_dirs", context);
     result.defines = schema::strings(values, "defines", context);
     result.enable_features = schema::strings(values, "enable_features", context);
     result.disable_features = schema::strings(values, "disable_features", context);
