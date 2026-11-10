@@ -310,7 +310,8 @@ dependencies, non-test sources.
   `pubkey_pbe:pbdkdf2/7` (credentials_obfuscation); header `kernel/include/net_address.hrl`
   (rabbit_common's `rabbit_net`). Not to provide: `pg2` (pooler's group functions call it
   unguarded; OTP removed it in 24, so they raise `undef` there too).
-- **MIM8 NIF dependencies** (decision needed): `exml_nif` (hexml, MongooseIM's XML parser),
+- **MIM8 NIF dependencies** (user decision 2026-11-10: investigate NIF loading through the runtime later, last in
+  the order): `exml_nif` (hexml, MongooseIM's XML parser),
   `jiffy`, `stringprep`, `cache_tab`'s `ets_cache`, `fast_pbkdf2`, `re2`, `lz4`, `snappy`,
   `syslogger` load C NIFs (`-on_load`, `-nifs`, rejected by the compiler). Either Clause-owned C++
   replacements registered as library modules for the popular ones (`exml_nif`, `jiffy`,
@@ -334,9 +335,10 @@ dependencies, non-test sources.
 ### Order
 
 1. MIM5b (MIM1A-MIM1G, MIM1H1-H12, MIM9's record wildcard, MIM6, MIM7, MIM3, MIM4, MIM2 and MIM5a done
-   2026-11-02/10); MIM8 after a user decision.
+   2026-11-02/10).
 2. LIB81D3c, LIB81D4b and LIB81E on request.
-3. LIB82, LIB83 last (test support).
+3. LIB82, LIB83 (test support).
+4. MIM8 last: investigate NIF loading through the runtime.
 
 ## Later (optional: speed and features beyond OTP's documented functions)
 
