@@ -460,4 +460,4 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   `export_all flag enabled - all functions will be exported` at each `-compile` attribute holding it unless
   `nowarn_export_all`; HiPE's `native`/`no_native` are ignored hints, as OTP ignores them. The rejection examples
   moved to `{d, 'X', 1}` (patternmatch `guard-resolution.json` regenerated from OTP). Checked by `export_all` golden and
-  `frontend_cli` semantic cases. Commit: pending.
+  `frontend_cli` semantic cases. Commit 3235c962.
