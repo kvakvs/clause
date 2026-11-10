@@ -170,16 +170,21 @@ stacks.
 
 ## System information
 
-`erlang/system.cpp`, `erlang/system_flags.cpp`.
+`erlang/system.cpp`, `erlang/system_flags.cpp`, `scheduler/microstates.cpp`.
 
 - `statistics/1`: `wall_clock`, `runtime`, run queues, `context_switches`;
-  reduction, GC and I/O counters report zeros.
+  reduction, GC and I/O counters report zeros. `microstate_accounting` lists
+  the workers as `scheduler` threads (ids from 1) with their nanoseconds
+  running processes (`emulator`), port tasks (`port`), waiting (`sleep`) and
+  in between (`other`) while `system_flag(microstate_accounting, true)`
+  counts (plan 21 MIM5, [runtime_tools](libraries/runtime_tools.md#msacc)).
 - `system_info/1`: `otp_release` `"29"`, `version` `"17.1"`, `machine`
   `"Clause"`, counts, limits, `creation` (0 while not alive), fixed emulator
   answers; full list in `system.cpp`.
 - `memory/0,1`: OTP's types; `binary`, `code`, `ets` are 0.
-- `system_flag/2`: `backtrace_depth` (≤ 64) and `min_heap_size` act; most
-  others are read back without effect; `cpu_topology`, `erts_alloc`, ...
+- `system_flag/2`: `backtrace_depth` (≤ 64), `min_heap_size` and
+  `microstate_accounting` (`true`, `false`, `reset`) act; most others are read
+  back without effect; `cpu_topology`, `erts_alloc`, ...
   `badarg`.
 
 ## Hashing

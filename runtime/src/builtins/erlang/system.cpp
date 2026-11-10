@@ -10,6 +10,7 @@
 #include <clause/runtime/atoms.hpp>
 #include <ctime>
 #include <thread>
+#include <vector>
 
 // statistics/1, system_info/1 and memory/0,1 (plan step 41G1, docs/builtins.md#system-information): the items OTP
 // programs commonly read, from the executor's counts. Clause keeps no reduction, garbage collection or I/O counters,
@@ -69,6 +70,36 @@ std::optional<Term> unkept_statistics(ProcessContext &context, std::string_view 
     return std::nullopt;
 }
 
+// One worker of statistics(microstate_accounting) (plan 21 step MIM5): #{type => scheduler, id => N, counters =>
+// #{State => Nanoseconds}}, OTP's states Clause does not keep (aux, check_io, gc) at 0.
+Term microstate_entry(ProcessContext &context, std::size_t worker, const detail::MicrostateTimes &times) {
+    using detail::Microstate;
+    TermFactory factory(context);
+    const auto spent = [&](Microstate state) { return integer(context, times.at(static_cast<std::size_t>(state))); };
+    const std::array counters{std::pair{atom(context, "aux"_atom), integer(context, 0)},
+                              std::pair{atom(context, "check_io"_atom), integer(context, 0)},
+                              std::pair{atom(context, "emulator"_atom), spent(Microstate::emulator)},
+                              std::pair{atom(context, "gc"_atom), integer(context, 0)},
+                              std::pair{atom(context, "other"_atom), spent(Microstate::other)},
+                              std::pair{atom(context, "port"_atom), spent(Microstate::port)},
+                              std::pair{atom(context, "sleep"_atom), spent(Microstate::sleep)}};
+    const std::array entry{std::pair{atom(context, "counters"_atom), need(factory.map(counters))},
+                           std::pair{atom(context, "id"_atom), integer(context, static_cast<std::int64_t>(worker + 1))},
+                           std::pair{atom(context, "type"_atom), atom(context, "scheduler"_atom)}};
+    return need(factory.map(entry));
+}
+
+// statistics(microstate_accounting): the workers as OTP's schedulers, counted in perf_counter units (nanoseconds).
+TermResult<Term> microstates(ProcessContext &context) {
+    const auto workers = detail::Executor::microstates(context);
+    std::vector<Term> entries;
+    entries.reserve(workers.size());
+    for (std::size_t worker = 0; worker < workers.size(); ++worker) {
+        entries.push_back(microstate_entry(context, worker, workers[worker]));
+    }
+    return TermFactory(context).list(entries);
+}
+
 // statistics(Item).
 TermResult<Term> statistics(ProcessContext &context, const AtomArgument &item) {
     static std::atomic<std::int64_t> wall{0};
@@ -83,6 +114,9 @@ TermResult<Term> statistics(ProcessContext &context, const AtomArgument &item) {
     }
     if (name == "run_queue" || name == "total_run_queue_lengths" || name == "total_active_tasks") {
         return integer(context, static_cast<std::int64_t>(counts.run_queue));
+    }
+    if (name == "microstate_accounting") {
+        return microstates(context);
     }
     if (name == "context_switches") {
         return pair(context, integer(context, static_cast<std::int64_t>(counts.slices)), integer(context, 0));

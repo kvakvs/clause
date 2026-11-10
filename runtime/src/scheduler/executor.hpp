@@ -8,6 +8,7 @@
 #include "../ports/value.hpp"
 #include "../process/process_table.hpp"
 #include "connections.hpp"
+#include "microstates.hpp"
 #include "timer_wheel.hpp"
 #include <array>
 #include <atomic>
@@ -333,6 +334,12 @@ class Executor final {
     // system_flag(min_heap_size, Words): the minimum heap of processes spawned from now on, rounded up to a heap
     // size; returns the previous one (plan 21 step LIB9A).
     static std::size_t set_min_heap_words(ProcessContext &context, std::size_t words);
+    // system_flag(microstate_accounting, true | false | reset) (plan 21 step MIM5, microstates.cpp): switches the
+    // workers' accounting on or off or zeroes it; returns whether it was on.
+    enum class MicrostateRequest : std::uint8_t { enable, disable, reset };
+    static bool microstate_accounting(ProcessContext &context, MicrostateRequest request);
+    // statistics(microstate_accounting): each worker's nanoseconds per state, worker 0 first.
+    static std::vector<MicrostateTimes> microstates(ProcessContext &context);
     // The pid words of every live process, ascending. Allocation failure throws.
     static std::vector<Word> pids(ProcessContext &context);
 
@@ -629,6 +636,8 @@ class Executor final {
         std::condition_variable wake;
         // Whether this worker waits for work.
         bool idle = false;
+        // This worker's time per state while microstate accounting is on (plan 21 step MIM5).
+        WorkerAccount account;
 
         // The queued processes and the handed-over one.
         std::size_t runnable() const noexcept {
@@ -1032,6 +1041,8 @@ class Executor final {
     // system_flag(min_heap_size, Words) for new processes; 0 until it is set (plan 21 step LIB9A). Spawns read it
     // outside the lock (process creation and teardown).
     std::atomic<std::size_t> min_heap_words_{0};
+    // Whether the workers charge their accounts (system_flag(microstate_accounting), plan 21 step MIM5).
+    std::atomic<bool> accounting_{false};
     // Wakes the timer thread: an earlier timer was armed, or run() ends.
     std::condition_variable timer_signal_;
     // Tick 0 of the wheel.

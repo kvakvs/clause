@@ -621,12 +621,16 @@ void Executor::work(const std::size_t index) noexcept {
     worker_index_ = index;
     std::unique_lock lock(mutex_);
     auto &seen = queues_[index]->seen;
+    // Microstate accounting (plan 21 step MIM5): ports, slices and waits are charged; the rest is other.
+    auto &account = queues_[index]->account;
     seen.store(reclaim_epoch_.load());
     Garbage garbage;
     while (!finished_) {
         try {
             if (const auto port = next_port()) {
+                account.enter(Microstate::port, accounting_.load(std::memory_order_relaxed));
                 run_port(*port);
+                account.enter(Microstate::other, accounting_.load(std::memory_order_relaxed));
                 continue;
             }
             auto *next = next_or_sleep(index, lock, garbage);
@@ -640,7 +644,9 @@ void Executor::work(const std::size_t index) noexcept {
             garbage.free();
             running_ = &process;
             prepare(process);
+            account.enter(Microstate::emulator, accounting_.load(std::memory_order_relaxed));
             const bool ended = process.stack().run(SLICE_REDUCTIONS);
+            account.enter(Microstate::other, accounting_.load(std::memory_order_relaxed));
             running_ = nullptr;
             lock.lock();
             // A slice boundary: nothing this worker found without the lock is held any more (quiescent reclamation).
@@ -683,7 +689,9 @@ ProcessContext *Executor::next_or_sleep(std::size_t index, std::unique_lock<std:
     queue.idle = true;
     queue.seen.store(QUIESCENT);
     lock.unlock();
+    queue.account.enter(Microstate::sleep, accounting_.load(std::memory_order_relaxed));
     queue.wake.wait(queues);
+    queue.account.enter(Microstate::other, accounting_.load(std::memory_order_relaxed));
     queue.idle = false;
     queues.unlock();
     lock.lock();

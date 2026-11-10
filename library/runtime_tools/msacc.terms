@@ -1,0 +1,15 @@
+%% OTP 29 msacc exports: {Name, Arity, Group, Status}; observed by tests/compiler/library/observe_module.escript,
+%% groups and statuses maintained by hand (docs/libraries/library.md#runtime-module-replacements).
+{available, 0, default, implemented}.
+{from_file, 1, default, implemented}.
+{print, 0, default, implemented}.
+{print, 1, default, implemented}.
+{print, 2, default, implemented}.
+{print, 3, default, implemented}.
+{reset, 0, default, implemented}.
+{start, 0, default, implemented}.
+{start, 1, default, implemented}.
+{stats, 0, default, implemented}.
+{stats, 2, default, implemented}.
+{stop, 0, default, implemented}.
+{to_file, 1, default, implemented}.

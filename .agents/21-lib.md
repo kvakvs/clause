@@ -293,9 +293,11 @@ dependencies, non-test sources.
 - **MIM4 done** (`21-finished.md`): `httpc`, `inets`' services and `http_uri` (`docs/libraries/inets.md`). The
   server parts (`httpd`, `ftp`, `tftp`) stay out unless asked; prometheus_httpd's `inets:start(httpd, ...)` is `undef`
   (`httpd:start_service/1`), and its `httpd.hrl` include is not provided.
-- **MIM5 `runtime_tools`:** `msacc:start/0,1`, `stop/0`, `stats/0` (rabbit_common) and `dbg`'s
-  `tracer`, `p`, `tp`, `ctp`, `stop`, `trace_port` (hackney's debug helper). `dbg` needs the real
-  tracing of "Later"; until then OTP's answers where tracing is unavailable.
+- **MIM5 `runtime_tools`:**
+  - **MIM5a done** (`21-finished.md`): `msacc` over the runtime's accounting of its workers
+    (`docs/libraries/runtime_tools.md`).
+  - **MIM5b** `dbg`'s `tracer`, `p`, `tp`, `tpl`, `ctp`, `stop`, `trace_port` (hackney's and gun's debug helpers).
+    `dbg` needs the real tracing of "Later"; until then OTP's answers where tracing is unavailable.
 - **MIM6 done** (`21-finished.md`): resources of `sasl`, `inets`, `tools`, `runtime_tools`, `eldap`, `xmerl` and
   `compiler`, start modules with OTP's trees, OTP's `alarm_handler`. Left: MongooseIM's `.app.src` has
   `{vsn, {cmd, "tools/generate_vsn.sh"}}` (rebar runs the command): not checked how Clause loads it.
@@ -331,7 +333,7 @@ dependencies, non-test sources.
 
 ### Order
 
-1. MIM5 (MIM1A-MIM1G, MIM1H1-H12, MIM9's record wildcard, MIM6, MIM7, MIM3, MIM4 and MIM2 done
+1. MIM5b (MIM1A-MIM1G, MIM1H1-H12, MIM9's record wildcard, MIM6, MIM7, MIM3, MIM4, MIM2 and MIM5a done
    2026-11-02/10); MIM8 after a user decision.
 2. LIB81D3c, LIB81D4b and LIB81E on request.
 3. LIB82, LIB83 last (test support).

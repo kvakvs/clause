@@ -419,3 +419,7 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   their errors, results, search argument checks in field order, message identifiers (kept after successes, late
   answers read as the next request's), lost-connection errors, log calls, paged results; `eldap.hrl`;
   `eldap_requests` golden — `386a6e1c`
+- **MIM5a** msacc: the runtime accounts each worker's time running processes, port tasks, waiting and in between
+  (`system_flag(microstate_accounting, true | false | reset)`, `statistics(microstate_accounting)` as scheduler
+  threads in perf_counter units); `msacc`'s switching, microsecond counters, analyses, printed tables and files as
+  OTP's; `msacc_accounting` golden — `HASH`

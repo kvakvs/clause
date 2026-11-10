@@ -1045,3 +1045,8 @@ gotchas and user directions not recorded elsewhere.
   throws from substrings/extensibleMatch/add argument errors (a catch in a probe hides throw vs return). close/1 is
   async; closing with an unread answer can reset the connection and lose the unbind (fixture ends that section with
   a server close). Never taskkill erl.exe broadly: the VS Code Erlang LSP runs as erl.exe.
+- MIM5a msacc (2026-11-10): stats/2 and print/1..3 are pure: probe them with fixed msacc_data (scratch/mim5 m2/m3).
+  OTP's print columns follow its map print order (emulator, port, aux, check_io, gc, other, sleep), hardcoded in
+  msacc.erl. Raw data's per-type rows merge counters first; stats' per-type rows average thread shares.
+  io:format(group_leader(), ...) from a Clause program's main process raises calling_self (its group leader is
+  itself): library printing must use standard_io.

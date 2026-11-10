@@ -24,7 +24,6 @@ struct Settings {
     bool max_heap_kill = true;
     bool max_heap_error_logger = true;
     bool max_heap_shared_binaries = false;
-    bool microstate_accounting = false;
     bool scheduler_wall_time = false;
     std::int64_t trace_control_word = 0;
     std::optional<std::int64_t> outstanding_requests;
@@ -126,13 +125,12 @@ Term max_heap_size(ProcessContext &context, const ValueArg &value) {
     return previous;
 }
 
+// The workers' microstate accounting (plan 21 step MIM5): on, off or zeroed; the result is whether it was on.
 Term microstate_accounting(ProcessContext &context, const ValueArg &value) {
+    using Request = detail::Executor::MicrostateRequest;
     const bool reset = value.term.is_atom() && value.term.atom_spelling_unchecked() == "reset";
-    if (reset) {
-        const std::scoped_lock lock(settings_mutex);
-        return need(TermFactory(context).boolean(settings.microstate_accounting));
-    }
-    return exchange_flag(context, settings.microstate_accounting, boolean_of(value));
+    const auto request = reset ? Request::reset : (boolean_of(value) ? Request::enable : Request::disable);
+    return need(TermFactory(context).boolean(detail::Executor::microstate_accounting(context, request)));
 }
 
 Term scheduler_wall_time(ProcessContext &context, const ValueArg &value) {
