@@ -473,4 +473,4 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   OTP's boot slogan `{application_start_failure,kernel,{{shutdown,{failed_to_start_child,on_load,
   {on_load_function_failed,M,R}}},...}}`, exit 1 (observed on an OTP embedded-mode release). `module_info(attributes)`
   drops `on_load` as OTP does. Placeholder audit moved to `-nifs`. Checked by `on_load_modules` (OTP golden plus two
-  authored failure runs) and `frontend_cli` cases. Commit: pending.
+  authored failure runs) and `frontend_cli` cases. Commit 431ca11d.
