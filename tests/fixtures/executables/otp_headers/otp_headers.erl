@@ -1,5 +1,6 @@
 %% OTP's public headers through include_lib, without OTP on any path (plan 21 step LIB75): assert.hrl's macros and
-%% their error terms, inet.hrl's record, and ms_transform.hrl (in ms_headers) naming the transform.
+%% their error terms, inet.hrl's record, ms_transform.hrl (in ms_headers) naming the transform, and public_key's
+%% generated headers (in pub_key_headers).
 -module(otp_headers).
 -export([main/1]).
 
@@ -17,6 +18,7 @@ main(_) ->
     {ok, Host} = inet:gethostbyname("localhost", inet),
     io:format("localhost: ~p~n", [{is_record(Host, hostent), Host#hostent.h_addrtype, Host#hostent.h_length}]),
     io:format("ms: ~p~n", [ms_headers:run()]),
+    io:format("pub_key: ~p~n", [pub_key_headers:run()]),
     io:format("otp_headers: ok~n").
 
 % Each macro passing and failing, with and without a comment.

@@ -1,13 +1,15 @@
-%% A compile-time evaluating transform, as parse_trans's ct_expand: pt_eval:term(Expr) and pt_eval:reported(Expr) as a
-%% function body become Expr's value, so the transform calls the modules Expr calls. term/1 lets an evaluation error
-%% escape; reported/1 returns it as the transform's error, as ct_expand does.
+%% A compile-time evaluating transform, as parse_trans's ct_expand: pt_eval:term(Expr), pt_eval:reported(Expr) and
+%% pt_eval:formed(Expr) as a function body become Expr's value, so the transform calls the modules Expr calls. An
+%% evaluation error escapes term/1; reported/1 returns it as the transform's error, formed/1 as an error form among the
+%% forms (as ct_expand does).
 -module(pt_eval).
 -export([parse_transform/2]).
 
 parse_transform(Forms, _Options) ->
-    case lists:mapfoldl(fun form/2, [], Forms) of
-        {Result, []} -> Result;
-        {_, Errors} -> {error, [{file(Forms), lists:reverse(Errors)}], []}
+    {Result, Errors} = lists:mapfoldl(fun form/2, [], Forms),
+    case [Error || {reported, Error} <- lists:reverse(Errors)] of
+        [] -> [{error, Error} || {formed, Error} <- lists:reverse(Errors)] ++ Result;
+        Reported -> {error, [{file(Forms), Reported}], []}
     end.
 
 file([{attribute, _, file, {File, _}} | _]) -> File.
@@ -24,11 +26,13 @@ clause({clause, Anno, Patterns, Guards, Body0}, Errors0) ->
 
 expand({call, Anno, {remote, _, {atom, _, pt_eval}, {atom, _, term}}, [Expression]}, Errors) ->
     {value(Expression, Anno), Errors};
-expand({call, Anno, {remote, _, {atom, _, pt_eval}, {atom, _, reported}}, [Expression]} = Call, Errors) ->
+expand({call, Anno, {remote, _, {atom, _, pt_eval}, {atom, _, Kind}}, [Expression]} = Call, Errors) when
+    Kind =:= reported; Kind =:= formed
+->
     try
         {value(Expression, Anno), Errors}
     catch
-        error:Reason:Stack -> {Call, [{Anno, ?MODULE, {Reason, Stack}} | Errors]}
+        error:Reason:Stack -> {Call, [{Kind, {Anno, ?MODULE, {Reason, Stack}}} | Errors]}
     end;
 expand(Expression, Errors) ->
     {Expression, Errors}.

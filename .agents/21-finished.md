@@ -454,7 +454,10 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   for (raised, or reported as an error `{undef, Stack}` as parse_trans's `ct_expand` does) gets a fourth reply
   element naming it; clau adds that module's project source with its callees and reruns the chain, up to 64 modules
   (`transforms/pipeline.cpp` `run_chain`). hackney's `ct_expand:term(... certifi:cacerts() ...)` now runs. Checked by
-  `transforms_project` (`compile_time` fixture, on erl and in the transform host). Commit d0ba1288.
+  `transforms_project` (`compile_time` fixture, on erl and in the transform host). Commit d0ba1288. Follow-up: an
+  `undef` returned as an error form among the forms (`ct_expand`'s own way) counts too; transform sources get the
+  library's `include_lib` roots; Clause's `public_key` gained `OTP-PUB-KEY.hrl` and `PKCS-FRAME.hrl` (one line each,
+  including `public_key.hrl`; hackney's `hackney_ssl_certificate`), checked by `otp_headers`. Commit: pending.
 - **MIM9c `export_all`, `native`, `no_native`** (2026-11-10): `-compile(export_all)` exports every function
   (`semantic/declarations.cpp`; `module_info(exports)` lists them in definition order) with erl_lint's warning
   `export_all flag enabled - all functions will be exported` at each `-compile` attribute holding it unless

@@ -276,7 +276,10 @@ A transform module is looked up in this order:
    `ct_expand` does when it evaluates the module's own calls while compiling,
    gets that module's project source the same way (with the modules it calls)
    and runs again, for up to 64 such modules: rebar3 has every dependency on the
-   code path. Modules the host loads from its sticky directories
+   code path. The failure is an `undef` the transform raises, or one it returns
+   as an error or as an error form among its forms (`ct_expand`'s
+   `{undef, Stack}`). Transform sources see Clause's library headers through
+   `include_lib`, as compiled modules do. Modules the host loads from its sticky directories
    (`kernel`, `stdlib`, `compiler`, such as `ms_transform` or `qlc_pt` when
    OTP's sources are on a search path) cannot be reloaded, so the host's own
    modules are used: their sources, and the modules only they call, are not

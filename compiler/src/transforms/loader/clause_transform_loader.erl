@@ -121,11 +121,12 @@ transform([Transform | Rest], Forms0, Options, File, Warnings) ->
             end
     end;
 transform([], Forms, Options, _File, Warnings) ->
-    {ok, formatted(strip_columns_if(Forms, option_location(Options) =:= line)), Warnings}.
+    Reported = [Reason || {error, {_, _, Reason}} <- Forms],
+    with_missing({ok, formatted(strip_columns_if(Forms, option_location(Options) =:= line)), Warnings}, Reported).
 
 %% A transform that called a module the loader has no code for (ct_expand evaluating the module's own calls) names it,
 %% so that clau can send that module's project source and run the chain again: the undef it raised, or the one it
-%% reported as an error (parse_trans reports {undef, Stack}). Added for transform-time calls (plan 21 step MIM9b).
+%% reported as an error or an error form (parse_trans's {undef, Stack}). Added for transform-time calls (MIM9b).
 with_missing(Reply, Failures) ->
     case [Module || Failure <- Failures, Module <- [undefined_module(Failure)], Module =/= none] of
         [Module | _] -> erlang:append_element(Reply, atom_to_list(Module));

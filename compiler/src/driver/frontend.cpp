@@ -49,12 +49,9 @@ void use_index(PreprocessorOptions &options, project::DirectoryIndex *index) {
     }
 }
 
-// Trace resolved includes while preserving any caller-provided observation callback; every include read joins the
-// file's fingerprint (added for the compile cache, 62D4).
-PreprocessorOptions preprocessing_options(const FrontendRequest &request, cache::KeyBuilder &fingerprint) {
-    auto options = request.preprocessing;
-    // The library's applications answer include_lib after the request's own (`kernel/include/logger.hrl`). Added
-    // for plan 21 step LIB23; syntax_tools (merl.hrl) since LIB77E5, xmerl (xmerl.hrl) since MIM3, eldap since MIM2.
+// The library's applications answer include_lib after the request's own (`kernel/include/logger.hrl`). Added for plan
+// 21 step LIB23; syntax_tools (merl.hrl) since LIB77E5, xmerl (xmerl.hrl) since MIM3, eldap since MIM2.
+PreprocessorOptions with_library_applications(PreprocessorOptions options) {
     const auto library = linking::library_directory();
     options.applications.insert(options.applications.begin(), {{"erts", library / "erts"},
                                                                {"kernel", library / "kernel"},
@@ -63,6 +60,13 @@ PreprocessorOptions preprocessing_options(const FrontendRequest &request, cache:
                                                                {"syntax_tools", library / "syntax_tools"},
                                                                {"xmerl", library / "xmerl"},
                                                                {"eldap", library / "eldap"}});
+    return options;
+}
+
+// Trace resolved includes while preserving any caller-provided observation callback; every include read joins the
+// file's fingerprint (added for the compile cache, 62D4).
+PreprocessorOptions preprocessing_options(const FrontendRequest &request, cache::KeyBuilder &fingerprint) {
+    auto options = with_library_applications(request.preprocessing);
     options.include_read = [&fingerprint](const std::filesystem::path &path, const std::string_view bytes) {
         fingerprint.add(project::path_text(path)).add(cache::hash_text(bytes));
     };
@@ -756,8 +760,11 @@ FrontendRequest batch_request(const std::span<const std::filesystem::path> paths
         request.transforms_.cache_ =
             std::make_shared<TransformCache>(request.caches_->store(*request.build_directory_), cache, request.verbose);
     }
-    request.transforms_.find_sources_ = [paths, &shared, cache, options = request.preprocessing](
-                                            const std::u32string &module, const transforms::HostModule &host) {
+    // Transform sources see the library's headers as compiled modules do (hackney_ssl_certificate's
+    // public_key/include/OTP-PUB-KEY.hrl, plan 21 step MIM9b).
+    const auto sources = with_library_applications(request.preprocessing);
+    request.transforms_.find_sources_ = [paths, &shared, cache, options = sources](const std::u32string &module,
+                                                                                   const transforms::HostModule &host) {
         const SourcePlaces places{.inputs_ = paths,
                                   .directories_ = shared.module_search_paths_,
                                   .ignore_ = shared.ignore_,
@@ -769,7 +776,7 @@ FrontendRequest batch_request(const std::span<const std::filesystem::path> paths
     auto own = std::make_shared<transforms::TransformSettings>(request.transforms_);
     own->transforms_.clear();
     const std::weak_ptr<const transforms::TransformSettings> weak = own;
-    own->read_source_ = [weak, cache, options = request.preprocessing](const std::filesystem::path &path) {
+    own->read_source_ = [weak, cache, options = sources](const std::filesystem::path &path) {
         const auto settings = weak.lock();
         return settings ? read_transform_source(path, options, *settings, *cache) : transforms::SourceForms{};
     };

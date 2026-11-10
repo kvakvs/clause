@@ -47,6 +47,12 @@ Most records and values are generated from the specifications. Additional defini
 the pre-2009 `'Certificate'` representation, `'ECPoint'`, ML-DSA, ML-KEM and SLH-DSA key records,
 `#cert{}` and the object identifiers used by `public_key`.
 
+OTP's `public_key.hrl` includes two headers generated from the specifications, `OTP-PUB-KEY.hrl`
+and `PKCS-FRAME.hrl`, which code may also include on their own (hackney's
+`hackney_ssl_certificate` includes `OTP-PUB-KEY.hrl`). Clause's are one line each, including
+`public_key.hrl`, so either gives every record of `public_key.hrl` (plan 21 step MIM9b,
+[differences](../differences.md)). The `otp_headers` golden test includes each alone.
+
 The `public_key_records` golden test compares every record field, default value and macro value
 against OTP's header. The `public_key_asn1` golden test decodes and encodes certificates, keys and
 parameters through the generated modules.
