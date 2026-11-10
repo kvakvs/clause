@@ -158,6 +158,23 @@ Decided in plan 30 step DIST4a2 (2026-10-31, user choices); implemented in DIST4
 - `-config A B` in an args file is one `config` flag with both files, or one flag per file on Windows, as OTP's
   erlexec gives them to `init:get_argument/1`.
 
+## On-load functions
+
+A module's `-on_load(F/0)` function (plan 21 step MIM9d) runs before the entry: an executable has all its modules
+from the start, as an OTP node booted in embedded mode, whose init runs every loaded module's function as the kernel
+starts. The runtime then runs [`clause_on_load`](../library/kernel/clause_on_load.erl)`:boot/3` as the main process
+instead of the entry (after distribution starts, for `--sname`/`--name`); clau links it into programs with such
+modules, and every `-on_load` function stays in the program even when nothing calls it.
+
+- Each function runs in a process of its own, one after the other in the order the modules register (the batch's
+  order), and the entry is called once all returned `ok`.
+- A function that returns anything else, or fails (its process's crash report goes to stderr first), halts the
+  program as OTP's boot does: `Kernel pid terminated (application_controller)
+  ("{application_start_failure,kernel,{{shutdown,{failed_to_start_child,on_load,{on_load_function_failed,Module,Reason}}},{kernel,start,[normal,[]]}}}")`,
+  exit 1.
+- The functions run before the kernel's processes, which Clause starts at their first use; the
+  [differences](differences.md) list what else OTP does otherwise.
+
 ## Exit status
 
 | Outcome | Status |
@@ -217,7 +234,8 @@ built-in runtime options (`runtime_options`). Its `int main(int, char **)` calls
    entry and discards the runtime (exit 70), so no Erlang code runs against a
    partial batch.
 3. Creates the entry process, builds argv and queues the call of `M:F/1` as the
-   main process, then runs it and every process it spawns on the scheduler
+   main process (through `clause_on_load:boot/3` when modules have
+   [on-load functions](#on-load-functions)), then runs it and every process it spawns on the scheduler
    workers ([processes](processes.md)) until it ends.
 4. Maps the outcome to the exit status above, printing reports after flushing
    stdout, then releases every process and shuts the runtime down on every path

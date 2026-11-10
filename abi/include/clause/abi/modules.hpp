@@ -70,6 +70,9 @@ struct ModuleDescriptor {
     // CLAUSE_literal_v1. Null with zero for none. Added for the literal heap.
     TermWord *literal_cache = nullptr;
     std::size_t literal_count = 0;
+    // The fun (one of `funs`) of the module's -on_load function, which startup runs before the program's entry; null
+    // for a module without one. Added for -on_load (plan 21 step MIM9d).
+    const FunDescriptor *on_load = nullptr;
 };
 
 struct FrameDescriptor {
@@ -93,7 +96,7 @@ static_assert(std::is_standard_layout_v<ModuleDescriptor>);
 static_assert(sizeof(ExportDescriptor) == 5 * sizeof(TermWord));
 static_assert(offsetof(ExportDescriptor, entry) == 3 * sizeof(TermWord));
 static_assert(sizeof(AtomDescriptor) == 2 * sizeof(TermWord));
-static_assert(sizeof(ModuleDescriptor) == 8 + 19 * sizeof(TermWord));
+static_assert(sizeof(ModuleDescriptor) == 8 + 20 * sizeof(TermWord));
 static_assert(std::is_standard_layout_v<FrameDescriptor>);
 static_assert(sizeof(FrameDescriptor) == 7 * sizeof(TermWord));
 static_assert(offsetof(ModuleDescriptor, name) == 8);

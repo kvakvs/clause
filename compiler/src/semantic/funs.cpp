@@ -78,6 +78,18 @@ class FunIndexer {
         }
     }
 
+    // The local fun the runtime calls the -on_load function through: the module's own fun F/0 when it makes one.
+    // Added for -on_load (plan 21 step MIM9d).
+    std::size_t on_load(const Function &function) {
+        const auto key = std::tuple{false, module_.name, function.key.name, function.key.arity};
+        const auto [found, fresh] = known_.try_emplace(key, module_.funs.size());
+        if (fresh) {
+            module_.funs.push_back(
+                {false, module_.name, function.key.name, function.key.arity, locals_++, function.symbol});
+        }
+        return found->second;
+    }
+
   private:
     // An anonymous fun is a value of its own, named -Function/Arity-fun-N- after its function, like OTP's.
     void lambda(const ast::Expression &expression, std::size_t arity) {
@@ -145,6 +157,9 @@ void index_funs(Module &module) {
             const auto children = expression_children(module, expression);
             pending.insert(pending.end(), children.rbegin(), children.rend());
         }
+    }
+    if (module.on_load_) {
+        module.on_load_fun_ = indexer.on_load(module.functions.at(*module.on_load_));
     }
 }
 

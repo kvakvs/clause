@@ -113,8 +113,10 @@ left out of `--print-types`.
   `fun module_info/1` work. Defining either is an error
   (`function module_info/0 already defined`); exporting one, like any repeated
   export, only warns (`function module_info/0 already exported`).
-- Attributes are data; only `on_load`, `nifs` and non-inert `-compile` options
-  are rejected as behavior-changing.
+- Attributes are data; only `nifs` and non-inert `-compile` options are rejected
+  as behavior-changing. `on_load` names the function the program runs before its
+  entry ([on-load functions](executables.md#on-load-functions)) and is left out of
+  `module_info(attributes)`, as OTP leaves it out.
 - The generated functions have no source line (OTP gives them none): no debug
   locations, IR source comments or `--print-types` entries. `module_info/0`
   holds the same literals as `module_info/1`, so it makes no calls.

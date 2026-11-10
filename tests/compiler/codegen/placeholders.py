@@ -8,7 +8,7 @@ import sys
 CASES = {
     "heap expressions": "-feature(compr_assign, enable). f(L) -> [Y || X <- L, Y = X].",
     "dynamic calls": "f() -> fun erlang:apply/2.",
-    "behavior-changing attributes": "-on_load(f/0). f() -> 1.",
+    "behavior-changing attributes": "-nifs([f/0]). f() -> 1.",
 }
 # Deferred features that only warn: compilation continues without them.
 WARNINGS = {

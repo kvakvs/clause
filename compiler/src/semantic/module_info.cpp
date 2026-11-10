@@ -7,8 +7,8 @@
 namespace clause::semantic {
 namespace {
 // Generic attributes OTP's compiler consumes or drops instead of keeping them for module_info(attributes).
-constexpr std::array<std::u32string_view, 6> DROPPED_ATTRIBUTES{U"compile",       U"export_type", U"optional_callbacks",
-                                                                U"export_record", U"docformat",   U"feature"};
+constexpr std::array<std::u32string_view, 7> DROPPED_ATTRIBUTES{
+    U"compile", U"export_type", U"optional_callbacks", U"export_record", U"docformat", U"feature", U"on_load"};
 // module_info/0 gives the first five module_info/1 keys.
 constexpr std::size_t SUMMARY_KEYS = 5;
 

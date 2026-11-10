@@ -44,7 +44,10 @@ OTP ignores too, ...) and Clause's own
 attribute holding it unless `nowarn_export_all` is given (plan 21 step MIM9c).
 `{parse_transform, Module}` runs
 the transform on the host Erlang/OTP before analysis
-([parse transforms](transforms.md)). `on_load`, `nifs`, other
+([parse transforms](transforms.md)). `-on_load(F/0)` names a function the
+program runs before its entry ([on-load functions](executables.md#on-load-functions));
+erl_lint's errors reject an undefined function, another arity, a second
+attribute or a badly formed one (plan 21 step MIM9d). `nifs`, other
 `compile` options and parameterized modules are rejected; the diagnostic names
 them, for example
 `[behavior-changing attributes] notimpl [module="m"] [operation="-compile option {d, 'X', 1}"]`.

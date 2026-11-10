@@ -8,7 +8,8 @@
 
 namespace clause::semantic {
 namespace {
-// Attributes that would change semantics (on_load, nifs, module parameters) stay rejected.
+// Attributes that would change semantics (nifs, module parameters) stay rejected; -on_load runs before the entry
+// since plan 21 step MIM9d.
 struct FormCapability {
     std::string_view operator()(const ast::ModuleAttribute &value) const {
         return value.parameters ? "behavior-changing attributes" : "";
@@ -34,7 +35,7 @@ struct FormCapability {
 
     // Other attributes are data kept for module_info(attributes); -compile admits only inert options.
     std::string_view operator()(const ast::GenericAttribute &value) const {
-        constexpr std::array<std::u32string_view, 3> changing{U"on_load", U"nifs", U"compile"};
+        constexpr std::array<std::u32string_view, 2> changing{U"nifs", U"compile"};
         return std::ranges::contains(changing, value.name.name) ? "behavior-changing attributes" : "";
     }
 };

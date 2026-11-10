@@ -170,6 +170,10 @@ struct Module {
     // fun expression creates.
     std::vector<FunEntry> funs = {};
     std::map<const ast::Expression *, std::size_t> fun_entries = {};
+    // The -on_load function, and the entry of `funs` the runtime calls it through before the program's entry.
+    // Added for -on_load (plan 21 step MIM9d).
+    std::optional<std::size_t> on_load_ = {};
+    std::optional<std::size_t> on_load_fun_ = {};
     // Every module of the compilation batch by name, set once calls are resolved; external records read it.
     std::map<std::u32string, const Module *> peers = {};
     // Escript sources implicitly export main/1, accept -mode and use escript exit semantics.

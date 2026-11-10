@@ -103,6 +103,7 @@ class Liveness {
     LivenessReport run(const FunctionRef entry) {
         reach(entry);
         reach_name(U"clause_dist_start", {U"boot", 3}, entry);
+        reach_on_load(entry);
         while (!pending_.empty()) {
             const auto function = pending_.back();
             pending_.pop_back();
@@ -117,6 +118,17 @@ class Liveness {
 
   private:
     using Skipped = std::set<const ast::Expression *>;
+
+    // Every -on_load function, and clause_on_load:boot/3, which the runtime calls before the entry to run them.
+    // Added for -on_load (plan 21 step MIM9d).
+    void reach_on_load(const FunctionRef entry) {
+        for (const auto &module : modules_) {
+            if (module->on_load_) {
+                reach({module.get(), &module->functions.at(*module->on_load_)});
+            }
+        }
+        reach_name(U"clause_on_load", {U"boot", 3}, entry);
+    }
 
     // Mark one function live and queue its body, with the code its builtin implementation continues in.
     void reach(const FunctionRef function) {

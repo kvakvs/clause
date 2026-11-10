@@ -1,7 +1,7 @@
 %% Distribution from the node start options (plan 30 step DIST4b1b, docs/distribution.md#node-start-options): when
 %% --sname or --name names the node, the runtime runs boot/3 as the main process instead of the entry. It starts
-%% kernel_sup with net_sup as OTP's kernel does at boot (DIST4b1d), then calls the entry; clau links this module with
-%% --distribution and into programs that call net_kernel.
+%% kernel_sup with net_sup as OTP's kernel does at boot (DIST4b1d), runs the -on_load functions (plan 21 step MIM9d),
+%% then calls the entry; clau links this module with --distribution and into programs that call net_kernel.
 -module(clause_dist_start).
 -export([boot/3]).
 
@@ -9,13 +9,6 @@
 % A failed start halts the program with the report of OTP's kernel application.
 boot(Module, Function, Arguments) ->
     case clause_kernel:ensure_started() of
-        ok -> apply(Module, Function, Arguments);
-        {error, Reason} -> erlang:halt(kernel_failure(Reason))
+        ok -> clause_on_load:boot(Module, Function, Arguments);
+        {error, Reason} -> erlang:halt(clause_on_load:kernel_failure(Reason))
     end.
-
-% The slogan OTP's node halts with when kernel_sup cannot start.
-% The term is on one line with strings as strings, as erts prints it (TLS distribution's file names, DIST12a).
-kernel_failure(Reason) ->
-    Failure = {Reason, {kernel, start, [normal, []]}},
-    Text = lists:flatten(io_lib:format("~1000000p", [{application_start_failure, kernel, Failure}])),
-    lists:flatten(["Kernel pid terminated (application_controller) (", io_lib:write_string(Text), ")"]).

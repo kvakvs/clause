@@ -139,12 +139,12 @@ stops in the frontend on the gaps below, so later stages are not surveyed yet.
 
 - **MIM8 NIF dependencies** (user decision 2026-11-10: investigate NIF loading through the runtime later, last in
   the order): `exml_nif` (hexml, MongooseIM's XML parser), `jiffy`, `stringprep`, `cache_tab`'s `ets_cache`,
-  `fast_pbkdf2`, `re2`, `lz4`, `snappy`, `syslogger` load C NIFs (`-on_load`, `-nifs`, rejected by the compiler).
-  Either Clause-owned C++ replacements registered as library modules for the popular ones (`exml_nif`, `jiffy`,
-  `fast_pbkdf2`, `stringprep`), or NIF loading through the runtime. `jwerl` and MongooseIM's `mongoose_mam_id` use
-  `-on_load` without NIFs.
+  `fast_pbkdf2`, `re2`, `lz4`, `snappy`, `syslogger` load C NIFs from their `-on_load` functions (accepted since
+  MIM9d: their `erlang:load_nif/2` fails, so such a program halts at startup) and `-nifs` (rejected by the
+  compiler). Either Clause-owned C++ replacements registered as library modules for the popular ones (`exml_nif`,
+  `jiffy`, `fast_pbkdf2`, `stringprep`), or NIF loading through the runtime.
 - **MIM9 compiler and project gaps** (not library: route to plan 11 when picked up):
-  - `-on_load` (`mongoose_mam_id`, `jwerl`) and `-nifs` are rejected (plan 11, 65A–65C).
+  - `-nifs` is rejected (plan 11, 65A–65C); with MIM8.
   - `behaviour gen_fsm_compat undefined` warnings although the dependency's source on the search path
     defines its callbacks.
   - MongooseIM's `.app.src` has `{vsn, {cmd, "tools/generate_vsn.sh"}}` (rebar runs the command): not checked how

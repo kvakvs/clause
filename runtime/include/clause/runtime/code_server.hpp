@@ -167,6 +167,9 @@ struct ModuleAtoms final {
     Word *claimed_cache = nullptr;
     // The words of the module's literals in this runtime's literal heap, by literal index (literal heap).
     std::vector<Word> literals;
+    // The FunDescriptor (one of the module's funs) of its -on_load function; null for none. Added for -on_load (plan 21
+    // step MIM9d).
+    const void *on_load = nullptr;
 };
 
 struct ModuleDefinition final {
@@ -282,6 +285,9 @@ class CodeServer final {
     const RecordDefinition *module_record(const RecordName &name) const noexcept;
     // The features registered module `module` was compiled with (erl_features:used/1); none for no such module.
     std::optional<std::vector<Word>> module_features(Word module) const;
+    // The module atom and -on_load FunDescriptor of every registered module that has one, in registration order.
+    // Added for -on_load (plan 21 step MIM9d).
+    std::vector<std::pair<Word, const void *>> on_load_handlers() const;
 
     // The production builtins calls reach besides the modules' exports; registered at runtime startup, before any
     // worker runs, and read-only afterwards.
@@ -318,6 +324,8 @@ class CodeServer final {
     mutable std::shared_mutex mutex_;
     // One registry per exact module spelling; no secondary BIF overload table exists.
     std::map<std::string, std::shared_ptr<const LoadedModule>, std::less<>> modules_;
+    // The modules' -on_load handlers in registration order (on_load_handlers()). Added for -on_load (MIM9d).
+    std::vector<std::pair<Word, const void *>> on_load_;
     // External funs built from runtime operands, by module, function and arity; fun cells point at them.
     std::map<FunctionAtoms, std::unique_ptr<FunDefinition>> external_funs_;
     // Other nodes' local funs this program has no code for, by key; fun cells point at them (funs across nodes).

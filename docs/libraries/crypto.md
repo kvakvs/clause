@@ -151,7 +151,7 @@ algorithms using OpenSSL's default properties, which select the FIPS provider's 
 when FIPS mode is enabled. In this mode, `eddsa` raises `"Unsupported algorithm in FIPS mode"`
 and SRP raises `notsup`, matching OTP.
 
-Clause does not read OTP's `fips_mode` application variable: it does not implement `on_load`, and
+Clause does not read OTP's `fips_mode` application variable: its `crypto` module has no `on_load` function, and
 programs do not use `sys.config`. Programs must call `crypto:enable_fips_mode/1` or use the
 mandatory FIPS mode build option described below.
 

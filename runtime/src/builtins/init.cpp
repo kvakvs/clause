@@ -2,12 +2,13 @@
 #include "typed.hpp"
 #include <algorithm>
 #include <array>
+#include <clause/runtime/code_server.hpp>
 #include <terms.hpp>
 
 // The init module's command-line answers (plan step 41L, docs/builtins.md#init-module): an executable has no
 // emulator flags, so its plain arguments are the arguments after the runtime options and its flags are `home`, set
 // at startup as OTP's erlexec sets it, and those of the node start options (DIST4a1). script_name/0 is the
-// executable's absolute path.
+// executable's absolute path. clause_on_load:handlers/0 gives the -on_load functions init runs at boot (MIM9d).
 namespace clause::runtime::builtins {
 namespace {
 // UTF-8 text as an Erlang string.
@@ -90,11 +91,29 @@ TermResult<Term> script_name(ProcessContext &context) {
     return string_term(context, path);
 }
 
+// clause_on_load:handlers(): {Module, Fun} for the -on_load function of every registered module that has one, in
+// registration order, as OTP's init runs the handlers at boot (plan 21 step MIM9d).
+TermResult<Term> on_load_handlers(ProcessContext &context) {
+    auto &server = context.code_server();
+    std::vector<Term> handlers;
+    for (const auto &[module, descriptor] : server.on_load_handlers()) {
+        const auto *definition = server.fun_definition(descriptor);
+        if (!definition) {
+            return std::unexpected(TermError::invalid_argument);
+        }
+        const std::array handler{need(Term::from_word(module, context)),
+                                 need(TermFactory(context).fun(*definition, {}))};
+        handlers.push_back(need(TermFactory(context).tuple(handler)));
+    }
+    return TermFactory(context).list(handlers);
+}
+
 constexpr std::array INIT_BUILTINS{
     typed_entry<get_plain_arguments>("init", "get_plain_arguments"),
     typed_entry<get_arguments>("init", "get_arguments"),
     typed_entry<get_argument>("init", "get_argument"),
     typed_entry<script_name>("init", "script_name"),
+    typed_entry<on_load_handlers>("clause_on_load", "handlers"),
 };
 } // namespace
 } // namespace clause::runtime::builtins

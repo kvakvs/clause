@@ -2,6 +2,7 @@
 #include "behaviours.hpp"
 #include "escript.hpp"
 #include "imports.hpp"
+#include "on_load.hpp"
 #include "records.hpp"
 #include "symbols.hpp"
 #include <algorithm>
@@ -287,6 +288,7 @@ std::unique_ptr<Module> index(const ast::Module &syntax, std::string file, const
         export_every(*module);
     }
     index_imports(*module, out);
+    index_on_load(*module, out); // Added for -on_load (plan 21 step MIM9d).
     index_records(*module, out);
     index_callbacks(*module, out);
     if (options.escript_) {

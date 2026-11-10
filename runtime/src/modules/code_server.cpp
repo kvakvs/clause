@@ -96,6 +96,11 @@ void CodeServer::unindex(const ModuleAtoms &atoms) noexcept {
     }
 }
 
+std::vector<std::pair<Word, const void *>> CodeServer::on_load_handlers() const {
+    const std::shared_lock lock(mutex_);
+    return on_load_;
+}
+
 std::vector<std::string> CodeServer::module_names() const {
     const std::shared_lock lock(mutex_);
     std::vector<std::string> names;
@@ -311,8 +316,14 @@ void CodeServer::publish(const std::shared_ptr<const LoadedModule> &module) {
     }
     index(*atoms);
     try {
+        if (atoms->on_load) {
+            on_load_.emplace_back(atoms->module, atoms->on_load); // Added for -on_load (plan 21 step MIM9d).
+        }
         modules_.emplace(module->name(), module);
     } catch (...) {
+        if (!on_load_.empty() && on_load_.back().second == atoms->on_load) {
+            on_load_.pop_back();
+        }
         unindex(*atoms);
         throw;
     }

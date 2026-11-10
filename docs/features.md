@@ -27,7 +27,7 @@ Deferred compiler features today, each covered by `codegen_placeholders`:
 | --- | --- |
 | `heap expressions` | `compr_assign` comprehension assignments (`[Y \|\| X <- L, Y = X]`) |
 | `dynamic calls` | A builtin fun of `apply` (`fun erlang:apply/2`) |
-| `behavior-changing attributes` | `-on_load`, `-nifs`, non-inert `-compile` options, parameterized modules ([accepted subset](compile.md#accepted-source-subset)) |
+| `behavior-changing attributes` | `-nifs`, non-inert `-compile` options, parameterized modules ([accepted subset](compile.md#accepted-source-subset)) |
 
 ## Message rules
 

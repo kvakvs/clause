@@ -263,7 +263,15 @@ semantic_case(compile_nowarn "-module(a). -compile([nowarn_deprecated_catch, now
 semantic_case(compile_hints
     "-module(a). -compile({inline,[f/0]}). -compile([inline, debug_info, {inline_size,24}, warn_unused_vars, {nowarn_unused_function,[{f,0}]}, report]). f() -> 1."
     0 "^$")
-semantic_case(on_load "-module(a). -on_load(f/0). f() -> 1." 1 "-on_load attribute")
+# -on_load names one defined function of arity 0 (erl_lint's messages), which runs before the entry (plan 21 MIM9d).
+semantic_case(on_load "-module(a). -on_load(f/0). f() -> 1." 0 "^$")
+semantic_case(on_load_tuple "-module(a). -on_load({f, 0}). f() -> 1." 0 "^$")
+semantic_case(on_load_undefined "-module(a).\n-on_load(f/0).\n" 1 "on_load_undefined.erl:2:2: function f/0 undefined")
+semantic_case(on_load_arity "-module(a).\n-on_load(f/1).\nf(_) -> ok.\n" 1
+    "on_load_arity.erl:2:2: function f/1 has wrong arity \\(must be 0\\)")
+semantic_case(on_load_twice "-module(a).\n-on_load(f/0).\n-on_load(f/0).\nf() -> ok.\n" 1
+    "on_load_twice.erl:3:2: more than one on_load attribute")
+semantic_case(on_load_bad "-module(a).\n-on_load(foo).\n" 1 "on_load_bad.erl:2:2: badly formed on_load attribute: foo")
 semantic_case(custom_attribute "-module(a). -custom(1). f() -> 1." 0 "^$")
 semantic_case(nifs "-module(a). -nifs([f/0]). f() -> 1." 1 "-nifs attribute")
 semantic_case(parameterized "-module(a, [X]). f() -> 1." 1 "-module parameters")

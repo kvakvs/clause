@@ -1050,3 +1050,8 @@ gotchas and user directions not recorded elsewhere.
   msacc.erl. Raw data's per-type rows merge counters first; stats' per-type rows average thread shares.
   io:format(group_leader(), ...) from a Clause program's main process raises calling_self (its group leader is
   itself): library printing must use standard_io.
+- MIM9 (2026-11-10): observe OTP boot-time behavior with a tiny release: lib/<app>-1/ebin + .app (needs
+  description), .rel from loaded kernel/stdlib versions, systools:make_script(Name, [{path, [...]}, local,
+  no_warn_sasl]), then `erl -boot Name -mode embedded -noshell -s M F` (scratch/mim9b/ol). A library builtin module's
+  own placeholder function is reached only by a remote call (`?MODULE:handlers()`); a local call returns the
+  placeholder atom. parse_trans's ct_expand reports evaluation errors as error forms inside the returned forms.

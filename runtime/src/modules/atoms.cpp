@@ -174,6 +174,25 @@ CodeResult<void> bind_funs(ModuleAtoms &bindings, const abi::v1::ModuleDescripto
 } // namespace
 
 namespace {
+// Keep the module's -on_load fun, which must be one of its own. Added for -on_load (plan 21 step MIM9d).
+CodeResult<void> bind_on_load(ModuleAtoms &bindings, const abi::v1::ModuleDescriptor &descriptor) {
+    const std::span funs(descriptor.funs, descriptor.fun_count);
+    if (descriptor.on_load && !std::ranges::contains(funs, descriptor.on_load, [](const auto &fun) { return &fun; })) {
+        return std::unexpected(CodeError::invalid_module);
+    }
+    bindings.on_load = descriptor.on_load;
+    return {};
+}
+
+// Bind the module's records, funs, features and -on_load fun after its atoms; the first failure wins.
+CodeResult<void> bind_tables(ModuleAtoms &bindings, const abi::v1::ModuleDescriptor &descriptor,
+                             const BuiltinRegistry &builtins) {
+    return bind_records(bindings, descriptor)
+        .and_then([&] { return bind_funs(bindings, descriptor, builtins); })
+        .and_then([&] { return bind_features(bindings, descriptor); })
+        .and_then([&] { return bind_on_load(bindings, descriptor); });
+}
+
 // Claim the descriptor's atom cache for this runtime and fill it with the slot words, and its fun cache with the fun
 // definitions (inline closures); a cache another runtime claimed stays its (OPT0.8).
 void claim_cache(ModuleAtoms &bindings, const abi::v1::ModuleDescriptor &descriptor, const std::uint64_t runtime) {
@@ -222,14 +241,8 @@ CodeResult<std::shared_ptr<ModuleAtoms>> bind_atoms(AtomStorage &storage, const 
         }
         bindings->slots.push_back(*term);
     }
-    if (const auto records = bind_records(*bindings, descriptor); !records) {
-        return std::unexpected(records.error());
-    }
-    if (const auto funs = bind_funs(*bindings, descriptor, builtins); !funs) {
-        return std::unexpected(funs.error());
-    }
-    if (const auto features = bind_features(*bindings, descriptor); !features) {
-        return std::unexpected(features.error());
+    if (const auto tables = bind_tables(*bindings, descriptor, builtins); !tables) {
+        return std::unexpected(tables.error());
     }
     claim_cache(*bindings, descriptor, runtime);
     return bindings;

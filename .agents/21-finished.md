@@ -464,3 +464,13 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   `nowarn_export_all`; HiPE's `native`/`no_native` are ignored hints, as OTP ignores them. The rejection examples
   moved to `{d, 'X', 1}` (patternmatch `guard-resolution.json` regenerated from OTP). Checked by `export_all` golden and
   `frontend_cli` semantic cases. Commit 3235c962.
+- **MIM9d `-on_load`** (2026-11-10): `-on_load(F/0)` (or `{F, 0}`) accepted with erl_lint's errors (undefined,
+  wrong arity, more than one, badly formed; `semantic/on_load.cpp`); the function gets a local fun entry
+  (`Module::on_load_fun_`, reused when the module makes `fun F/0`), is a liveness root, and `ModuleDescriptor::on_load`
+  points at its FunDescriptor (ABI: descriptor 20 words). The code server keeps the handlers in registration order;
+  builtin `clause_on_load:handlers/0` gives `[{Module, Fun}]`; startup runs `clause_on_load:boot/3` (after
+  `clause_dist_start` for `--sname`/`--name`): each function in its own process, a non-`ok` result or crash halts with
+  OTP's boot slogan `{application_start_failure,kernel,{{shutdown,{failed_to_start_child,on_load,
+  {on_load_function_failed,M,R}}},...}}`, exit 1 (observed on an OTP embedded-mode release). `module_info(attributes)`
+  drops `on_load` as OTP does. Placeholder audit moved to `-nifs`. Checked by `on_load_modules` (OTP golden plus two
+  authored failure runs) and `frontend_cli` cases. Commit: pending.

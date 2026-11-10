@@ -936,6 +936,8 @@ inline constexpr auto bridge_builtins = std::to_array<BuiltinName>({
     BuiltinName{"init", "get_arguments", 0},
     BuiltinName{"init", "get_argument", 1},
     BuiltinName{"init", "script_name", 0},
+    // The -on_load functions init runs at boot (plan 21 step MIM9d; runtime/src/builtins/init.cpp).
+    BuiltinName{"clause_on_load", "handlers", 0},
     // atomics over handle references and the erts_internal functions stdlib needs (plan step 41N).
     BuiltinName{"atomics", "new", 2},
     BuiltinName{"atomics", "get", 2},

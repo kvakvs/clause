@@ -593,13 +593,27 @@ bool add_kernel_services(const FrontendRequest &shared, const DiagnosticSink &si
     return parse_and_print(session, request, sink, source, path, false, inputs, untimed);
 }
 
+// Whether a module of the batch has an -on_load attribute. Added for -on_load (plan 21 step MIM9d).
+bool has_on_load(const Inputs &inputs) {
+    return std::ranges::any_of(inputs, [](const auto &input) {
+        return std::ranges::any_of(input.syntax.forms(), [&](const ast::FormId &id) {
+            const auto *attribute = std::get_if<ast::GenericAttribute>(&input.syntax.form(id).value);
+            return attribute && attribute->name.name == U"on_load";
+        });
+    });
+}
+
 // The modules added once every input is scanned: clause_dist_start when net_kernel joined, as the runtime starts
-// distribution through it (plan 30 step DIST4b1b), and the start modules of library applications that resources
-// name (MIM6). True on a failure.
+// distribution through it (plan 30 step DIST4b1b), clause_on_load when a module has -on_load functions, which the
+// runtime runs through it (MIM9d), and the start modules of library applications that resources name (MIM6). True on
+// a failure.
 bool add_after_scan(const FrontendRequest &request, const DiagnosticSink &sink, Inputs &inputs, Discovery &discovery) {
     bool failed = false;
     if (defined(inputs, U"net_kernel")) {
         failed = add_module(U"clause_dist_start", "net_kernel", discovery, request, sink, inputs);
+    }
+    if (has_on_load(inputs)) {
+        failed = add_module(U"clause_on_load", "-on_load", discovery, request, sink, inputs) || failed;
     }
     return add_library_starts(request, sink, inputs, discovery) || failed;
 }

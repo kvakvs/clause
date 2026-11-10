@@ -6,6 +6,7 @@
 #include "code_convention.hpp"
 #include "module_atoms.hpp"
 #include "runtime_symbols.hpp"
+#include <array>
 #include <clause/abi/v1.hpp>
 #include <clause/compiler/source.hpp>
 #include <llvm/IR/IRBuilder.h>
@@ -148,6 +149,17 @@ llvm::GlobalVariable *funs(llvm::Module &output, const semantic::Module &module,
     return new llvm::GlobalVariable(output, array->getType(), true, llvm::GlobalValue::PrivateLinkage, array,
                                     prefix + ".funs");
 }
+
+// ModuleDescriptor::on_load: the entry of the module's fun table the -on_load function is called through, else null.
+// Added for -on_load (plan 21 step MIM9d).
+llvm::Constant *on_load_fun(const semantic::Module &module, llvm::GlobalVariable *funs, llvm::IntegerType *word) {
+    if (!module.on_load_fun_) {
+        return llvm::ConstantPointerNull::get(llvm::PointerType::get(funs->getContext(), 0));
+    }
+    const std::array<llvm::Constant *, 2> indices{llvm::ConstantInt::get(word, 0),
+                                                  llvm::ConstantInt::get(word, *module.on_load_fun_)};
+    return llvm::ConstantExpr::getInBoundsGetElementPtr(funs->getValueType(), funs, indices);
+}
 } // namespace
 
 // The module's fun cache (ModuleDescriptor::fun_cache): one zeroed word per fun; null without funs.
@@ -165,7 +177,7 @@ void emit_registration(llvm::Module &output, const semantic::Module &module, llv
     llvm::IRBuilder<> builder(output.getContext());
     auto *ptr = builder.getPtrTy();
     auto *type = llvm::StructType::get(builder.getInt32Ty(), builder.getInt32Ty(), ptr, word, ptr, word, ptr, word, ptr,
-                                       word, ptr, word, ptr, ptr, word, word, ptr, ptr, word, ptr, word);
+                                       word, ptr, word, ptr, ptr, word, word, ptr, ptr, word, ptr, word, ptr);
     const auto name = utf8(module.name);
     std::size_t count = 0;
     auto *table = exports(output, module, word, count);
@@ -190,7 +202,7 @@ void emit_registration(llvm::Module &output, const semantic::Module &module, llv
             word, code_convention(llvm::Triple(output.getTargetTriple())) == llvm::CallingConv::PreserveNone ? 2 : 1),
         emit_fun_cache(output, prefix, word, module.funs.size()), feature_table,
         llvm::ConstantInt::get(word, feature_count), llvm::ConstantPointerNull::get(ptr),
-        llvm::ConstantInt::get(word, 0)));
+        llvm::ConstantInt::get(word, 0), on_load_fun(module, fun_table, word)));
     auto *entry = llvm::Function::Create(llvm::FunctionType::get(builder.getInt8Ty(), {ptr}, false),
                                          llvm::GlobalValue::ExternalLinkage, prefix + ".register", output);
     builder.SetInsertPoint(llvm::BasicBlock::Create(output.getContext(), "entry", entry));

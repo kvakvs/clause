@@ -1,0 +1,44 @@
+{
+  "schema": 1,
+  "entry": "on_load_modules",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "[1,2]\n[true,false]\n[false,false]\n[{vsn,[1]}]\n[iss,sub]\ntrue\non_load_modules: ok\n"
+    },
+    {
+      "args": [
+        "return"
+      ],
+      "authored": true,
+      "stderr": "^Kernel pid terminated \\(application_controller\\) \\(\"\\{application_start_failure,kernel,\\{\\{shutdown,\\{failed_to_start_child,on_load,\\{on_load_function_failed,ol_fail,\\{error,refused\\}\\}\\}\\},\\{kernel,start,\\[normal,\\[\\]\\]\\}\\}\\}\"\\)\\n$",
+      "exit_status": 1,
+      "stdout": ""
+    },
+    {
+      "args": [
+        "raise"
+      ],
+      "authored": true,
+      "stderr": "[\\s\\S]*Kernel pid terminated \\(application_controller\\) \\(\"\\{application_start_failure,kernel,\\{\\{shutdown,\\{failed_to_start_child,on_load,\\{on_load_function_failed,ol_fail,\\{refused,\\[[\\s\\S]*\\]\\}\\}\\}\\},\\{kernel,start,\\[normal,\\[\\]\\]\\}\\}\\}\"\\)\\n$",
+      "exit_status": 1,
+      "stdout": ""
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
+  },
+  "inputs": {
+    "ol_counter.erl": "741c7d241af209e75b37c59a53f8cc1296b68678198be631823ca41c91ac142d",
+    "ol_fail.erl": "9eed381af1491b203823d7967cb3d61643b5cb3804ddaf3b2348644e04524dd5",
+    "ol_keys.erl": "7b2f6069b6d7067b4409f0ba5ad25f131b2ae800cc1aee18e9aca247fb2f1e59",
+    "on_load_modules.erl": "e6144571f5758cb84f5a350718a946767a082d47add257e0dd897afb72d9fa2a"
+  }
+}

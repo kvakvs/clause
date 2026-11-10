@@ -172,20 +172,33 @@ bool names_node(const ProgramArguments &program) {
                                [](const ProgramFlag &flag) { return flag.name == "sname" || flag.name == "name"; });
 }
 
-// Run clause_dist_start:boot(Module, Function, Arguments) as the main process: it starts distribution as OTP's kernel
-// does at boot, then calls the entry. Added for distribution from the node start options (plan 30 step DIST4b1b).
-int run_booted_entry(Runtime &runtime, ProcessContext &main, const StartupDescriptor &startup, const Term &arguments) {
+// A module whose boot(Module, Function, Arguments) runs as the main process in the entry's place, and the failure
+// when the program does not link it.
+struct BootModule {
+    std::string_view name;
+    std::string_view missing;
+};
+
+// clause_dist_start starts distribution as OTP's kernel does at boot, then calls the entry. Added for distribution
+// from the node start options (plan 30 step DIST4b1b).
+constexpr BootModule DISTRIBUTION_BOOT{
+    "clause_dist_start", "--sname and --name need the distribution modules (link the program with --distribution)"};
+// clause_on_load runs the -on_load functions as OTP's init does at boot, then calls the entry. Added for -on_load (plan
+// 21 step MIM9d).
+constexpr BootModule ON_LOAD_BOOT{"clause_on_load", "-on_load functions need the module clause_on_load"};
+
+// Run Boot:boot(Module, Function, Arguments) as the main process.
+int run_booted_entry(Runtime &runtime, ProcessContext &main, const StartupDescriptor &startup, const Term &arguments,
+                     const BootModule &boot_module) {
     TermFactory factory(main);
-    const auto boot_module = factory.atom("clause_dist_start");
+    const auto module_atom = factory.atom(boot_module.name);
     const auto boot = factory.atom("boot");
     const auto *frame =
-        boot_module && boot
-            ? static_cast<const abi::v1::FrameDescriptor *>(main.code_server().function_frame(*boot_module, *boot, 3))
+        module_atom && boot
+            ? static_cast<const abi::v1::FrameDescriptor *>(main.code_server().function_frame(*module_atom, *boot, 3))
             : nullptr;
     if (!frame) {
-        return released(runtime, main,
-                        runtime_failure("--sname and --name need the distribution modules (link the program with "
-                                        "--distribution)"));
+        return released(runtime, main, runtime_failure(boot_module.missing));
     }
     const auto module = factory.atom(std::string_view{startup.entry_module, startup.entry_module_size});
     const auto function = factory.atom(std::string_view{startup.entry_function, startup.entry_function_size});
@@ -208,7 +221,10 @@ int run_entry(Runtime &runtime, ProcessContext &main, const StartupDescriptor &s
         return released(runtime, main, runtime_failure("cannot build the argument list"));
     }
     if (names_node(runtime.program_arguments())) {
-        return run_booted_entry(runtime, main, startup, *arguments);
+        return run_booted_entry(runtime, main, startup, *arguments, DISTRIBUTION_BOOT);
+    }
+    if (!main.code_server().on_load_handlers().empty()) {
+        return run_booted_entry(runtime, main, startup, *arguments, ON_LOAD_BOOT);
     }
     const auto *frame = entry_frame(main, startup);
     if (!frame) {
