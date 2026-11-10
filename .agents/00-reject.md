@@ -49,3 +49,7 @@ Steps investigated and dropped, with the measurement behind each decision.
   1.2 PSK was done instead.
 - **LIB78 `parsetools` (`yecc`/`leex`)** (cancelled 2026-10-28 by the user before any work: not needed). Projects
   that ship only `.yrl`/`.xrl` sources keep needing OTP's `yecc`/`leex` to generate their `.erl` files.
+- **MIM5b `dbg`** (declined 2026-11-10, user decision): Clause has no tracing, and OTP cannot show how its dbg
+  answers without it. `library/runtime_tools/dbg.erl` keeps OTP's 69 exports as `not_implemented` stubs so that
+  hackney's and gun's debug helpers compile. If revisited: real tracing in the runtime first (`erlang:trace/3`,
+  `trace_pattern/3`), then dbg observed on OTP.

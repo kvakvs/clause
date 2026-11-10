@@ -2,8 +2,8 @@
 
 Clause's `runtime_tools` (plan 21 MIM5) is the application's resource and start module (MIM6,
 [OTP applications](library.md#otp-applications)) and the modules MongooseIM's dependencies call: `msacc`
-(rabbit_common's `rabbit_runtime:msacc_stats/1`). The library is Erlang, in
-[`library/runtime_tools/`](../../library/runtime_tools/).
+(rabbit_common's `rabbit_runtime:msacc_stats/1`) and `dbg`'s name (hackney's and gun's debug helpers). The library
+is Erlang, in [`library/runtime_tools/`](../../library/runtime_tools/).
 
 ## msacc
 
@@ -25,3 +25,9 @@ Clause's `runtime_tools` (plan 21 MIM5) is the application's resource and start 
 - `to_file/1` writes `stats/0` as a term, `from_file/1` reads it back.
 
 Checked by the `msacc_accounting` golden.
+
+## dbg
+
+[`dbg`](../../library/runtime_tools/dbg.erl) is declined (plan 21 MIM5b): Clause has no tracing (`erlang:trace/3`,
+`trace_pattern/2,3` are `notsup`), so each of OTP's 69 functions raises `{not_implemented, Name, Arity}`. Code that
+calls it compiles and fails only when called.
