@@ -5,11 +5,12 @@
 
 namespace clause::semantic {
 namespace {
-// Options that only steer optimization, debug information or reporting; Clause ignores them.
-constexpr std::array<std::u32string_view, 13> HINTS{
+// Options that only steer optimization, debug information or reporting; Clause ignores them. OTP ignores HiPE's
+// native and no_native since HiPE's removal (added for MongooseIM's ets_cache, plan 21 step MIM9c).
+constexpr std::array<std::u32string_view, 15> HINTS{
     U"no_auto_import", U"inline",        U"inline_list_funcs", U"debug_info", U"deterministic",
     U"report",         U"report_errors", U"report_warnings",   U"verbose",    U"compressed",
-    U"bin_opt_info",   U"recv_opt_info", U"line_coverage"};
+    U"bin_opt_info",   U"recv_opt_info", U"line_coverage",     U"native",     U"no_native"};
 // Hints with an argument: {inline, [F/A]}, {inline_size, N}, {inline_effort, N}.
 constexpr std::array<std::u32string_view, 3> ARGUMENT_HINTS{U"inline", U"inline_size", U"inline_effort"};
 
@@ -61,11 +62,11 @@ bool tuple_option(const ast::Module &syntax, const ast::TermTuple &tuple) {
            std::ranges::all_of(list->elements, [&](const auto &id) { return selector(syntax, id); });
 }
 
-// Auto-import suppression, warning options and optimization hints are inert; parse transforms, export_all, macro
-// definitions and unknown options would change the module and stay gated.
+// Auto-import suppression, warning options and optimization hints are inert, and export_all is honored (plan 21 step
+// MIM9c); macro definitions and unknown options would change the module and stay gated.
 bool inert(const ast::Module &syntax, const ast::TermValue &value) {
     if (const auto *name = std::get_if<ast::Atom>(&value)) {
-        return std::ranges::contains(HINTS, name->name) || warning_option(name->name);
+        return std::ranges::contains(HINTS, name->name) || warning_option(name->name) || name->name == U"export_all";
     }
     const auto *tuple = std::get_if<ast::TermTuple>(&value);
     return tuple && (tuple_option(syntax, *tuple) || parse_transform(syntax, *tuple));

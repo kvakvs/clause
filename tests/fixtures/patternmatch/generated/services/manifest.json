@@ -6,12 +6,12 @@
     "29.1.1"
   ],
   "provenance": {
-    "revision": "21776803ecd11f5fa948732c0ec66b8f325dedfc",
+    "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12",
     "branch": "maint-29",
     "hash_policy": "SHA256 UTF-8 source bytes with CRLF normalized to LF",
     "stale_hash": "rejected",
     "otp_manifest_sha256": "04542af7c61ec725f1268d4826e9796f834fec4aabcbdb43b6cb563d30d1da9e",
-    "fixtures_manifest_sha256": "cda30e0f0eaa5d7f81fc6b2f924399519a11e9ba4c6b12fdc451953ca13c642b"
+    "fixtures_manifest_sha256": "33ac16c79d7ae5b4c53c53388a7c2c5d43d1bd124dd93863e6556982d7c49a98"
   },
   "generator_sha256": {
     "regenerate.py": "f0a849074145194805ea5f1ebdc550b60db8c17e45c3915efa7a24436bad4891",
@@ -38,7 +38,7 @@
       "client.erl": "e95baa8990c9b66b9133c3c851bda9dde7ff291a3282159c7e214c8035ac079a"
     },
     "resolution_oracle": {
-      "fixture_sha256": "64eb21e0d427d69626d6b8eac0f8a62a62bcd2630c07d658de3bde48de508005",
+      "fixture_sha256": "9d2889bcd0c5d1a03beb8293dfd47c2f71f0e94b4e3a6de3aefa86c74f060098",
       "oracle": "otp=29.1.1 erts=17.1\nqualified accepted none\nimported accepted none\nshadow rejected none\nqualified_shadow accepted none\nsuppressed rejected none\nsuppressed_all rejected none\nsuppressed_other accepted none\nimport_suppressed accepted none\nforeign_import rejected none\nforeign_remote rejected none\nwrong_arity rejected none\ndynamic rejected none\nuser_call rejected none\nhidden_call rejected none\nhidden_arity rejected none\nhidden_assign rejected none\nlegacy accepted none\nlegacy_group accepted none\nlegacy_nested rejected none\nlegacy_qualified rejected none\nlegacy_shadow rejected none\nlegacy_float accepted none\nconversion_float accepted none\nself_guard accepted none\nhidden_self_guard accepted none\ninteger3 accepted none\noperator_qualified accepted none\nbad_compile_option accepted none\noverridden_reference rejected none\nqualified_reference accepted none\nimported_size rejected none\n"
     }
   }

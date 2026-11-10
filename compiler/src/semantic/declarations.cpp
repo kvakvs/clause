@@ -60,25 +60,40 @@ const ast::TokenOrigin &attribute_name(const ast::Module &syntax, const ast::For
     return extent.size() > 1 ? extent[1] : syntax.anchor(form.source);
 }
 
+std::vector<ast::TermId> attribute_options(const ast::Module &syntax, const ast::TermId &value) {
+    std::vector<ast::TermId> result;
+    std::vector<ast::TermId> pending{value};
+    while (!pending.empty()) {
+        const auto term = pending.back();
+        pending.pop_back();
+        if (const auto *list = std::get_if<ast::TermList>(&syntax.term(term).value)) {
+            pending.insert(pending.end(), list->elements.rbegin(), list->elements.rend());
+        } else {
+            result.push_back(term);
+        }
+    }
+    return result;
+}
+
 std::vector<ast::TermId> compile_options(const ast::Module &syntax) {
     std::vector<ast::TermId> result;
     for (const auto &id : syntax.forms()) {
         const auto *attribute = std::get_if<ast::GenericAttribute>(&syntax.form(id).value);
-        if (!attribute || attribute->name.name != U"compile") {
-            continue;
-        }
-        std::vector<ast::TermId> pending{attribute->value};
-        while (!pending.empty()) {
-            const auto term = pending.back();
-            pending.pop_back();
-            if (const auto *list = std::get_if<ast::TermList>(&syntax.term(term).value)) {
-                pending.insert(pending.end(), list->elements.rbegin(), list->elements.rend());
-            } else {
-                result.push_back(term);
-            }
+        if (attribute && attribute->name.name == U"compile") {
+            std::ranges::copy(attribute_options(syntax, attribute->value), std::back_inserter(result));
         }
     }
     return result;
+}
+
+bool export_all_option(const ast::Module &syntax, const ast::TermId &option) {
+    const auto *atom = std::get_if<ast::Atom>(&syntax.term(option).value);
+    return atom && atom->name == U"export_all";
+}
+
+bool export_all(const ast::Module &syntax) {
+    return std::ranges::any_of(compile_options(syntax),
+                               [&](const ast::TermId &option) { return export_all_option(syntax, option); });
 }
 
 std::set<std::u32string> disabled_warnings(const ast::Module &syntax) {
@@ -213,6 +228,36 @@ void index_exports(Module &module, const Reporter &out) {
     }
 }
 
+// erl_lint's warning at every -compile attribute holding export_all, unless nowarn_export_all; whether there is one.
+// Added for export_all (plan 21 step MIM9c).
+bool export_all_warnings(const Module &module, const Reporter &out) {
+    const auto &syntax = *module.syntax;
+    const bool quiet = disabled_warnings(syntax).contains(U"export_all");
+    bool found = false;
+    for (const auto &id : syntax.forms()) {
+        const auto &form = syntax.form(id);
+        const auto *attribute = std::get_if<ast::GenericAttribute>(&form.value);
+        if (!attribute || attribute->name.name != U"compile" ||
+            !std::ranges::any_of(attribute_options(syntax, attribute->value),
+                                 [&](const ast::TermId &option) { return export_all_option(syntax, option); })) {
+            continue;
+        }
+        found = true;
+        if (!quiet) {
+            report(attribute_name(syntax, form), "export_all flag enabled - all functions will be exported", out,
+                   Severity::warning);
+        }
+    }
+    return found;
+}
+
+// export_all: every function is exported. Added for export_all (plan 21 step MIM9c).
+void export_every(Module &module) {
+    for (auto &function : module.functions) {
+        function.exported = true;
+    }
+}
+
 // Export the functions the frontend generated (OTP's predefined functions); behaviour_info/1 among them is hidden
 // from the module's own source.
 void index_predefined(Module &module) {
@@ -236,7 +281,11 @@ std::unique_ptr<Module> index(const ast::Module &syntax, std::string file, const
     index_name(*module, out);
     index_functions(*module, out);
     index_predefined(*module);
+    const bool all = export_all_warnings(*module, out);
     index_exports(*module, out);
+    if (all) {
+        export_every(*module);
+    }
     index_imports(*module, out);
     index_records(*module, out);
     index_callbacks(*module, out);

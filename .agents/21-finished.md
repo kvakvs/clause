@@ -455,3 +455,9 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   element naming it; clau adds that module's project source with its callees and reruns the chain, up to 64 modules
   (`transforms/pipeline.cpp` `run_chain`). hackney's `ct_expand:term(... certifi:cacerts() ...)` now runs. Checked by
   `transforms_project` (`compile_time` fixture, on erl and in the transform host). Commit d0ba1288.
+- **MIM9c `export_all`, `native`, `no_native`** (2026-11-10): `-compile(export_all)` exports every function
+  (`semantic/declarations.cpp`; `module_info(exports)` lists them in definition order) with erl_lint's warning
+  `export_all flag enabled - all functions will be exported` at each `-compile` attribute holding it unless
+  `nowarn_export_all`; HiPE's `native`/`no_native` are ignored hints, as OTP ignores them. The rejection examples
+  moved to `{d, 'X', 1}` (patternmatch `guard-resolution.json` regenerated from OTP). Checked by `export_all` golden and
+  `frontend_cli` semantic cases. Commit: pending.

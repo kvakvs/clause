@@ -215,6 +215,11 @@ const ast::TokenOrigin &attribute_name(const ast::Module &syntax, const ast::For
 std::vector<ast::TermId> compile_options(const ast::Module &syntax);
 // The warning categories -compile(nowarn_Category) turns off; Clause admits no option turning one back on.
 std::set<std::u32string> disabled_warnings(const ast::Module &syntax);
+// The options of one -compile attribute's value, nested lists flattened.
+std::vector<ast::TermId> attribute_options(const ast::Module &syntax, const ast::TermId &value);
+// Whether an option is export_all, and whether the module's -compile options hold it. Added for export_all (MIM9c).
+bool export_all_option(const ast::Module &syntax, const ast::TermId &option);
+bool export_all(const ast::Module &syntax);
 // Whether the module's -compile options hold {clause_liveness, strict}. Added for strict liveness.
 bool strict_liveness(const ast::Module &syntax);
 // Whether the module's syntax defines the function itself.

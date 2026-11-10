@@ -245,8 +245,13 @@ semantic_case(record_info_guard "-module(a). -record(r, {a}). f(X) when record_i
     "illegal guard call")
 semantic_case(record_info_defined "-module(a). -export([record_info/2]). record_info(A, B) -> {A, B}." 1
     "function record_info/2 already defined")
-semantic_case(compile_option "-module(a). -compile(export_all). f() -> 1." 1
-    "behavior-changing attributes\] notimpl .*-compile option export_all")
+semantic_case(compile_option "-module(a). -compile({d, 'X', 1}). f() -> 1." 1
+    "behavior-changing attributes\] notimpl .*-compile option {d, 'X', 1}")
+# export_all exports every function, with erl_lint's warning at each attribute holding it; HiPE's native and
+# no_native are ignored, as OTP ignores them (plan 21 step MIM9c).
+semantic_case(export_all "-module(a).\n-compile([native, export_all]).\n-compile(no_native).\nf() -> 1." 0
+    "export_all.erl:2:2: export_all flag enabled - all functions will be exported")
+semantic_case(export_all_quiet "-module(a). -compile([export_all, nowarn_export_all]). f() -> 1." 0 "^$")
 # A parse transform runs on the host OTP: x does not exist there, there is no host OTP, or an older one (plan step
 # 73F).
 semantic_case(transform "-module(a). -compile([debug_info, {parse_transform,x}]). f() -> 1." 1

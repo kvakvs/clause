@@ -36,14 +36,18 @@ with options that change nothing Clause emits: `{no_auto_import, ...}`, warning
 options (`nowarn_*`, `warn_*`, `{nowarn_unused_function, [...]}`) and
 optimization, debug and reporting hints (`inline`, `{inline, [F/A]}`,
 `{inline_size, N}`, `{inline_effort, N}`, `inline_list_funcs`, `debug_info`,
-`deterministic`, `report*`, `verbose`, ...) and Clause's own
+`deterministic`, `report*`, `verbose`, HiPE's `native` and `no_native`, which
+OTP ignores too, ...) and Clause's own
 `{clause_liveness, strict}` ([strict liveness](#strict-liveness)).
+`export_all` exports every function of the module, with OTP's warning
+`export_all flag enabled - all functions will be exported` at each `-compile`
+attribute holding it unless `nowarn_export_all` is given (plan 21 step MIM9c).
 `{parse_transform, Module}` runs
 the transform on the host Erlang/OTP before analysis
-([parse transforms](transforms.md)). `on_load`, `nifs`, `export_all`, other
+([parse transforms](transforms.md)). `on_load`, `nifs`, other
 `compile` options and parameterized modules are rejected; the diagnostic names
 them, for example
-`[behavior-changing attributes] notimpl [module="m" operation="-compile option export_all"]`.
+`[behavior-changing attributes] notimpl [module="m"] [operation="-compile option {d, 'X', 1}"]`.
 Every module gets `module_info/0,1`. Sources starting with `#!` follow
 [escript rules](executables.md#escripts) (implicit module and `main/1` export,
 `-mode` accepted). Type/spec forms are analyzed but never change generated code.

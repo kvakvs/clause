@@ -124,9 +124,10 @@ using InfoValues = std::vector<std::pair<std::string_view, std::string>>;
 InfoValues info_values(const ast::Module &syntax, const ModuleFacts &facts, const bool behaviour_info) {
     auto functions = defined_functions(syntax);
     const auto exported = exported_functions(syntax, facts.escript_);
+    const bool all = export_all(syntax); // Added for export_all (plan 21 step MIM9c).
     std::vector<FunctionKey> exports;
     std::ranges::copy_if(functions, std::back_inserter(exports),
-                         [&](const auto &key) { return exported.contains(key); });
+                         [&](const auto &key) { return all || exported.contains(key); });
     const auto added = predefined(behaviour_info);
     exports.insert(exports.end(), added.begin(), added.end());
     functions.insert(functions.end(), added.begin(), added.end());

@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "entry": "export_all",
+  "runs": [
+    {
+      "args": [],
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "[{double,1},{helper,1},{pair,2},{module_info,0},{module_info,1}]\n[8,{helper,x},{1,2}]\n[true,true,true,false]\n[{one,0},{two,0},{module_info,0},{module_info,1}]\n1\nexport_all: ok\n"
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
+  },
+  "inputs": {
+    "ea_all.erl": "90e6dd037ccefe5260fb1d0a29ada5ffa2e6347c510d2cdf032729c42a67f340",
+    "ea_quiet.erl": "3a9e2a58aed95eec6ab113d3aa498586c0391f04288a55b603c87c7d9d5ddf54",
+    "export_all.erl": "5ca03e5d1dd7a4c60824baef4132db755ce5b63d8152587e4863f78d31c459be"
+  }
+}

@@ -183,9 +183,10 @@ and evidence are in Git at those commits. The anchors below keep older links to 
   `cpp_int` analyzer reports (user decision).
 - 65 (for VAL1): ARM ran under qemu-user only; qemu's `posix_spawn` never reports a missing program
   (`port_spawn` `enoent` fails there). Native ARM is open.
-- 65A–65C (for CLAU3): still rejected are `on_load`, `nifs`, `export_all`, `{d, ...}`,
+- 65A–65C (for CLAU3): still rejected are `on_load`, `nifs`, `{d, ...}`,
   `warnings_as_errors` and unknown `-compile` options; each names itself in the diagnostic (imports
-  of `erlang` functions reach the library module since 41B).
+  of `erlang` functions reach the library module since 41B). `export_all`, `native` and `no_native`
+  are accepted since plan 21 MIM9c.
 - 41F (for V02): the timer stress run under TSan belongs to the next Linux sanitizer gate.
 - 41H (for RT1): code loading answers for linked code (`delete_module/1` `notsup`,
   `prepare_loading/2` `badfile`) until step RT1 decides.
