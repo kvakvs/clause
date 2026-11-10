@@ -454,4 +454,4 @@ Clause's own erts, kernel and stdlib; open steps are in [21-lib.md](21-lib.md).
   for (raised, or reported as an error `{undef, Stack}` as parse_trans's `ct_expand` does) gets a fourth reply
   element naming it; clau adds that module's project source with its callees and reruns the chain, up to 64 modules
   (`transforms/pipeline.cpp` `run_chain`). hackney's `ct_expand:term(... certifi:cacerts() ...)` now runs. Checked by
-  `transforms_project` (`compile_time` fixture, on erl and in the transform host). Commit: pending.
+  `transforms_project` (`compile_time` fixture, on erl and in the transform host). Commit d0ba1288.
