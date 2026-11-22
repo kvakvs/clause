@@ -277,7 +277,7 @@ Compact record of [plan 11](11-plan.md), one bullet per step;
   `gen_statem`, `erpc`; 25 golden cases link with `--distribution`. `record_wildcards` 4511 to 21 live
   functions, compile 13.3 s to 0.66 s; `file_io` 359, 1.8 s; programs on `gen_server`, `supervisor`,
   `application` or `logger` still keep everything (`gen:where/1` reaches `global` and the kernel
-  services; `?LOG` location keys keep `file`). `linking_exports` fixed. Full policy matrix: VAL15 — `pending`
+  services; `?LOG` location keys keep `file`). `linking_exports` fixed. Full policy matrix: VAL15 — `f165a7b0`
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 
