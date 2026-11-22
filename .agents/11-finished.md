@@ -283,7 +283,7 @@ Compact record of [plan 11](11-plan.md), one bullet per step;
   `file_*`, four `public_key_*`, `crypto_pubkey` and others; `file_io`, `sockets`, `public_key_certs` and
   `ssl_engine` are no longer heavy. Still heavy: `runtime_args_files` and `runtime_env_options` (nodes),
   `runtime_config_files` (application and supervisor), `node_code` (`pre_loaded/0`), `spawning`
-  (`process_info/2`). Fast gate 375 of 512 tests, 132 s warm — `pending`
+  (`process_info/2`). Fast gate 375 of 512 tests, 132 s warm — `9d8d4730`
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 
