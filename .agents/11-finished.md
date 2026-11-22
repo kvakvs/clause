@@ -231,7 +231,7 @@ Compact record of [plan 11](11-plan.md), one bullet per step;
 - **CLAU12a** export liveness measured: a kernel-using program links 82 modules and keeps 4510 of 4513
   functions (compile 13.3 s at `-O0`, 2.7 s at best with precise liveness); `[time] liveness` prints the
   live function count. Every such program can start as a node, which needs every export: the rest is
-  split into CLAU12b (decision) and CLAU12c — `pending`
+  split into CLAU12b (decision) and CLAU12c — `bc329480`
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 
