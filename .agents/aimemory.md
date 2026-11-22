@@ -26,6 +26,10 @@ gotchas and user directions not recorded elsewhere.
   check-quality tidies one unit per changed header (dependents in check-quality-all); fast CTest ~75
   s at -j 16. Tidy default jobs = half the logical cores. Keep slow tests parallel. Keep 20-25% CPUs
   free.
+- Golden compile cache (VAL8 2026-11-22): fast-mode run.py passes `--build-dir <work>-cache` to both drivers (kept
+  across runs); full mode/--lto/cross stay cold. No runner pruning: the store replaces an entry per address (target@
+  options hash, per-source inference), so a relinked clau keeps one generation. A warm timing needs that dir
+  present; delete `<case>/Debug-cache` for a cold time. `CLAUSE_TEST_COMPILE_TIMES=1` shows `(cached)` per policy.
 - Tidy/Lizard run on the Windows dev host only; other platforms build+test.
 - All ABI symbol/namespace versions collapse to v1 in plan step RT4 (never released).
 - RT5: rename runtime/src/builtins files to builtin_<name>.

@@ -165,7 +165,7 @@ Completed steps link to [the plan 11 record](11-finished.md).
 | N. Optional scope decisions | [RT1](#step-rt1), [RT2](#step-rt2), [CLAU3](#step-clau3)–[CLAU5](#step-clau5), [RT3](#step-rt3), [RT9](#step-rt9), [CLAU6](#step-clau6) | open |
 | N2. Parse transforms | [73A](11-finished.md)–[73G](11-finished.md), [CLAU7](#step-clau7) | open: [CLAU7](#step-clau7) |
 | P. Remaining features | [CLAU9](#step-clau9)–[CLAU11](#step-clau11), [RT6](#step-rt6)–[RT8](#step-rt8) | open |
-| T. Test gate cost | [VAL7](11-finished.md), [VAL8](#step-val8), [CLAU12](#step-clau12), [VAL9](#step-val9)–[VAL15](#step-val15) | open |
+| T. Test gate cost | [VAL7](11-finished.md), [VAL8](11-finished.md), [CLAU12](#step-clau12), [VAL9](#step-val9)–[VAL15](#step-val15) | open |
 | O. Final closure | [RT4](#step-rt4), [RT5](#step-rt5), [CLAU8](#step-clau8) | open |
 
 
@@ -738,25 +738,6 @@ Added 2026-11-22 (user direction): the fast gate is no longer fast. Evidence of 
 
 Each step records the time alone of the tests it touches before and after, and the fast gate's wall
 time in `.state/runs.md`.
-
-<a id="step-val8"></a>
-
-### VAL8. Golden cases keep their compile cache between runs
-
-Depends on: none.
-
-- Success criteria
-  - [ ] `run.py` gives both drivers a `--build-dir` that `prepare` does not delete, one per case, so
-    a case whose `clau` and inputs did not change replays its compile (`[time] compile ... (cached)`)
-    and only links and runs.
-  - [ ] Entries of older `clau` builds do not pile up: the disk size of all case caches is recorded
-    and bounded ([build caches](../docs/projects.md#build-caches), AGENTS.md disk rule).
-  - [ ] Cold compiles stay covered: the full gate compiles without the cache (it showed
-    [VAL6](#step-val6)'s crash, which warm caches hide).
-  - [ ] Recorded: fast gate wall time with warm caches and after a `clau` relink.
-- Tests
-  - [ ] `executables_selfcheck`: a second run replays, an edited source recompiles, a wrong golden
-    still fails with a warm cache.
 
 <a id="step-clau12"></a>
 

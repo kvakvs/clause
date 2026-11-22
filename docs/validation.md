@@ -55,6 +55,13 @@ cmake --build build/debug --target check-quality-all  # whole tree
 - The executable golden runner gives each `clau` it starts `--jobs 2`; a case
   links two policy combinations at once, so it runs within its two CTest slots
   instead of taking every hardware thread twice.
+- In fast mode the golden runner keeps each case's
+  [build cache](projects.md#build-caches) in `<work>-cache` beside its work
+  directory, shared by both drivers: an unchanged case replays its compile and
+  only links and runs (`file_io` 56 s cold, 2 s warm). A rebuilt `clau` or an
+  edited source replaces the case's entries, so the caches stay at one
+  generation. Full mode compiles cold, so the full gate keeps cold compiles
+  covered; `--lto` and other-target runs compile cold too.
 - `transforms_host_setup` (fixture `transform_host`) builds Clause's transform
   host before the tests that run library parse transforms (`transforms_*` and
   the executable cases whose sources name a parse transform or include

@@ -224,6 +224,10 @@ Compact record of [plan 11](11-plan.md), one bullet per step;
   `inference_budgets`, `parser_mutations_1`–`3`; golden cases labeled by area (`ctest -L <area>`,
   `tests/compiler/executables/areas.cmake`) with a smoke set of 11; the gate rule is 10 s alone. Fast
   gate 493 to 370 tests, about 30 minutes to 341 s at `-j 12` — `038f01ed`
+- **VAL8** golden cases keep their compile cache between fast-mode runs (`run.py` `--build-dir` beside the
+  work directory; the full gate, `--lto` and other targets compile cold); `executables_selfcheck` proves
+  replay, recompile after an edit and a wrong golden failing warm. `file_io` 56 s to 2 s; fast gate 456 s
+  with empty caches (as after a `clau` relink), 173 s warm; caches 568 MB — `pending`
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 

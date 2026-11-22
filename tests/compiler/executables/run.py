@@ -43,6 +43,9 @@ EPMD_EXECUTABLE = None
 ESCRIPT = None
 # The exit status of a case whose runs were all skipped or passed, at least one skipped (CTest SKIP_RETURN_CODE).
 SKIPPED = 77
+# Private hook of executables_selfcheck (plan step VAL8): when set, every compile prints its stage times and each
+# policy's report shows clau's '[time] compile' line, which ends in '(cached)' when the build directory replayed it.
+COMPILE_TIMES = bool(os.environ.get('CLAUSE_TEST_COMPILE_TIMES'))
 
 
 def manifest(case, entry, output, golden, asn1_dir):
@@ -73,15 +76,16 @@ def asn1_arguments(golden, asn1_dir):
     return arguments
 
 
-def command(tool, work, case, golden, policy, target_options=()):
+def command(tool, work, case, golden, policy, target_options=(), build_dir=None):
     """Compiler invocation for one policy; returns its label and argument list. A program fixture's project build uses
     its own manifest, with the entry and output given on the command line. `target_options` select another target
-    (--target-triple, --runtime-library, --linker)."""
+    (--target-triple, --runtime-library, --linker); `build_dir` is the kept build directory of both drivers, if any."""
     level, extra, name, project = policy
     label = f'{name}-{"project" if project else "positional"}'
     # A golden's 'options' are compiler options every policy adds (plan 21 step LIB74: --keep-exports for the shell).
     options = [f'-{level}', *([extra] if extra else []), '--jobs', str(CLAU_JOBS), *target_options,
-               *golden.get('options', [])]
+               *golden.get('options', []), *(['--build-dir', str(build_dir)] if build_dir else []),
+               *(['--print-stage-times'] if COMPILE_TIMES else [])]
     output = f'{label}/{case}'
     # Each policy generates its ASN.1 modules into its own directory: policies run at once.
     asn1_dir = f'{label}/asn1'
@@ -234,20 +238,23 @@ def skipped(run):
     return nodes.multi(run) and nodes.needs_otp(run) and ESCRIPT is None
 
 
-def check_policy(tool, work, case, golden, policy, suffix, target_options=(), word_bits=HOST_WORD_BITS):
+def check_policy(tool, work, case, golden, policy, suffix, target_options=(), word_bits=HOST_WORD_BITS,
+                 build_dir=None):
     """Links the case under one policy and runs every golden invocation; returns the failure count and the report
     lines, printed by the caller so concurrent combinations do not interleave."""
-    name, arguments = command(tool, work, case, golden, policy, target_options)
+    name, arguments = command(tool, work, case, golden, policy, target_options, build_dir)
     result = subprocess.run(arguments, cwd=work, capture_output=True, timeout=300, check=False)
     if result.returncode != 0:
         return 1, [f'FAIL {case} [{name}]: compiler exited {result.returncode}\n{text(result.stderr)}']
+    times = text(result.stderr).splitlines() if COMPILE_TIMES else []
+    compile_lines = [f'compile {case} [{name}] {line}' for line in times if line.startswith('[time] compile ')]
     executable = work / f'{name}/{case}{suffix}'
     # Each combination runs in its own directory beside its executable, with the case's data files, so programs that
     # write files do not meet each other.
     for path in (work / 'src').iterdir():
         if path.is_file() and path.suffix not in cases.SOURCE_SUFFIXES:
             shutil.copyfile(path, work / name / path.name)
-    failures, lines = 0, []
+    failures, lines = 0, compile_lines
     for run, variant in variants(golden, word_bits):
         if skipped(run):
             lines.append(f'skip {case} [{name}] {label(run)}{variant}: needs a host OTP (--escript)')
@@ -287,6 +294,21 @@ def prepare(case_dir, work):
     return golden
 
 
+def kept_build_dir(work, options):
+    """The build directory both drivers share in fast mode, beside `work` so that prepare keeps it: a case whose clau
+    and inputs did not change replays its compile and only links and runs (plan step VAL8). None compiles cold.
+
+    Nothing prunes it here: the store keeps one entry per address (the batch's target and options, each source's
+    inference results), so a rebuilt clau or an edited source replaces its entry, and the store's own prune drops the
+    replaced blob files (docs/projects.md#build-caches). Two clau processes may share it: the store is safe across
+    processes, and each transform run makes its own unique directory below tmp. The full gate compiles cold, so cold
+    compiles stay covered (plan step VAL6 found a cold -O2 crash that warm caches hide); so do --lto and other-target
+    runs, whose callers recreate their work trees (linking/lto.py) or run rarely (cross.py)."""
+    if not matrix.fast() or options.lto or options.target_options:
+        return None
+    return work.with_name(work.name + '-cache')
+
+
 def main():
     """Checks one case or program directory against its golden under the fast or full policy matrix."""
     global RUN_TIMEOUT, EPMD_EXECUTABLE, ESCRIPT  # pylint: disable=global-statement
@@ -315,9 +337,11 @@ def main():
     if skipped := [run['args'] for run in golden['runs'] if run.get('word_bits', options.word_bits) == other]:
         print(f'skip {case_dir.name}: {len(skipped)} run(s) hold on {other}-bit targets only: {skipped}')
     policies = LTO_POLICIES if options.lto else matrix.combinations()
+    build_dir = kept_build_dir(work, options)
     with concurrent.futures.ThreadPoolExecutor(max_workers=min(COMBINATION_JOBS, len(policies))) as pool:
         outcomes = list(pool.map(lambda policy: check_policy(tool, work, case_dir.name, golden, policy, options.suffix,
-                                                             options.target_options, options.word_bits), policies))
+                                                             options.target_options, options.word_bits, build_dir),
+                                 policies))
     failures, skips = 0, 0
     for count, lines in outcomes:
         print('\n'.join(lines))

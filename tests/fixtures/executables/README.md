@@ -66,6 +66,18 @@ stages the sources, links them under each combination of
 on/off × positional `--entry … -o` and project manifest `entry`/`output`; fast
 mode: O0 positional and O2 project, so inferred proofs run in fast mode too), runs every `runs[]` entry and prints a
 unified stdout diff, exit-status and stderr-pattern mismatches.
-`executables_selfcheck` proves a wrong golden fails with that diff and a stale
-golden fails before linking. The tests need the runtime library and Clang, as
-`linking_executable` does.
+
+In fast mode both drivers share a
+[build directory](../../../docs/projects.md#build-caches) beside the work
+directory (`<work>-cache`), which the runner never deletes: a
+case whose `clau` and inputs did not change replays its compile from the cache
+and only links and runs (a heavy case such as `file_io`: 56 s cold, 2 s warm).
+A rebuilt `clau` or an edited source replaces the case's entries, so a cache
+stays at one generation (about 40 MB for a case linking kernel and stdlib).
+Full mode, `--lto` and other-target runs compile cold, so the full gate keeps
+cold compiles covered.
+
+`executables_selfcheck` proves a wrong golden fails with that diff, also when
+the cache replays the compile, that an edited source recompiles, and that a
+stale golden fails before linking. The tests need the runtime library and
+Clang, as `linking_executable` does.
