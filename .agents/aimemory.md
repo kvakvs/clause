@@ -253,6 +253,11 @@ gotchas and user directions not recorded elsewhere.
   builtin calls.
 - Liveness keep-all (dynamic call + atom producer) fires on every OTP-heavy batch; even without it
   ?MODULE in error tuples keeps most OTP modules whole (LIV.1). Experiments: env-gated temp build.
+  CLAU12 (2026-11-22): any batch linking kernel's Erlang modules (file, gen_server, ets.erl) links
+  net_kernel + clause_dist_start by name closure, so `--sname` makes it a node: keep-all is then
+  semantically required. Without dist roots, on_load root only with -on_load, module_info atoms
+  ignored: record_wildcards 21 live fns (0.7 s vs 13 s), file_io 359; gen_servers cascades via logger.
+  `[time] liveness` shows `N of M functions live`. `clau -O0 --jobs 2` crashes ~1 in 4 (race).
 - Inference: solve 16 rounds then widened; expression facts erased per round; per-call re-analysis
   has its own work pool. Expectations: tests/compiler/inference/expectations.py <abs clau> <fixture>
   [--record].

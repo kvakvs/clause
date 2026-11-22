@@ -54,6 +54,8 @@ void drop_unreachable(const codegen::CompilationRequest &request, Analysis &anal
                           kept != report.kept_.end() ? "kept-all-exports reason=" + kept->second
                                                      : "dropped-exports=" + std::to_string(report.dropped_.at(name)));
     }
+    analysis.live_functions_ = report.live_functions_;
+    analysis.functions_ = report.functions_;
     analysis.calls = semantic::live_calls(analysis.calls);
 }
 

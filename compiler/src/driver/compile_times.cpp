@@ -314,6 +314,12 @@ void print_compile_phases(const Analysis &analysis, const std::string_view subje
                 std::format("{} of {} covered modules reused", analysis.reused_modules_, analysis.covered_modules_));
             continue;
         }
+        if (phase == "liveness") {
+            // Added for export liveness (CLAU12).
+            print_stage_time(phase, subject, elapsed,
+                             std::format("{} of {} functions live", analysis.live_functions_, analysis.functions_));
+            continue;
+        }
         print_stage_time(phase, subject, elapsed);
         if (phase == "inference") {
             print_passes(analysis.profile, subject);

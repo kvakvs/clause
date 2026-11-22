@@ -7,6 +7,10 @@ struct LivenessReport {
     std::map<std::u32string, std::string> kept_;
     // The number of exported functions left out of each module's export table.
     std::map<std::u32string, std::size_t> dropped_;
+    // The batch's live functions and all its functions, shown by --print-stage-times. Added for export liveness
+    // (CLAU12).
+    std::size_t live_functions_ = 0;
+    std::size_t functions_ = 0;
 };
 
 // Mark the functions an executable can reach from its entry (Function::live_): direct calls, funs, literal

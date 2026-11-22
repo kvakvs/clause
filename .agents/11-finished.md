@@ -228,6 +228,10 @@ Compact record of [plan 11](11-plan.md), one bullet per step;
   work directory; the full gate, `--lto` and other targets compile cold); `executables_selfcheck` proves
   replay, recompile after an edit and a wrong golden failing warm. `file_io` 56 s to 2 s; fast gate 456 s
   with empty caches (as after a `clau` relink), 173 s warm; caches 568 MB — `774bc5fa`
+- **CLAU12a** export liveness measured: a kernel-using program links 82 modules and keeps 4510 of 4513
+  functions (compile 13.3 s at `-O0`, 2.7 s at best with precise liveness); `[time] liveness` prints the
+  live function count. Every such program can start as a node, which needs every export: the rest is
+  split into CLAU12b (decision) and CLAU12c — `pending`
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 

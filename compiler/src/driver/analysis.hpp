@@ -21,6 +21,9 @@ struct Analysis {
     // inference cache (58W).
     std::size_t covered_modules_ = 0;
     std::size_t reused_modules_ = 0;
+    // The batch's live functions and all its functions after export liveness. Added for export liveness (CLAU12).
+    std::size_t live_functions_ = 0;
+    std::size_t functions_ = 0;
 };
 
 // Run declaration, binding, call, declared-type and inference phases without creating LLVM state. With `live_only`

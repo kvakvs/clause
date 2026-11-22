@@ -56,7 +56,7 @@ the earlier 51-step draft with smaller, single-commit steps.
   direction).
 - Network distribution (steps DIST0–DIST13, added 2026-10-30) moved to its own plan,
   [30-dist.md](30-dist.md) (user direction).
-- Phase T (test gate cost, steps VAL7–VAL15 and CLAU12) was inserted on 2026-11-22 (user
+- Phase T (test gate cost, steps VAL7–VAL15 and CLAU12a–CLAU12c) was inserted on 2026-11-22 (user
   direction) after the fast gate reached about 30 minutes. Its steps depend on no open step of
   other phases and may run at once.
 - The feature backlog (`01-todo.md`) was merged into this plan on 2026-10-30 (user direction):
@@ -165,7 +165,7 @@ Completed steps link to [the plan 11 record](11-finished.md).
 | N. Optional scope decisions | [RT1](#step-rt1), [RT2](#step-rt2), [CLAU3](#step-clau3)–[CLAU5](#step-clau5), [RT3](#step-rt3), [RT9](#step-rt9), [CLAU6](#step-clau6) | open |
 | N2. Parse transforms | [73A](11-finished.md)–[73G](11-finished.md), [CLAU7](#step-clau7) | open: [CLAU7](#step-clau7) |
 | P. Remaining features | [CLAU9](#step-clau9)–[CLAU11](#step-clau11), [RT6](#step-rt6)–[RT8](#step-rt8) | open |
-| T. Test gate cost | [VAL7](11-finished.md), [VAL8](11-finished.md), [CLAU12](#step-clau12), [VAL9](#step-val9)–[VAL15](#step-val15) | open |
+| T. Test gate cost | [VAL7](11-finished.md), [VAL8](11-finished.md), [CLAU12a](11-finished.md), [CLAU12b](#step-clau12b), [CLAU12c](#step-clau12c), [VAL9](#step-val9)–[VAL15](#step-val15) | open |
 | O. Final closure | [RT4](#step-rt4), [RT5](#step-rt5), [CLAU8](#step-clau8) | open |
 
 
@@ -441,7 +441,9 @@ Linux sanitizer gate.
 Found 2026-11-03 (plan 21 MIM1H2; also seen 2026-10-28 compiling ssl). A cold `-O2` build of a program that
 uses the whole `mnesia` library sometimes crashes `clau`: 0xC0000005, or LLVM's "Alignment is not a power of 2"
 assertion. Repro: `clau -O2 --no-cache --jobs 2 --entry mnesia_schema_ops ...` in the test's work directory, 1 crash
-in 3 runs; `--jobs 1` passed 6 of 6. Warm caches hide it.
+in 3 runs; `--jobs 1` passed 6 of 6. Warm caches hide it. Seen at `-O0` too (2026-11-22, CLAU12a):
+`clau -O0 --no-cache --jobs 2` on the 82-module batch of golden `record_wildcards` crashed about 1 run in 4
+(0xC0000005, once 0x80000003 on `gen_servers`), so golden cases, which compile with `--jobs 2`, can fail on it.
 
 - Success criteria
   - [ ] The race found (`-DCLAUSE_OPTIMIZED_COMPILER=OFF`, several jobs) and fixed; 20 cold `-O2` builds with
@@ -740,32 +742,78 @@ Each step records the time alone of the tests it touches before and after, and t
 time in `.state/runs.md`.
 
 <a id="step-clau12"></a>
+<a id="step-clau12b"></a>
 
-### CLAU12. Export liveness survives the library's startup code
+### CLAU12b. Decide what makes a program a node
 
-Depends on: [62C](11-finished.md).
+Depends on: [CLAU12a](11-finished.md). **Decision** (user). CLAU12 was split on 2026-11-22 after
+its measurement ([CLAU12a](11-finished.md)).
+
+Measured (`-O0 --no-cache --jobs 2`, `record_wildcards` / `file_io` / `gen_servers`): each links the
+same 82 modules and keeps 4511 / 4508 / 4538 of about 4510 functions; compile 13.3 / 13.3 / 13.5 s.
+With the keep-all rule and the value rule switched off (a bound, not a correct build): 894 / 909 /
+977 live functions, compile 2.7 / 2.9 / 3.0 s, 79% less.
+
+Why the rule cannot simply go: every program that links kernel's Erlang modules is a node in
+waiting. `net_kernel` joins the batch by name (`file` → `gen_tcp` → `inet` → `net` → `net_adm` →
+`net_kernel`; `gen_server` → `global` → `net_kernel`), the driver then adds `clause_dist_start`
+(`frontend.cpp` `add_after_scan`), and liveness roots its `boot/3`. So `record_wildcards.exe --sname
+x`, built without `--distribution`, starts distribution; a program of `ets` builtins only links 2
+modules and refuses `--sname` with exit 70. A started node runs `M:F/A` named by other nodes (spawn
+requests, `rex`, `erpc`), with atoms the analysis never sees, so it must keep every export. Today it
+does so only by accident (`list_to_atom/1` in `clause_socket`), and about 26 golden cases rely on
+it: they start nodes with `CLAUSE_FLAGS --sname` and neither link with `--distribution` nor call
+`net_kernel:start/1,2` (the multi-node `dist_*` and `mnesia_*` cases, `runtime_options`,
+`runtime_env_options`).
 
 - Success criteria
-  - [ ] Measured first, for `record_wildcards`, `file_io` and `gen_servers`: modules with every
-    export kept, live functions, compile time by phase.
-  - [ ] The entry call of `clause_on_load:boot/3` (and of `clause_dist_start`) no longer counts as a
-    call with a runtime module: its target is the entry the compiler already knows.
-  - [ ] The next triggers of "every export of every module stays" in kernel and stdlib (the trace
-    names only the first) are listed; each is removed, covered by `{clause_liveness, strict}` after
-    review of the module's atoms, or recorded with its reason.
-  - [ ] Dynamic calls that worked before still work;
-    [export liveness](../docs/executables.md#export-liveness) is current.
-  - [ ] Recorded: compile time of the three programs and of `test-luerl` before and after.
+  - [ ] One of these chosen and recorded in [distribution](../docs/distribution.md) and
+    [differences](../docs/differences.md):
+    - **Opt in:** a program is a node only when linked with `--distribution` (manifest
+      `distribution = true`, `runtime_options` with a node name) or when `net_kernel:start/1,2` is
+      live; only then are `clause_dist_start:boot/3` and `node/1` roots and every export kept. Other
+      programs refuse `--sname`/`--name` with today's exit 70 message. OTP starts any node with
+      `-sname`: a difference. A trial build gave `record_wildcards` 21 live functions and 0.74 s,
+      `file_io` 359 and 2.1 s; `gen_servers` still kept nearly everything (CLAU12c's reviews).
+    - **Opt out:** the default stays as today; `--no-distribution` (manifest
+      `distribution = false`) drops the roots and the keep-all rule. No difference from OTP by
+      default, no gain without the option.
+    - **Unchanged:** CLAU12c is rejected in `00-reject.md`; only programs that link no kernel
+      Erlang module get precise liveness.
+
+<a id="step-clau12c"></a>
+
+### CLAU12c. Export liveness for programs that are not nodes
+
+Depends on: [CLAU12b](#step-clau12b), unless it chose "unchanged".
+
+- Success criteria
+  - [ ] The rule CLAU12b chose: a node keeps every export by an explicit distribution rule, not by
+    the accident of an atom-producing builtin; the golden cases that start nodes link accordingly.
+  - [ ] In other programs the entry call of `clause_on_load:boot/3` and `clause_dist_start` does not
+    count as a call with a runtime module; `clause_on_load:boot/3` is a root only when a module has
+    `-on_load`; atoms of the generated `module_info/1` keep no exports.
+  - [ ] The next triggers in kernel and stdlib are listed; each is removed, covered by
+    `{clause_liveness, strict}` after review of the module's atoms, or recorded with its reason.
+    Known chain of `gen_servers`: `'global'` in `gen_server`, and `logger` → `clause_logger` →
+    `logger_formatter` → `error_logger` → `'kernel'` → `supervisor` → `application_controller` →
+    `clause_applications:library_modules/1`, whose `.app` module lists do name code. To review:
+    `gen_server`, `gen`, `proc_lib`, `sys`, the logger modules, `error_logger`, `supervisor`,
+    `net_adm`, `global`; to decide: `application_controller` and `clause_applications`.
+  - [ ] [Strict liveness](../docs/compile.md#strict-liveness) lists every strict library module (it
+    names 4 of the 10 today); [export liveness](../docs/executables.md#export-liveness) is current.
+  - [ ] Recorded: live functions (`[time] liveness`) and compile time of the three programs and of
+    `test-luerl` before and after.
 - Tests
   - [ ] A CLI check on a program calling one `ets` function: kernel modules report dropped exports
-    in the `--verbose` liveness lines.
+    in the `--verbose` liveness lines; a node keeps every export.
   - [ ] Every golden case passes under the full policy matrix.
 
 <a id="step-val9"></a>
 
 ### VAL9. Return golden cases that became cheap to the fast gate
 
-Depends on: [VAL7](11-finished.md), [CLAU12](#step-clau12).
+Depends on: [VAL7](11-finished.md), [CLAU12c](#step-clau12c).
 
 - Success criteria
   - [ ] Every `full_only` golden case is timed alone; those under VAL7's rule return to the fast
@@ -885,7 +933,8 @@ Depends on: none.
 
 ### VAL15. Record the new gate baselines
 
-Depends on: [VAL7](11-finished.md)–[VAL14](#step-val14), [CLAU12](#step-clau12).
+Depends on: [VAL7](11-finished.md)–[VAL14](#step-val14), [CLAU12b](#step-clau12b) and, if selected,
+[CLAU12c](#step-clau12c).
 
 - Success criteria
   - [ ] Fresh fast and full gates timed at `-j 12`, with the 20 slowest tests of each, recorded in

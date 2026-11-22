@@ -112,6 +112,9 @@ class Liveness {
         for (const auto &module : modules_) {
             report_.dropped_[module->name] = static_cast<std::size_t>(std::ranges::count_if(
                 module->functions, [](const Function &function) { return function.exported && !function.live_; }));
+            report_.live_functions_ += static_cast<std::size_t>(
+                std::ranges::count_if(module->functions, [](const Function &function) { return function.live_; }));
+            report_.functions_ += module->functions.size();
         }
         return std::move(report_);
     }
