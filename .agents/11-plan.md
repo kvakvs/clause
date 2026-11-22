@@ -56,6 +56,9 @@ the earlier 51-step draft with smaller, single-commit steps.
   direction).
 - Network distribution (steps DIST0–DIST13, added 2026-10-30) moved to its own plan,
   [30-dist.md](30-dist.md) (user direction).
+- Phase T (test gate cost, steps VAL7–VAL15 and CLAU12) was inserted on 2026-11-22 (user
+  direction) after the fast gate reached about 30 minutes. Its steps depend on no open step of
+  other phases and may run at once.
 - The feature backlog (`01-todo.md`) was merged into this plan on 2026-10-30 (user direction):
   open items became steps, delivered features are listed in
   [11-finished.md](11-finished.md#delivered-features). Former backlog IDs to steps:
@@ -161,6 +164,7 @@ Completed steps link to [the plan 11 record](11-finished.md).
 | N. Optional scope decisions | [RT1](#step-rt1), [RT2](#step-rt2), [CLAU3](#step-clau3)–[CLAU5](#step-clau5), [RT3](#step-rt3), [RT9](#step-rt9), [CLAU6](#step-clau6) | open |
 | N2. Parse transforms | [73A](11-finished.md)–[73G](11-finished.md), [CLAU7](#step-clau7) | open: [CLAU7](#step-clau7) |
 | P. Remaining features | [CLAU9](#step-clau9)–[CLAU11](#step-clau11), [RT6](#step-rt6)–[RT8](#step-rt8) | open |
+| T. Test gate cost | [VAL7](#step-val7), [VAL8](#step-val8), [CLAU12](#step-clau12), [VAL9](#step-val9)–[VAL15](#step-val15) | open |
 | O. Final closure | [RT4](#step-rt4), [RT5](#step-rt5), [CLAU8](#step-clau8) | open |
 
 
@@ -694,6 +698,243 @@ between heaps of one runtime.
     identities of other nodes); otherwise today's `wrong_owner` refusal is the documented contract.
 - Tests
   - [ ] Runtime consumer test of the chosen behavior.
+
+## T. Test gate cost
+
+Added 2026-11-22 (user direction): the fast gate is no longer fast. Evidence of that day
+(Windows x64 Debug; costs are CTest's recorded averages of loaded `-j 12` runs, six tests at once):
+
+- 522 tests, 493 in the fast gate and 29 `full_only`. Fast gate wall time: about 75 s (10-17),
+  450–650 s (10-27 to 10-30), 1100–1300 s (10-31), 1792 s (11-07). The test count rose only from
+  about 430 to 493, so the cost per case grew.
+- 128 of the about 280 fast golden cases (`executables_*`) cost 50–155 s each, about 9900 s of the
+  gate's about 10900 s. The other 150 golden cases cost 330 s together and the about 210 other fast
+  tests about 700 s.
+
+  | Group (fast gate) | Tests | Cost, s |
+  | --- | --- | --- |
+  | Golden cases that link kernel/stdlib (mnesia 22, dist 15, file 10, public_key 8, ...) | 128 | 9900 |
+  | Golden cases of language and runtime semantics (2–3 modules linked) | 150 | 330 |
+  | `linking_*`, `project_*` | 19 | 300 |
+  | `codegen_*`, `patternmatch_*` (about 60 nested CMake builds) | 66 | 170 |
+  | Parser, runtime, inference, library, transforms and the rest | 127 | 200 |
+
+- Alone: `math` 0.7 s, `tail_calls` 4.8 s; `file_io` 47 s, `gen_servers` 52 s, `public_key_certs`
+  61 s, `dist_ping` 62 s, `ssl_engine` 72 s, `mnesia_dirty` 75 s, `mnesia_partitions` 130 s.
+- Cause 1, no compile reuse: a heavy case compiles 82 or more library modules twice. The O0
+  positional compile has no cache; the O2 project cache lies in the work directory that `run.py`
+  deletes. `file_io` at O0 with `--jobs 2`: 22 s (inference 4.6, lower 5.6, optimize 2.8, emit 8.1);
+  the same batch replayed from the cache: 28 ms.
+- Cause 2, export liveness defeated: `record_wildcards` (51 lines, one `ets:match_spec_run/2` call,
+  58 s) keeps every export of all 82 modules: 75 by "a dynamic call in `clause_on_load:boot/3` and
+  the atom-producing `erlang:list_to_atom/1` in `clause_socket:control/3`", 7 by their name used as
+  a value (`--verbose` liveness lines). User programs pay the same compile time.
+- The full gate has no usable timing: 19 tests, mostly `full_only`, have no recorded cost. Each
+  golden case runs 8 policy combinations there instead of 2.
+- Three read-only audits listed tests of stubs, of conditions valid programs cannot reach, and
+  repeated checks (VAL12–VAL14). They read headers and parts of the test bodies: each step confirms
+  its list in the code first.
+
+Each step records the time alone of the tests it touches before and after, and the fast gate's wall
+time in `.state/runs.md`.
+
+<a id="step-val7"></a>
+
+### VAL7. Move slow tests to the full gate, golden cases labeled by area
+
+Depends on: none.
+
+- Success criteria
+  - [ ] The heavy golden cases are `full_only`, except a smoke set of about 10, one per area, named
+    in `tests/compiler/executables/CMakeLists.txt` with each case's time alone (proposed: `file_io`,
+    `gen_servers`, `supervisors`, `applications`, `sockets`, `loggers`, `mnesia_dirty`, `dist_start`,
+    `public_key_certs`, `crypto_digests`, `ssl_engine`).
+  - [ ] Every golden case has an area label (`mnesia`, `dist`, `ssl`, `public_key`, `crypto`, `file`,
+    `kernel`, `stdlib`, `tools`, `core`), so library work runs its area with `ctest -L <area>`.
+  - [ ] Also `full_only`: `runtime_lifecycle_failure` (8.5 s), `inference_budgets` (12 s,
+    `inference_walkers` stays) and `parser_mutations_1`–`3` (shard 0 stays).
+  - [ ] The gate rule (this plan's common gate, the CMake comment, `docs/building.md`,
+    `docs/validation.md`, `aimemory.md`) reads: a test of more than about 10 s alone is `full_only`
+    unless it is in the smoke set.
+  - [ ] Fast gate wall time recorded; expected about 5 minutes at `-j 12`.
+- Tests
+  - [ ] `ctest -N` lists the same 522 tests before and after; fast and full lists differ only by the
+    moved tests.
+
+<a id="step-val8"></a>
+
+### VAL8. Golden cases keep their compile cache between runs
+
+Depends on: none.
+
+- Success criteria
+  - [ ] `run.py` gives both drivers a `--build-dir` that `prepare` does not delete, one per case, so
+    a case whose `clau` and inputs did not change replays its compile (`[time] compile ... (cached)`)
+    and only links and runs.
+  - [ ] Entries of older `clau` builds do not pile up: the disk size of all case caches is recorded
+    and bounded ([build caches](../docs/projects.md#build-caches), AGENTS.md disk rule).
+  - [ ] Cold compiles stay covered: the full gate compiles without the cache (it showed
+    [VAL6](#step-val6)'s crash, which warm caches hide).
+  - [ ] Recorded: fast gate wall time with warm caches and after a `clau` relink.
+- Tests
+  - [ ] `executables_selfcheck`: a second run replays, an edited source recompiles, a wrong golden
+    still fails with a warm cache.
+
+<a id="step-clau12"></a>
+
+### CLAU12. Export liveness survives the library's startup code
+
+Depends on: [62C](11-finished.md).
+
+- Success criteria
+  - [ ] Measured first, for `record_wildcards`, `file_io` and `gen_servers`: modules with every
+    export kept, live functions, compile time by phase.
+  - [ ] The entry call of `clause_on_load:boot/3` (and of `clause_dist_start`) no longer counts as a
+    call with a runtime module: its target is the entry the compiler already knows.
+  - [ ] The next triggers of "every export of every module stays" in kernel and stdlib (the trace
+    names only the first) are listed; each is removed, covered by `{clause_liveness, strict}` after
+    review of the module's atoms, or recorded with its reason.
+  - [ ] Dynamic calls that worked before still work;
+    [export liveness](../docs/executables.md#export-liveness) is current.
+  - [ ] Recorded: compile time of the three programs and of `test-luerl` before and after.
+- Tests
+  - [ ] A CLI check on a program calling one `ets` function: kernel modules report dropped exports
+    in the `--verbose` liveness lines.
+  - [ ] Every golden case passes under the full policy matrix.
+
+<a id="step-val9"></a>
+
+### VAL9. Return golden cases that became cheap to the fast gate
+
+Depends on: [VAL7](#step-val7), [CLAU12](#step-clau12).
+
+- Success criteria
+  - [ ] Every `full_only` golden case is timed alone; those under VAL7's rule return to the fast
+    gate, and the smoke set is reviewed.
+  - [ ] The language and runtime cases that were heavy only by their library closure are in the fast
+    gate: `record_wildcards`, `runtime_args_files`, `runtime_env_options`, `runtime_config_files`,
+    `io_output`, `io_options`, `node_code`, `spawning`; one that stays heavy is recorded with the
+    module that makes it so.
+- Tests
+  - [ ] Fast gate wall time recorded.
+
+<a id="step-val10"></a>
+
+### VAL10. Slow link tests share builds and keep link-free checks apart
+
+Depends on: none.
+
+- Success criteria
+  - [ ] `linking_runtime_options` (104 s, 6 links of one program): builds of the same batch are
+    shared or replayed from the cache; the distribution and kernel service builds are `full_only`.
+  - [ ] `linking_crypto` (58 s) and `linking_fips` (38 s): positional compiles use `--build-dir`,
+    refusals that need no link run first; links repeated by `linking_crypto_source` and
+    `linking_crypto_minimum` are `full_only`.
+  - [ ] `linking_shell` (35 s): the `--print-env` and refusal checks are a link-free fast test; the
+    link and session are `full_only` (golden `shell_session` covers the session).
+  - [ ] `project_applications` (27 s): one link shows both the version warning and its override.
+  - [ ] `library_types` (16 s): checked without linking when analysis alone resolves remote types
+    the same way, else recorded.
+  - [ ] No test of this step costs more than about 10 s alone in the fast gate.
+- Tests
+  - [ ] Each changed test still fails on a mutation of the behavior it checks (one per test,
+    recorded).
+
+<a id="step-val11"></a>
+
+### VAL11. Decide where the transform host is built
+
+Depends on: none. **Decision.**
+
+`transforms_host_setup` links the whole library with every export kept (59 s alone at all threads)
+after any change of `clau`, the runtime or a library file; 14 tests wait for it, 8 of them golden
+cases.
+
+- Success criteria
+  - [ ] Chosen and implemented: the host is a build target keyed on its identity, or its setup and
+    dependents are `full_only` with `transforms_terms`, `transforms_abstract` and `transforms_inputs`
+    left in the fast gate.
+  - [ ] Golden cases compiled from `.abstr` no longer require the host when they do not use it.
+- Tests
+  - [ ] Fast gate after a library-only edit: recorded time of the host build and of its dependents.
+
+<a id="step-val12"></a>
+
+### VAL12. Remove tests of stubs and do-nothing code
+
+Depends on: none. AGENTS.md: code that does nothing is not tested.
+
+- Success criteria
+  - [ ] Removed, each after its body is read: the deferred-service parts of `runtime_services` and
+    `runtime_service_output`; the `notimpl` reporter tests `runtime_features`,
+    `runtime_feature_output`, `codegen_features`, `codegen_feature_output`, `abi_features`;
+    `codegen_placeholders`; `library_stubs`; golden `tracing_unsupported`; the `unavailable` mode of
+    `runtime_builtin_output`.
+  - [ ] Checks of real behavior inside those files (factory lifetime, memory service, bridge status
+    mapping) stay, moved to a test that remains.
+  - [ ] `codegen_resource_cli` (disabled since 2026-10-12) is rewritten for the 16384 module limit
+    or deleted with `resource_cli.py`.
+  - [ ] `codegen_specialization`: kept only if real sources reach the planner paths it feeds with
+    synthetic profiles; decision recorded.
+- Tests
+  - [ ] Fast gate passes; the removed names are listed in `11-finished.md`.
+
+<a id="step-val13"></a>
+
+### VAL13. Rare-condition unit tests become asserts
+
+Depends on: none. Narrows the common rule on focused unit tests: a condition that neither valid
+source nor a linked consumer can reach is an assert in the product code, not a test.
+
+- Success criteria
+  - [ ] Each candidate has a recorded disposition (assert, `static_assert`, kept with reason):
+    forged words in `runtime_immediate`, `runtime_memory`, `runtime_builtins`; forged descriptors in
+    `runtime_startup` (one case stays); the tag table of `runtime_term_tag`; state invariants in
+    `codegen_verification`, `codegen_target`, `codegen_results`, `codegen_ownership`; injected
+    budgets and faults in `codegen_limits`, `project_limits`, `semantic_patterns`,
+    `semantic_bindings`, `parser_hardening`.
+  - [ ] Checks that guard the runtime against generated code or a host (admission, ownership,
+    invalid handles) stay tests; the rule in this plan's common gate and AGENTS.md is reworded.
+  - [ ] [VAL3](#step-val3)'s ledger cites each removed test.
+- Tests
+  - [ ] Debug builds keep the asserts on; fast gate passes.
+
+<a id="step-val14"></a>
+
+### VAL14. Remove repeated checks
+
+Depends on: none.
+
+- Success criteria
+  - [ ] "An unlinked target fails to link" runs once (`codegen_registration_O2`), not in each of
+    about 45 nested builds.
+  - [ ] Foreign-triple `--emit obj` loops leave the pattern-match drivers (`containers`, `integers`,
+    `floats`, `maps`, `bits`, `immediate`, `booleans`, `facts`); `codegen_cross_targets` covers them.
+  - [ ] `parser_phase1_golden` is dropped (`parser_historical_golden` compares the same three
+    byte-identical goldens).
+  - [ ] In fast mode `codegen_service_*` and `codegen_failure_*` run two of their four variants,
+    `codegen_registration`, `codegen_native`, `codegen_after_fault` and `codegen_literal_heap` one
+    level, `codegen_examples` the fast matrix; the full gate runs all.
+  - [ ] Semantic rejection loops run under one policy when the diagnostic comes before code
+    generation (confirmed in the pipeline first).
+  - [ ] `runtime_printing` keeps its bounded-work cases only (`printing_display` runs the value
+    goldens).
+- Tests
+  - [ ] Fast and full gates pass; time alone of the changed tests recorded.
+
+<a id="step-val15"></a>
+
+### VAL15. Record the new gate baselines
+
+Depends on: [VAL7](#step-val7)–[VAL14](#step-val14), [CLAU12](#step-clau12).
+
+- Success criteria
+  - [ ] Fresh fast and full gates timed at `-j 12`, with the 20 slowest tests of each, recorded in
+    `docs/validation.md` and `.state/runs.md`; the full gate has a recorded cost for every test.
+  - [ ] `docs/building.md`, `aimemory.md` and AGENTS.md describe the tiers (fast, area labels, full)
+    and the rule that keeps the fast gate fast.
+- Tests
+  - [ ] Full-mode CTest and `check-quality-all`.
 
 ## O. Final closure
 
