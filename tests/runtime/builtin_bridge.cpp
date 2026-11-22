@@ -47,13 +47,6 @@ void install(CodeServer &server) {
         registry->add("invalid", 0, [](ProcessContext &, std::span<const Term>) { return CallResult<Term>(Term{}); })
             .has_value(),
         "invalid-result registration failed");
-    require(registry
-                ->add("unavailable", 0,
-                      [](ProcessContext &, std::span<const Term>) -> CallResult<Term> {
-                          return std::unexpected(CallFailure{CallError::not_implemented});
-                      })
-                .has_value(),
-            "unavailable registration failed");
     require(server.load({"test", CodeImage::linked(), std::move(registry)}).has_value(), "module load failed");
 }
 
@@ -101,34 +94,9 @@ void check_invalid(ProcessContext &context) {
             "null result accepted");
     require(output == 123, "invalid input changed result");
 }
-
-// Count unavailable reports so checked-call nesting cannot silently duplicate diagnostics.
-bool count_report(void *state, std::string_view message) {
-    ++*static_cast<int *>(state);
-    require(message.starts_with("[builtins] notimpl"), "wrong unavailable feature");
-    return true;
-}
-
-// Preserve a prior report across a second checked boundary, and contain sink failures.
-void check_reporting(ProcessContext &context) {
-    auto unavailable = context.code_server().resolve({.module = "test", .function = "unavailable", .arity = 0}).value();
-    int reports = 0;
-    auto result = unavailable.call(context, {}, {&reports, count_report});
-    require(!result && result.error().reported && reports == 1, "unavailable body was not reported once");
-    auto registry = std::make_unique<ModuleRegistry>();
-    require(
-        registry->add("nested", 0, [result](ProcessContext &, std::span<const Term>) { return result; }).has_value(),
-        "nested registration failed");
-    require(context.code_server().load({"nested", CodeImage::linked(), std::move(registry)}).has_value(),
-            "nested load failed");
-    auto nested = context.code_server().resolve({.module = "nested", .function = "nested", .arity = 0}).value();
-    require(!nested.call(context, {}, {&reports, count_report}) && reports == 1, "propagation reported twice");
-    auto failed = unavailable.call(context, {}, {nullptr, [](void *, std::string_view) { return false; }});
-    require(!failed && failed.error().code == CallError::diagnostic_failure, "sink failure lost");
-}
 } // namespace
 
-// Optional modes expose real bridge diagnostics to subprocess count/silence assertions.
+// The optional mode calls an unknown builtin for the subprocess check that ordinary failures stay silent.
 int main(int argc, char **argv) {
     try {
         auto runtime = Runtime::start().value();
@@ -137,16 +105,14 @@ int main(int argc, char **argv) {
         if (argc == 2) {
             const std::string_view function(argv[1]);
             Word output = 123;
-            const auto expected = function == "missing" ? Status::unknown_builtin : Status::not_implemented;
             require(dispatch_builtin(context, "test", 4, function.data(), function.size(), nullptr, 0, &output) ==
-                        expected,
-                    "unavailable status lost");
-            require(output == 123, "unavailable BIF returned a fabricated word");
+                        Status::unknown_builtin,
+                    "unknown builtin status lost");
+            require(output == 123, "unknown builtin returned a fabricated word");
             return 0;
         }
         check_bridge(*context);
         check_invalid(*context);
-        check_reporting(*context);
     } catch (const std::exception &error) {
         std::cerr << error.what() << '\n';
         return 1;

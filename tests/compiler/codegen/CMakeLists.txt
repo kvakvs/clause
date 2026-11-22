@@ -10,7 +10,7 @@ add_test(NAME codegen_dependency COMMAND "${CMAKE_COMMAND}"
 # A nested CMake configure and build against the LLVM SDK takes minutes when every core is busy with other tests.
 set_tests_properties(codegen_dependency PROPERTIES TIMEOUT 300 LABELS full_only)
 
-foreach(suite IN ITEMS results ownership target verification emission term_abi features mangling)
+foreach(suite IN ITEMS results ownership target verification emission term_abi mangling)
     add_executable(codegen_${suite} ${suite}.cpp)
     clause_project_options(codegen_${suite})
     target_include_directories(codegen_${suite} PRIVATE "${PROJECT_SOURCE_DIR}/compiler/src")
@@ -31,11 +31,6 @@ foreach(backend IN LISTS test_backends)
     target_compile_definitions(codegen_term_abi PRIVATE "CLAUSE_LLVM_${backend}=1")
 endforeach()
 
-target_link_libraries(codegen_features PRIVATE clause_abi)
-add_test(NAME codegen_feature_output COMMAND "${CMAKE_COMMAND}"
-    "-DPROGRAM=$<TARGET_FILE:codegen_features>" "-DFEATURE_NAME=pattern matching"
-    -P "${PROJECT_SOURCE_DIR}/tests/abi/feature_output.cmake")
-
 if(CLAUSE_BUILD_RUNTIME)
     add_executable(codegen_runtime_terms runtime_terms.cpp)
     clause_project_options(codegen_runtime_terms)
@@ -45,7 +40,8 @@ if(CLAUSE_BUILD_RUNTIME)
     add_test(NAME codegen_runtime_terms COMMAND codegen_runtime_terms)
 endif()
 
-# Real-source backend adapter remains private until CLI artifact integration (steps 35/36).
+# Specialization planner bounds over synthetic profiles real sources rarely make profitable, and the generic
+# fallback after an exhausted inference budget.
 add_executable(codegen_specialization specialization.cpp)
 clause_project_options(codegen_specialization)
 target_include_directories(codegen_specialization PRIVATE "${PROJECT_SOURCE_DIR}/compiler/src")
@@ -170,11 +166,6 @@ add_test(NAME fixture_sources COMMAND "${Python3_EXECUTABLE}"
     "${PROJECT_SOURCE_DIR}/tests/compiler/patternmatch/fixture_sources.py"
     "${PROJECT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/fixture-sources")
 set_tests_properties(fixture_sources PROPERTIES TIMEOUT 60)
-add_test(NAME codegen_resource_cli COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/resource_cli.py"
-    "$<TARGET_FILE:clau>" "${CMAKE_CURRENT_BINARY_DIR}/resource-cli/$<CONFIG>")
-# Disabled 2026-10-12 (user): it expects 1025 inputs to exceed the module limit, which commit 33481a7 raised to
-# 16384; exceeding that takes 16385 files and does not fit a Windows command line positionally.
-set_tests_properties(codegen_resource_cli PROPERTIES DISABLED TRUE)
 get_filename_component(llvm_tools "${sdk_dir}/../../../bin" ABSOLUTE)
 find_program(CLAUSE_LLVM_AS NAMES llvm-as HINTS "${llvm_tools}" NO_DEFAULT_PATH REQUIRED)
 find_program(CLAUSE_LLVM_DIS NAMES llvm-dis HINTS "${llvm_tools}" NO_DEFAULT_PATH REQUIRED)
@@ -185,10 +176,6 @@ add_test(NAME codegen_cross_targets COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CUR
     "$<TARGET_FILE:clau>" "${CLAUSE_LLVM_READOBJ}" "${CLAUSE_LLVM_NM}"
     "${CMAKE_CURRENT_BINARY_DIR}/cross-targets/$<CONFIG>" "${backend_list}")
 set_tests_properties(codegen_cross_targets PROPERTIES TIMEOUT 120)
-add_test(NAME codegen_placeholders COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/placeholders.py"
-    "$<TARGET_FILE:clau>" "${CMAKE_CURRENT_BINARY_DIR}/placeholders/$<CONFIG>"
-    "${PROJECT_SOURCE_DIR}/abi/include/clause/abi/features.hpp")
-set_tests_properties(codegen_placeholders PROPERTIES TIMEOUT 120)
 add_test(NAME codegen_inspection COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/inspection.py"
     "$<TARGET_FILE:clau>" "${CLAUSE_LLVM_AS}" "${CLAUSE_LLVM_DIS}"
     "${CMAKE_CURRENT_BINARY_DIR}/inspection/$<CONFIG>" "${PROJECT_SOURCE_DIR}/tests/fixtures/codegen")

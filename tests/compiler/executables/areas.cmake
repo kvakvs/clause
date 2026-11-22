@@ -17,7 +17,7 @@ set(golden_area_core atom_order atomics_counters behaviours binary_append binary
     process_dictionary processes proofs quick_builtins raise_classes receive_after record_info record_update
     record_wildcards records_reflection recursion runtime_args_files runtime_config_files runtime_env_options
     runtime_options selective_receive send slow_owner small_maps socket_ops sockets spawning stack_traces suspension
-    tail_calls term_access term_sort time_timers tracing_unsupported try_after try_catch wakeups)
+    tail_calls term_access term_sort time_timers try_after try_catch wakeups)
 set(golden_area_dist connections external_identities this_node)
 # file: also archives, compression, disk_log and dets.
 set(golden_area_file dets_tables disk_log_ops filelib_ops filenames tar_ops zip_ops zlib_streams zstd_ops)

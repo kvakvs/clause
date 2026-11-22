@@ -21,7 +21,7 @@ or refine an entry when its feature lands; keep its ID reserved.
 | Driver | Nothing deferred: `executable linking` is implemented ([linking](executables.md#linking)) |
 | Runtime services | See [runtime deferred services](runtime.md#deferred-services) |
 
-Deferred compiler features today, each covered by `codegen_placeholders`:
+Deferred compiler features today:
 
 | Feature | Example that reports it |
 | --- | --- |
@@ -37,7 +37,7 @@ Deferred compiler features today, each covered by `codegen_placeholders`:
 - Exactly one message per failed operation, independent of `--verbose`.
 - A deferred feature the compiler could skip without changing what it accepts
   would report as a warning and compilation would continue; none does today.
-  `codegen_placeholders` checks one message per deferred compiler feature.
+  Reports of deferred features are not tested (plan 11 step VAL12).
 - Compiler: [reject_feature](../compiler/src/codegen/features.hpp) reports the
   first failure of a batch, latches failure, discards staged output and marks
   the diagnostic `reported` so drivers do not print it again.

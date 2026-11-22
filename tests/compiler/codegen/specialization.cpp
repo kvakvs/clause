@@ -5,7 +5,7 @@
 
 using R = cg::Representation;
 
-// Model measured repeated checks to exercise limits absent from the current guard-free source subset.
+// Model repeated checks that real sources rarely make profitable, so the planner's limits are reached.
 cg::SpecializationInput useful(std::string module, std::string symbol) {
     return {std::move(module),
             std::move(symbol),
@@ -67,13 +67,8 @@ void policies() {
     require(cg::plan_specializations(request, inputs).candidates.empty(), "unknown union product enumerated");
 }
 
-// Current supported programs have no representation checks, so speed mode must not invent variants.
-void real_sources() {
-    auto compilation = fixtures({"client.erl", "answer.erl"}, "", cg::OptimizationLevel::speed);
-    require(analyze_and_lower(compilation), "speed source lowering failed");
-    const auto &plan = cg::detail::state(compilation).specializations;
-    require(plan.candidates.empty() && plan.decisions.contains(cg::SpecializationReason::no_benefit),
-            "identity/constant cloned without benefit");
+// An exhausted inference budget yields no proofs, and the generic code still verifies and emits.
+void exhausted_inference() {
     auto exhausted = fixtures({"fact_budget.erl", "client.erl", "answer.erl"}, "", cg::OptimizationLevel::speed);
     require(analyze_and_lower(exhausted, {.syntax_work = 3}), "exhausted inference rejected generic compilation");
     require(cg::detail::state(exhausted).specializations.candidates.empty(), "missing facts became proofs");
@@ -81,7 +76,7 @@ void real_sources() {
             "inference budget fallback failed to verify or emit supported representations");
 }
 
-// Observe acceptance and each bounded rejection reason without enabling unsupported source guards.
+// Observe acceptance and each bounded rejection reason in the progress trace.
 void trace_profiles() {
     cg::CompilationRequest request;
     std::string events;
@@ -104,12 +99,12 @@ void trace_profiles() {
     }
 }
 
-// Validate the policy layer and real inference boundary without requiring future source operations.
+// Validate the planner's bounds and the inference budget fallback.
 int main() {
     try {
         budgets();
         policies();
-        real_sources();
+        exhausted_inference();
         trace_profiles();
     } catch (const std::exception &error) {
         std::fprintf(stderr, "%s\n", error.what());

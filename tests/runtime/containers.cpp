@@ -145,8 +145,12 @@ void ownership(Runtime &runtime, ProcessContext &context, const Term &value) {
     require(!clause::runtime::CHECKED_ADMISSION ||
                 Term::from_word(Word{1}, context) == std::unexpected(TermError::wrong_owner),
             "forged cons admitted");
-    TermFactory factory(context);
+    // A moved factory neither pins the destroyed context nor dereferences it (moved from runtime_services, VAL12).
+    TermFactory original(context);
+    TermFactory factory(std::move(original));
+    const auto token = context.lifetime().lock();
     require(runtime.destroy_context(&context) == Status::ok, "context removal failed");
+    require(!token->alive(), "context token was not invalidated");
     require(factory.tuple({}) == std::unexpected(TermError::expired_context), "expired factory accessed");
 }
 } // namespace

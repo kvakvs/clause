@@ -242,6 +242,12 @@ Compact record of [plan 11](11-plan.md), one bullet per step;
   `clau`, runtime or library change, 0.2 s else), not a build target; only tests that start the host
   require it: 5 instead of 14 (golden cases compiled from `.abstr` and tests passing `--erl` no longer
   wait). Fast gate with the host removed 132 s (setup 37 s, its three fast dependents 25 s) — `b6a9f439`
+- **VAL12** tests of stubs and do-nothing code removed (11 CTests, 525 to 514): `runtime_services`,
+  `runtime_service_output`, `runtime_features`, `runtime_feature_output`, `codegen_features`,
+  `codegen_feature_output`, `abi_features`, `codegen_placeholders`, `library_stubs`, golden
+  `tracing_unsupported`, the disabled `codegen_resource_cli`; the `unavailable` bridge mode and the
+  deferred-feature rollback of `codegen_atoms` too. The factory lifetime check moved to
+  `runtime_containers`; `codegen_specialization` keeps its caps, policies and trace — `pending`
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 

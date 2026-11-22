@@ -1,6 +1,5 @@
 """Library modules in linked programs (plan step 41K, docs/libraries/library.md#which-module-a-name-resolves-to).
 
-  library_programs.py stubs ROOT CLAU WORK SUFFIX       every provided module's stub raises not_implemented in every call form
   library_programs.py precedence ROOT CLAU WORK SUFFIX  Clause modules win over search paths, explicit inputs win
                                                         over Clause modules with a warning, missing names are reserved,
                                                         a listed source the ignore rules match is kept with a warning
@@ -33,17 +32,6 @@ def run(command, cwd=None):
     result = subprocess.run([str(part) for part in command], cwd=cwd, capture_output=True, text=True, timeout=600,
                             check=False)
     return result.returncode, result.stdout.replace("\r\n", "\n"), result.stderr.replace("\r\n", "\n")
-
-
-def stubs(root, clau, work, suffix):
-    """The stubs fixture links and confirms every call form."""
-    shutil.rmtree(work, ignore_errors=True)
-    work.mkdir(parents=True)
-    status, _, err = run([clau, "-o", work / "stubs", root / "tests/fixtures/library/stubs/main.erl"])
-    assert status == 0, err
-    status, out, err = run([work / ("stubs" + suffix)])
-    assert status == 0 and out == "library_stubs: ok\n", (out, err)
-    print("library_stubs: ok")
 
 
 class Project:
@@ -132,7 +120,7 @@ def ignored(root, clau, work, suffix):
 
 
 def main(arguments):
-    actions = {"stubs": stubs, "precedence": precedence, "types": types, "ignored": ignored}
+    actions = {"precedence": precedence, "types": types, "ignored": ignored}
     if len(arguments) != 5 or arguments[0] not in actions:
         print(__doc__, file=sys.stderr)
         return 2

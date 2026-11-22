@@ -36,6 +36,8 @@ gotchas and user directions not recorded elsewhere.
 - Transform host fixture (VAL11 2026-11-22): host build 31-33 s alone, stays a fast setup test (not a build target).
   Only tests that start the host require it: .abstr cases and runtime compile:forms/parse_transform calls do not;
   `-FS transform_host` + removed `%LOCALAPPDATA%/clause/transform-host/<clau>-*` shows who starts it.
+- Stub tests removed (VAL12 2026-11-22): `[feature] notimpl` reports, deferred services, library stubs and `notsup`
+  paths have no tests; do not add any. A rollback proof needs a real error (a semantic one), not a deferred feature.
 - Tidy/Lizard run on the Windows dev host only; other platforms build+test.
 - All ABI symbol/namespace versions collapse to v1 in plan step RT4 (never released).
 - RT5: rename runtime/src/builtins files to builtin_<name>.
@@ -267,9 +269,7 @@ gotchas and user directions not recorded elsewhere.
 - Inference: solve 16 rounds then widened; expression facts erased per round; per-call re-analysis
   has its own work pool. Expectations: tests/compiler/inference/expectations.py <abs clau> <fixture>
   [--record].
-- Adding a FeatureId needs tests/abi/features.cpp names snapshot + codegen_placeholders CASE for
-  deferred features. ABI version bump needs cross_targets.py and linking/startup.cmake descriptor
-  strings.
+- ABI version bump needs cross_targets.py and linking/startup.cmake descriptor strings.
 - Build cache: SQLite build/cache/v2 (lazy open; only put creates the db). Tests running manifests
   inside tests/fixtures pass --build-dir into their work dir; --verbose compile checks use
   --no-cache; a rebuilt clau misses every entry (warm up Release timing runs).
@@ -357,8 +357,7 @@ gotchas and user directions not recorded elsewhere.
   generate.py -> clang-format tables.cpp. Full 1.1M-codepoint checks ~40 s Release: tests sample.
 - Benchmarks: make-benchmark.bat -> build/bench Release + benchmarks/run.py; first results ~20x
   slower than OTP JIT geomean, maps:put / binary append look quadratic, binary matching ~1000x.
-- Known pre-existing: codegen_resource_cli uses 1025 inputs vs module limit 16384 (user commit
-  33481a7). OTP loader literal-record-guard and core_to_ssa legacy-import crashes documented; not
+- Known pre-existing: OTP loader literal-record-guard and core_to_ssa legacy-import crashes documented; not
   executed OTP goldens.
 - 41P (2026-10-14): MSVC std::filesystem::read_symlink trips clang-analyzer EnumCastOutOfRange (like
   file_size): file_paths.cpp reads links with readlink / FSCTL_GET_REPARSE_POINT. Symlink creation

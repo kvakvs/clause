@@ -8,15 +8,6 @@ clause_project_options(runtime_term_layout_tests)
 target_link_libraries(runtime_term_layout_tests PRIVATE clause_runtime)
 target_include_directories(runtime_term_layout_tests PRIVATE "${PROJECT_SOURCE_DIR}/runtime/src/terms")
 
-add_executable(runtime_feature_tests features.cpp)
-clause_project_options(runtime_feature_tests)
-target_link_libraries(runtime_feature_tests PRIVATE clause_runtime)
-add_test(NAME runtime_features COMMAND runtime_feature_tests)
-add_test(NAME runtime_feature_output COMMAND "${CMAKE_COMMAND}"
-    "-DPROGRAM=$<TARGET_FILE:runtime_feature_tests>" "-DFEATURE_NAME=garbage collection"
-    "-DCONTEXT_FIXTURES=${PROJECT_SOURCE_DIR}/tests/fixtures/runtime/diagnostics"
-    -P "${PROJECT_SOURCE_DIR}/tests/abi/feature_output.cmake")
-
 foreach(suite IN ITEMS lifecycle_failure memory stack containers integers floats maps bitstrings admission heap_fragments scheduler registration startup unchecked)
     add_executable(runtime_${suite} ${suite}.cpp)
     clause_project_options(runtime_${suite})
@@ -176,14 +167,6 @@ add_test(NAME runtime_printing COMMAND runtime_printing
     "${PROJECT_SOURCE_DIR}/tests/fixtures/printing/write.txt"
     "${PROJECT_SOURCE_DIR}/tests/fixtures/printing/display.txt")
 set_tests_properties(runtime_printing PROPERTIES TIMEOUT 120)
-
-add_executable(runtime_services services.cpp)
-clause_project_options(runtime_services)
-target_link_libraries(runtime_services PRIVATE Clause::generated_program)
-add_test(NAME runtime_services COMMAND runtime_services)
-add_test(NAME runtime_service_output COMMAND "${CMAKE_COMMAND}"
-    "-DPROGRAM=$<TARGET_FILE:runtime_services>"
-    -P "${CMAKE_CURRENT_SOURCE_DIR}/service_output.cmake")
 
 # The runtime-wide persistent term table: values outlive their writer, replaced values stay readable while held,
 # concurrent readers see whole values, nothing stays charged (plan step 41M1).

@@ -26,11 +26,11 @@ add_test(NAME library_freshness COMMAND "${Python3_EXECUTABLE}" "${library_modul
 set_tests_properties(library_freshness PROPERTIES TIMEOUT 300 LABELS "host_otp;full_only"
     PASS_REGULAR_EXPRESSION "library_freshness: ok" SKIP_REGULAR_EXPRESSION "SKIP: no host Erlang/OTP")
 
-# Linked programs (plan step 41K): every provided module's stub raises undef in each call form; Clause modules win
-# over search paths, explicit inputs win over Clause modules with a warning, missing module names are reserved;
-# library_types checks remote types with --print-types, without a link (plan 11 step VAL10).
+# Linked programs (plan step 41K): Clause modules win over search paths, explicit inputs win over Clause modules with
+# a warning, missing module names are reserved; library_types checks remote types with --print-types, without a link
+# (plan 11 step VAL10).
 if(CLAUSE_BUILD_RUNTIME)
-    foreach(action IN ITEMS stubs precedence types ignored)
+    foreach(action IN ITEMS precedence types ignored)
         add_test(NAME library_${action} COMMAND "${Python3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/library_programs.py" ${action} "${PROJECT_SOURCE_DIR}" "$<TARGET_FILE:clau>"
             "${CMAKE_CURRENT_BINARY_DIR}/${action}/$<CONFIG>" "${CMAKE_EXECUTABLE_SUFFIX}")

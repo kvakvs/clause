@@ -179,9 +179,9 @@ and evidence are in Git at those commits. The anchors below keep older links to 
 ### Notes from completed steps that guide remaining work
 
 - Gate baseline: since commit `33481a7` raised the module limit to 16384, `codegen_resource_cli`
-  still expects 1025 inputs to fail; every gate from 73B to 41K ran with that one known failure.
-  Disabled on 2026-10-12 (user) until it is rewritten for the new limit (16385 inputs need a
-  project, not a command line).
+  still expected 1025 inputs to fail; every gate from 73B to 41K ran with that one known failure.
+  Disabled on 2026-10-12 (user), removed with `resource_cli.py` in VAL12: no real project nears
+  16385 modules; the limit stays enforced in the product.
 - 60 (for VAL1): Mach-O debug info: `dsymutil` writes `<name>.dSYM` at link and Darwin units record
   a compile directory (2026-10-27); LLDB attach needs Developer Mode, else `linking_debugger` skips.
 - 63: clang-tidy runs on the Windows host only (user); `cmake/tidy_filter.py` ignores Boost
@@ -824,27 +824,6 @@ Depends on: [VAL7](11-finished.md), [CLAU12c](#step-clau12c).
     module that makes it so.
 - Tests
   - [ ] Fast gate wall time recorded.
-
-<a id="step-val12"></a>
-
-### VAL12. Remove tests of stubs and do-nothing code
-
-Depends on: none. AGENTS.md: code that does nothing is not tested.
-
-- Success criteria
-  - [ ] Removed, each after its body is read: the deferred-service parts of `runtime_services` and
-    `runtime_service_output`; the `notimpl` reporter tests `runtime_features`,
-    `runtime_feature_output`, `codegen_features`, `codegen_feature_output`, `abi_features`;
-    `codegen_placeholders`; `library_stubs`; golden `tracing_unsupported`; the `unavailable` mode of
-    `runtime_builtin_output`.
-  - [ ] Checks of real behavior inside those files (factory lifetime, memory service, bridge status
-    mapping) stay, moved to a test that remains.
-  - [ ] `codegen_resource_cli` (disabled since 2026-10-12) is rewritten for the 16384 module limit
-    or deleted with `resource_cli.py`.
-  - [ ] `codegen_specialization`: kept only if real sources reach the planner paths it feeds with
-    synthetic profiles; decision recorded.
-- Tests
-  - [ ] Fast gate passes; the removed names are listed in `11-finished.md`.
 
 <a id="step-val13"></a>
 
