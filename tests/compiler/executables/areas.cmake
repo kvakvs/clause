@@ -39,33 +39,33 @@ set(golden_area_tools asn1_ber asn1_der asn1_per asn1_uper beam_ops compile_form
 set(golden_areas core dist file kernel stdlib tools)
 
 # A test of more than about 10 s alone runs in the full gate only (label full_only), except this smoke set of heavy
-# cases, about one per area, that stays in the fast gate. Seconds alone, fast mode, Windows x64 Debug, 2026-11-22.
+# cases, about one per area, that stays in the fast gate. Seconds alone with a cold cache, fast mode, Windows x64
+# Debug, 2026-11-22 after CLAU12c (file_io, sockets, public_key_certs and ssl_engine are no longer heavy).
 set(golden_smoke_cases
-    file_io            # 47
-    gen_servers        # 52
-    supervisors        # 44
-    applications       # 36
-    sockets            # 36
+    file_io            # 6
+    gen_servers        # 35
+    supervisors        # 41
+    applications       # 35
+    sockets            # 5
     loggers            # 40
-    mnesia_dirty       # 75
-    dist_start         # 39
-    public_key_certs   # 61
-    crypto_digests     # 36
-    ssl_engine)        # 72
+    mnesia_dirty       # 54
+    dist_start         # 36
+    public_key_certs   # 7
+    crypto_digests     # 34
+    ssl_engine)        # 8
 # Families that are full_only by rule, new cases included, apart from their smoke case.
 set(golden_full_only_prefixes mnesia_ dist_ epmd_ ssl_)
-# The other heavy cases, far above 10 s alone: they link kernel and stdlib, or more.
-set(golden_full_only_cases beam_ops code_paths compile_forms connections crypto_ciphers crypto_pubkey dets_tables
-    disk_log_ops eldap_requests epp_dodger_forms epp_files erl_lint_checks erl_prettypr_format erlang_gaps escript_ops
-    ets_concurrency ets_match_specs ets_table_files ets_walk external_identities file_compressed file_info file_paths
-    file_positioned file_ram file_readers file_sorter_ops filelib_ops filenames gen_events gen_fsms gen_statems
-    httpc_requests inet_addresses inet_res_queries inet_socket_options interpreted_modules io_options io_output
-    io_requests kernel_sup many_ports merl_templates mim_applications mim_undocumented msacc_accounting net_names
-    node_code os_commands os_maps otp_headers port_spawn proc_libs process_groups public_key_cacerts public_key_codec
-    public_key_crls public_key_keys public_key_ocsp public_key_path public_key_test_data qlc_queries record_wildcards
-    records_reflection rpcs runtime_args_files runtime_config_files runtime_env_options shell_docs_render shell_expand
-    shell_session socket_ops spawning syntax_tools_comments syntax_tools_lib tar_ops this_node win32reg_ops
-    xmerl_export xmerl_queries xmerl_scanning zip_ops zstd_ops)
+# The other heavy cases, far above 10 s alone: they keep every export of kernel and stdlib (nodes, programs on
+# gen_server, supervisor, application or logger, or with a dynamic call and an atom-producing builtin of their own).
+# 26 cases returned to the fast gate once export liveness made them cheap (plan 11 steps CLAU12c, VAL9).
+set(golden_full_only_cases beam_ops code_paths compile_forms connections crypto_ciphers dets_tables disk_log_ops
+    eldap_requests epp_dodger_forms epp_files erl_lint_checks erl_prettypr_format erlang_gaps escript_ops
+    ets_match_specs ets_table_files external_identities file_positioned file_readers file_sorter_ops filelib_ops
+    filenames gen_events gen_fsms gen_statems httpc_requests interpreted_modules kernel_sup merl_templates
+    mim_applications mim_undocumented node_code os_commands port_spawn proc_libs process_groups public_key_cacerts
+    public_key_codec public_key_keys qlc_queries rpcs runtime_args_files runtime_config_files runtime_env_options
+    shell_docs_render shell_expand shell_session socket_ops spawning syntax_tools_comments syntax_tools_lib tar_ops
+    this_node xmerl_export xmerl_queries xmerl_scanning zip_ops)
 
 # Sets out_var to the one area of case: by family prefix, else by name; fails when there is none or more than one.
 function(golden_case_area case out_var)

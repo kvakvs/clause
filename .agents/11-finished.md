@@ -278,6 +278,12 @@ Compact record of [plan 11](11-plan.md), one bullet per step;
   functions, compile 13.3 s to 0.66 s; `file_io` 359, 1.8 s; programs on `gen_server`, `supervisor`,
   `application` or `logger` still keep everything (`gen:where/1` reaches `global` and the kernel
   services; `?LOG` location keys keep `file`). `linking_exports` fixed. Full policy matrix: VAL15 — `f165a7b0`
+- **VAL9** 26 golden cases returned to the fast gate (each under 9 s alone, cold, after CLAU12c):
+  `record_wildcards`, `records_reflection`, `many_ports`, `io_output`, `io_options`, `io_requests`, four
+  `file_*`, four `public_key_*`, `crypto_pubkey` and others; `file_io`, `sockets`, `public_key_certs` and
+  `ssl_engine` are no longer heavy. Still heavy: `runtime_args_files` and `runtime_env_options` (nodes),
+  `runtime_config_files` (application and supervisor), `node_code` (`pre_loaded/0`), `spawning`
+  (`process_info/2`). Fast gate 375 of 512 tests, 132 s warm — `pending`
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 

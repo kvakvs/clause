@@ -166,7 +166,7 @@ Completed steps link to [the plan 11 record](11-finished.md).
 | N. Optional scope decisions | [RT1](#step-rt1), [RT2](#step-rt2), [CLAU3](#step-clau3)–[CLAU5](#step-clau5), [RT3](#step-rt3), [RT9](#step-rt9), [CLAU6](#step-clau6) | open |
 | N2. Parse transforms | [73A](11-finished.md)–[73G](11-finished.md), [CLAU7](#step-clau7) | open: [CLAU7](#step-clau7) |
 | P. Remaining features | [CLAU9](#step-clau9)–[CLAU11](#step-clau11), [RT6](#step-rt6)–[RT8](#step-rt8) | open |
-| T. Test gate cost | [VAL7](11-finished.md), [VAL8](11-finished.md), [CLAU12a](11-finished.md), [CLAU12b](11-finished.md), [CLAU12c](11-finished.md), [VAL9](#step-val9)–[VAL15](#step-val15) | open |
+| T. Test gate cost | [VAL7](11-finished.md), [VAL8](11-finished.md), [CLAU12a](11-finished.md), [CLAU12b](11-finished.md), [CLAU12c](11-finished.md), [VAL9](11-finished.md)–[VAL15](#step-val15) | open |
 | O. Final closure | [RT4](#step-rt4), [RT5](#step-rt5), [CLAU8](#step-clau8) | open |
 
 
@@ -743,22 +743,6 @@ Each step records the time alone of the tests it touches before and after, and t
 time in `.state/runs.md`.
 
 <a id="step-clau12"></a>
-<a id="step-val9"></a>
-
-### VAL9. Return golden cases that became cheap to the fast gate
-
-Depends on: [VAL7](11-finished.md), [CLAU12c](11-finished.md).
-
-- Success criteria
-  - [ ] Every `full_only` golden case is timed alone; those under VAL7's rule return to the fast
-    gate, and the smoke set is reviewed.
-  - [ ] The language and runtime cases that were heavy only by their library closure are in the fast
-    gate: `record_wildcards`, `runtime_args_files`, `runtime_env_options`, `runtime_config_files`,
-    `io_output`, `io_options`, `node_code`, `spawning`; one that stays heavy is recorded with the
-    module that makes it so.
-- Tests
-  - [ ] Fast gate wall time recorded.
-
 <a id="step-val15"></a>
 
 ### VAL15. Record the new gate baselines

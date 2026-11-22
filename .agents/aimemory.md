@@ -45,6 +45,10 @@ gotchas and user directions not recorded elsewhere.
   (CHECK_UNLINKED); semantic rejection loops use matrix.rejection_lists() (one policy, both drivers: analyze() rejects
   before codegen); pattern-match drivers emit one i686 object. runtime_printing keeps its 9542-value ~w/display pass:
   printing_display only runs ~154 authored calls, so it is no substitute.
+- Golden cases back in the fast gate (VAL9, 2026-11-22): 26 cases under 9 s alone after CLAU12c left areas.cmake's
+  full_only list. Still heavy: nodes (--distribution), programs on gen_server/supervisor/application/logger, and
+  cases with their own atom producer beside a library dynamic call (node_code: pre_loaded/0, spawning:
+  process_info/2). Time candidates alone with a cold <case>/Debug-cache before moving them.
 - Tidy/Lizard run on the Windows dev host only; other platforms build+test.
 - All ABI symbol/namespace versions collapse to v1 in plan step RT4 (never released).
 - RT5: rename runtime/src/builtins files to builtin_<name>.
