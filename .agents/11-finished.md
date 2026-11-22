@@ -263,7 +263,7 @@ Compact record of [plan 11](11-plan.md), one bullet per step;
   rejections run under one policy with both drivers; eight per-level `codegen_*` variants are `full_only`
   and `codegen_examples` follows the fast matrix. Kept after checking: `runtime_printing` (9542 values no
   other test prints), the startup IR check. 41 touched tests 77 s to 56 s alone; fast gate 349 tests,
-  100 s warm — `pending`
+  100 s warm — `0f14b4b4`
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 
