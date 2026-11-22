@@ -4,6 +4,9 @@
 %% process. logger_std_h and logger_disk_log_h each run their own handler process.
 -module(clause_logger_h).
 -export([adding_handler/3, changing_config/4, diff_maps/2, filter_config/1, reg_name/2, request/2, stop/1, to_binary/2]).
+%% clause_logger_h's atoms are configuration keys and registered names; it calls logger_formatter directly and other
+%% handler and formatter modules by the configuration's names. Strict for export liveness (CLAU12c).
+-compile({clause_liveness, strict}).
 
 -define(OLP_KEYS, [
     sync_mode_qlen,

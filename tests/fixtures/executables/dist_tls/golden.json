@@ -11,6 +11,9 @@
     "dist_tls_b.conf",
     "dist_tls_c.conf"
   ],
+  "options": [
+    "--distribution"
+  ],
   "host_otp": true,
   "runs": [
     {

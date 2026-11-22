@@ -1,5 +1,7 @@
 -module(clause_socket_options).
 -export([record/2, request/3, decode/2, ancillary/1]).
+%% The option table's atoms are option names and value tags. Strict for export liveness (CLAU12c).
+-compile({clause_liveness, strict}).
 
 -define(IS_BYTE(Value), (is_integer(Value) andalso Value >= 0 andalso Value =< 255)).
 

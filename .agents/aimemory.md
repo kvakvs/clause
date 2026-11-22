@@ -273,6 +273,12 @@ gotchas and user directions not recorded elsewhere.
   semantically required. Without dist roots, on_load root only with -on_load, module_info atoms
   ignored: record_wildcards 21 live fns (0.7 s vs 13 s), file_io 359; gen_servers cascades via logger.
   `[time] liveness` shows `N of M functions live`. `clau -O0 --jobs 2` crashes ~1 in 4 (race).
+  CLAU12c: node = links_distribution() or a direct net_kernel:start/1,2 call (escape-kept doesn't count) ->
+  become_node keeps all with reason "the distribution rule: ...". Goldens that start nodes carry
+  "options": ["--distribution"]. Hubs that still force keep-all: gen:where -> global -> kernel_sup children ->
+  net_kernel/auth/erl_distribution producers; ?LOG macro location key `file` in non-strict modules and filelib's
+  Mod -> file:eval -> erl_eval; erlang:Class(R) kept all of erlang (spelled out in gen_server/gen_statem/erpc).
+  Trigger hunting: env-gated diag (TRACE live/keep/enter lines) + tree/why scripts, scratch/phase-t/clau12c/.
 - Inference: solve 16 rounds then widened; expression facts erased per round; per-call re-analysis
   has its own work pool. Expectations: tests/compiler/inference/expectations.py <abs clau> <fixture>
   [--record].

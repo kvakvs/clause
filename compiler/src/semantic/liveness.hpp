@@ -15,7 +15,10 @@ struct LivenessReport {
 
 // Mark the functions an executable can reach from its entry (Function::live_): direct calls, funs, literal
 // apply/spawn targets and every export of a module whose name escapes as a value. Added for export liveness (62C).
-LivenessReport mark_live(std::span<const std::unique_ptr<Module>> modules, const CallGraph &calls, FunctionRef entry);
+// A program `linked_node` (--distribution), or one calling net_kernel:start/1,2, is a node and keeps every export
+// (CLAU12c).
+LivenessReport mark_live(std::span<const std::unique_ptr<Module>> modules, const CallGraph &calls, FunctionRef entry,
+                         bool linked_node);
 // The part of a call graph among live functions, so inference and contract checks skip code the executable cannot
 // run. Added for liveness before inference.
 CallGraph live_calls(const CallGraph &calls);

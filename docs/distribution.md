@@ -4,8 +4,9 @@ How a Clause executable becomes a distributed Erlang node. Decided in plan 30 st
 (2026-10-30); the steps that implement it are in [plan 30](../.agents/30-dist.md).
 
 **Today** a program is a non-distributed node, `nonode@nohost`, until `--sname`/`--name` name it before the entry
-([node start options](#node-start-options)) or `net_kernel:start/1,2` starts distribution in it ([starting
-distribution](#starting-distribution)), with OTP's cookies ([cookies](#cookies)). A named node:
+(in a program linked as a node, [node start options](#node-start-options)) or `net_kernel:start/1,2` starts
+distribution in it ([starting distribution](#starting-distribution)), with OTP's cookies ([cookies](#cookies)). A
+named node:
 
 - finds others through an epmd: the program's bundled epmd, `clause-epmd` beside it, or OTP's ([epmd](#epmd));
 - connects through OTP's handshake with all its statuses, `allow/1` and dynamic names, over TCP on IPv4 or IPv6
@@ -1002,9 +1003,14 @@ Current since DIST4b1b (`library/kernel/clause_dist_start.erl`, `erl_distributio
 
 - **Linking (user choice, 2026-10-31):** the distribution modules join a program that calls `net_kernel`, or one
   built with `clau --distribution`, the manifest option `distribution = true`, or manifest `runtime_options`
-  holding `--sname` or `--name`. Other programs stay small; given `--sname` or `--name`, they stop before the entry
-  with `clau: runtime failure: --sname and --name need the distribution modules (link the program with
-  --distribution)`, exit 70 ([differences](differences.md)).
+  holding `--sname` or `--name`.
+- **Nodes by opt in (plan 11 step CLAU12b, user choice, 2026-11-22; CLAU12c):** a program is a node only when it is
+  linked as one: built with `--distribution`, `distribution = true` or `runtime_options` naming the node, or calling
+  `net_kernel:start/1,2` itself. A node runs the functions other nodes name (spawn requests, `rpc`, `erpc`), so it
+  keeps every export of its modules ([export liveness](executables.md#export-liveness)). Other programs leave out
+  what they cannot reach, `clause_dist_start:boot/3` included, even when they link `net_kernel`; given `--sname` or
+  `--name` (or `--node`), they stop before the entry with `clau: runtime failure: --sname and --name need the
+  distribution modules (link the program with --distribution)`, exit 70 ([differences](differences.md)).
 - **Carrier modules (DIST12a):** `net_kernel` names a carrier only by the computed name `PROTO_dist`, so a program
   links a carrier other than the TCP ones when its code refers to the module, or when the manifest's
   `runtime_options` hold `--proto-dist PROTO`. A carrier the program lacks fails the start with OTP's log line

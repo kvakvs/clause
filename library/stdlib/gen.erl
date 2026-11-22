@@ -35,6 +35,9 @@
     wait_response/3
 ]).
 -include("gen.types.hrl").
+%% gen's atoms are registration scopes; the behaviour and callback modules it calls come from the callers. Strict for
+%% export liveness (CLAU12c).
+-compile({clause_liveness, strict}).
 
 -define(MAX_TIMEOUT, 4294967295).
 -define(DEFAULT_TIMEOUT, 5000).

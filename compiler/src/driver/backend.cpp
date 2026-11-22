@@ -226,11 +226,13 @@ std::string batch_text(const std::size_t modules, const FrontendRequest &fronten
 }
 
 // Executables leave out what their entry cannot reach, and so do IR and assembly inspections given an entry, so they
-// show the executable's code. Inspections with an entry added for inspection liveness.
-bool live_only(const FrontendRequest &frontend) {
+// show the executable's code; a program linked as a node keeps every export (CLAU12c). Inspections with an entry
+// added for inspection liveness.
+LivenessRequest liveness(const FrontendRequest &frontend) {
     const auto &backend = frontend.backend;
-    return !backend.keep_exports && !backend.shell &&
-           (frontend.executable_output || (backend.inspect_ir() && frontend.entry));
+    return {.live_only_ = !backend.keep_exports && !backend.shell &&
+                          (frontend.executable_output || (backend.inspect_ir() && frontend.entry)),
+            .linked_node_ = backend.links_distribution()};
 }
 
 // The entry the startup code calls: the selected one, else the shell's with --shell. Added for the shell option
@@ -260,7 +262,7 @@ bool compile_analyzed(codegen::CompilationRequest request, const FrontendRequest
     const EntryRequest entry{batch_entry(frontend), frontend.executable_output.has_value(),
                              !request.project_target.empty()};
     const auto cache = inference_cache(frontend);
-    if (!analyze(request, entry, live_only(frontend), analysis, sink, cache ? &*cache : nullptr)) {
+    if (!analyze(request, entry, liveness(frontend), analysis, sink, cache ? &*cache : nullptr)) {
         return true;
     }
     if (frontend.backend.print_types) {

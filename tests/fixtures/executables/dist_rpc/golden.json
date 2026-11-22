@@ -1,6 +1,9 @@
 {
   "schema": 1,
   "entry": "dist_rpc",
+  "options": [
+    "--distribution"
+  ],
   "host_otp": true,
   "runs": [
     {

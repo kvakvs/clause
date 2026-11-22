@@ -46,6 +46,9 @@
 
 -include_lib("kernel/include/logger.hrl").
 -include("proc_lib.types.hrl").
+%% proc_lib's atoms (initial calls of reports, argument placeholders, report keys) are data; the code it starts comes
+%% from the callers. Strict for export liveness (CLAU12c).
+-compile({clause_liveness, strict}).
 
 %% The dictionary keys proc_lib keeps for a process.
 -define(ANCESTORS, '$ancestors').

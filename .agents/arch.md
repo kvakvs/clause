@@ -112,7 +112,8 @@ builtin and service calls), `RuntimeOptions` + `RuntimeExtension` for extension 
   (`inet_tcp_dist`, epmd registration) with `erlang:setnode/2`, and its end takes the name (DIST2a).
   `--sname`/`--name` (DIST4b1b): `startup.cpp` starts `clause_dist_start:boot(M, F, Args)` as the main process,
   which starts `net_sup` then applies the entry; `clau` links it on demand (`--distribution`, `net_kernel` callers)
-  and liveness keeps it as a second root. Cookies (DIST4b1c): `auth` under `net_sup`; the `erlang` cookie builtins
+  and liveness roots it only in a node (CLAU12c: `--distribution`/manifest, or a `net_kernel:start/1,2` call), which
+  keeps every export. Cookies (DIST4b1c): `auth` under `net_sup`; the `erlang` cookie builtins
   (`builtins/erlang/node.cpp`) trap to `auth` while the node is alive (builtin continuations). `kernel_sup`
   (DIST4b1d): `clause_kernel:ensure_started/0` at the first use of `rex`, `global`, `global_group` or distribution
   starts it under a keeper that halts the program when it ends; `net_sup` is its static child, `net_sup_dynamic`

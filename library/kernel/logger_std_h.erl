@@ -23,6 +23,8 @@
 ]).
 
 -include("include/file.hrl").
+%% logger_std_h's atoms are handler types and configuration keys. Strict for export liveness (CLAU12c).
+-compile({clause_liveness, strict}).
 
 -define(CALL_TIMEOUT, 5000).
 

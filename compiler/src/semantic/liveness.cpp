@@ -86,7 +86,8 @@ std::string function_text(const FunctionRef function) {
 class Liveness {
   public:
     // Index modules by name and every function's direct callees.
-    Liveness(const std::span<const std::unique_ptr<Module>> modules, const CallGraph &calls) : modules_(modules) {
+    Liveness(const std::span<const std::unique_ptr<Module>> modules, const CallGraph &calls, const bool linked_node)
+        : modules_(modules), linked_node_(linked_node) {
         for (const auto &module : modules) {
             names_.emplace(module->name, module.get());
             for (auto &function : module->functions) {
@@ -98,11 +99,14 @@ class Liveness {
         }
     }
 
-    // Reach everything the entry reaches and clause_dist_start:boot/3, which the runtime calls before it to start
-    // distribution from the node start options (plan 30 step DIST4b1b), then count the exports left out.
+    // Reach everything the entry reaches, and everything a node keeps when the program is linked as one, then count the
+    // exports left out.
     LivenessReport run(const FunctionRef entry) {
+        entry_ = entry;
         reach(entry);
-        reach_name(U"clause_dist_start", {U"boot", 3}, entry);
+        if (linked_node_) {
+            become_node(entry, "the program is linked as a node");
+        }
         reach_on_load(entry);
         while (!pending_.empty()) {
             const auto function = pending_.back();
@@ -122,15 +126,51 @@ class Liveness {
   private:
     using Skipped = std::set<const ast::Expression *>;
 
-    // Every -on_load function, and clause_on_load:boot/3, which the runtime calls before the entry to run them.
-    // Added for -on_load (plan 21 step MIM9d).
+    // A node runs the functions other nodes name, with atoms the analysis never sees, so every export stays by the
+    // distribution rule; the runtime boots it through clause_dist_start:boot/3 to start distribution from the node
+    // start options (plan 30 step DIST4b1b). Added for export liveness (CLAU12c).
+    void become_node(const FunctionRef entry, const std::string &why) {
+        if (node_) {
+            return;
+        }
+        node_ = true;
+        reach_name(U"clause_dist_start", {U"boot", 3}, entry);
+        for (const auto &module : modules_) {
+            report_.kept_.insert_or_assign(module->name, "the distribution rule: " + why);
+            reach_exports(*module);
+        }
+    }
+
+    // A call of net_kernel:start/1,2 from outside net_kernel starts distribution at run time, so the program is a
+    // node; exports kept for other reasons do not count. Added for export liveness (CLAU12c).
+    void note_node_start(const FunctionRef site, const std::u32string &module, const FunctionKey &key) {
+        if (module == U"net_kernel" && key.name == U"start" && (key.arity == 1 || key.arity == 2) &&
+            site.module->name != module) {
+            become_node(entry_,
+                        "net_kernel:start/" + std::to_string(key.arity) + " is called in " + function_text(site));
+        }
+    }
+
+    // Every -on_load function, and clause_on_load:boot/3, which the runtime calls before the entry to run them, when
+    // there is one (CLAU12c). Added for -on_load (plan 21 step MIM9d).
     void reach_on_load(const FunctionRef entry) {
+        bool any = false;
         for (const auto &module : modules_) {
             if (module->on_load_) {
                 reach({module.get(), &module->functions.at(*module->on_load_)});
+                any = true;
             }
         }
-        reach_name(U"clause_on_load", {U"boot", 3}, entry);
+        if (any) {
+            reach_name(U"clause_on_load", {U"boot", 3}, entry);
+        }
+    }
+
+    // The entry call of clause_on_load:boot/3: an apply/3 of the entry, which is a root already, so it is no call
+    // with a runtime module. Added for export liveness (CLAU12c).
+    static bool boot_entry_call(const FunctionRef site) {
+        return site.module->library_ && site.module->name == U"clause_on_load" &&
+               site.function->key == FunctionKey{U"boot", 3};
     }
 
     // Mark one function live and queue its body, with the code its builtin implementation continues in.
@@ -156,6 +196,7 @@ class Liveness {
         if (module == U"erlang" && atom_producer(key)) {
             produced(site, "erlang:" + utf8(key.name) + "/" + std::to_string(key.arity));
         }
+        note_node_start(site, module, key);
         const auto owner = names_.find(module);
         if (owner == names_.end()) {
             return;
@@ -185,9 +226,14 @@ class Liveness {
         if (owner == names_.end() || !report_.kept_.emplace(module, reason).second) {
             return;
         }
-        for (auto &function : owner->second->functions) {
+        reach_exports(*owner->second);
+    }
+
+    // Reach every exported function of a module.
+    void reach_exports(Module &module) {
+        for (auto &function : module.functions) {
             if (function.exported) {
-                reach({owner->second, &function});
+                reach({&module, &function});
             }
         }
     }
@@ -236,7 +282,11 @@ class Liveness {
             if (callee.module->name == U"erlang" && atom_producer(callee.function->key)) {
                 produced(function, function_text(callee));
             }
+            note_node_start(function, callee.module->name, callee.function->key);
             reach(callee);
+        }
+        if (predefined_form(*function.module, function.function->form)) {
+            return; // module_info/0,1 and behaviour_info/1 return literal data, naming no called code (CLAU12c).
         }
         const auto &syntax = *function.module->syntax;
         auto pending = function_roots(std::get<ast::Function>(syntax.form(function.function->form).value));
@@ -308,7 +358,9 @@ class Liveness {
         const auto *module = literal_atom(syntax, call.arguments[mfa->module]);
         const auto *name = literal_atom(syntax, call.arguments[mfa->module + 1]);
         if (!module) {
-            dynamic(function);
+            if (!boot_entry_call(function)) {
+                dynamic(function);
+            }
             return;
         }
         if (!name) {
@@ -362,6 +414,11 @@ class Liveness {
     std::map<const Function *, std::vector<FunctionRef>> callees_;
     std::vector<FunctionRef> pending_;
     LivenessReport report_;
+    // Whether the program is linked as a node, the entry, and whether it became a node: every export stays by the
+    // distribution rule. Added for export liveness (CLAU12c).
+    bool linked_node_ = false;
+    FunctionRef entry_{};
+    bool node_ = false;
     // Where the first dynamic call and atom-producing builtin were found; empty until then.
     std::string dynamic_;
     std::string producer_;
@@ -369,8 +426,8 @@ class Liveness {
 } // namespace
 
 LivenessReport mark_live(const std::span<const std::unique_ptr<Module>> modules, const CallGraph &calls,
-                         const FunctionRef entry) {
-    return Liveness(modules, calls).run(entry);
+                         const FunctionRef entry, const bool linked_node) {
+    return Liveness(modules, calls, linked_node).run(entry);
 }
 
 CallGraph live_calls(const CallGraph &calls) {

@@ -73,15 +73,53 @@ the modules other modules' atoms name.
 
 The option changes no generated code, only which exports an executable keeps.
 A wrong promise leaves out an export the module calls by name, which then
-raises `undef`. Library modules set it where their atoms are only data: `epp`
-(token and macro names, the machine, application names), `erl_error` (an atom
-placeholder in printed argument lists; `error_info` names the raising code's
-modules), `erl_features` (the
-feature list of a beam file) and `file` (error reasons, request tags; the modules
-an io request names are the requester's atoms). Without it, `file:io_request/3`'s
-`apply/3` and `epp`'s `list_to_atom/1` kept every export of a program that
-preprocesses a file, all of `erl_eval` included; with it (and `-if` conditions
-evaluated in C++) its extra compile time over a hello-world drops by about 40%.
+raises `undef`. Without it, `file:io_request/3`'s `apply/3` and `epp`'s
+`list_to_atom/1` kept every export of a program that preprocesses a file, all
+of `erl_eval` included; with it (and `-if` conditions evaluated in C++) its
+extra compile time over a hello-world drops by about 40%. Library modules set
+it where their atoms are only data; each module's comment beside the option
+says why:
+
+| Module | Its atoms |
+| --- | --- |
+| `kernel/clause_disk_log` | Reasons and tags of the log files |
+| `kernel/clause_logger_h` | Configuration keys and registered names; it calls `logger_formatter` directly and other handler and formatter modules by the configuration's names |
+| `kernel/clause_socket_options` | Option names and value tags (`{code, Code, Type}` kept all of `code`, and through it `erl_eval`, in every socket program) |
+| `kernel/disk_log` | Requests and reasons of the log process |
+| `kernel/file` | Error reasons, request tags; the modules an io request names are the requester's atoms |
+| `kernel/global` | Registered names, application names, message tags; resolve methods are funs or tuples the callers name |
+| `kernel/logger_formatter` | Template keys, metadata keys, `re` options |
+| `kernel/logger_std_h` | Handler types (`file`, `standard_io`) and configuration keys |
+| `kernel/net_adm` | Registered names, node names, application names; it calls `erl_epmd` directly and a configured epmd module by the configuration's name |
+| `stdlib/epp` | Token and macro names, the machine, application names |
+| `stdlib/erl_error` | An atom placeholder in printed argument lists; `error_info` names the raising code's modules |
+| `stdlib/erl_features` | The feature list of a beam file |
+| `stdlib/erl_tar` | Tar options, header fields, error atoms |
+| `stdlib/gen` | Registration scopes; the behaviour and callback modules come from the callers |
+| `stdlib/gen_server` | Registration scopes, report keys, error tags; the callback module comes from the caller |
+| `stdlib/proc_lib` | Initial calls of reports, argument placeholders, report keys; the code it starts comes from the callers |
+| `stdlib/re` | Options (`global` kept all of `global`) and error tags |
+| `stdlib/supervisor` | Strategies, report keys, error tags; the callback module and the children's `{M, F, A}` come from the callers |
+| `stdlib/sys` | Debug options and request tags; the process's module comes from the caller |
+| `stdlib/win32reg` | Registry commands and reasons |
+| `stdlib/zip` | Zip options, I/O requests, error atoms |
+| `stdlib/zstd` | Parameter keys, frame types, results |
+
+Modules reviewed and left without it, because their atoms do name code they or
+others call (plan 11 step CLAU12c): `logger` and `clause_logger` (`application`,
+which they call by a runtime name, and the default handler `logger_std_h` and
+formatter `logger_formatter`), `error_logger` (the handlers `error_logger_file_h`
+and `logger_std_h` it adds by name), `application_controller` (the kernel
+application's callback module `kernel`, and `clause_applications`, called by a
+runtime name), the generated `clause_applications` (each resource's `mod` and
+`env` name code; its lists of the library applications' modules are data, but
+`application_controller`, their only reader, keeps every export through
+`erl_eval` anyway), `kernel` and `erl_distribution` (child specifications),
+`filelib` (it calls `file` or `erl_prim_loader` by a runtime module name),
+`net_kernel` (carrier modules named by `list_to_atom/1`) and `erl_eval` (an
+evaluator calls what the evaluated code names). The `?LOG_*` macros put the
+location key `file` in a map: in a module without the option it keeps every
+export of `file`, whose `eval` and `script` functions reach `erl_eval`.
 
 ## Run the compiled-module example
 

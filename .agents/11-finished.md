@@ -269,6 +269,15 @@ Compact record of [plan 11](11-plan.md), one bullet per step;
   `net_kernel:start/1,2` live roots `clause_dist_start` and keeps every export; others refuse
   `--sname`/`--name` (exit 70). OTP starts any node with `-sname`: a difference, recorded with CLAU12c,
   which implements it — `49a50af9`
+- **CLAU12c** export liveness for programs that are not nodes: a node (linked with `--distribution`, the
+  manifest, or calling `net_kernel:start/1,2`) keeps every export by an explicit distribution rule; other
+  programs do not root `clause_dist_start` and refuse `--sname`. The boot entry call is no dynamic call,
+  `clause_on_load:boot/3` is a root only with `-on_load`, generated `module_info`/`behaviour_info` keep
+  nothing; 12 library modules became strict, `erlang:Class(Reason)` is spelled out in `gen_server`,
+  `gen_statem`, `erpc`; 25 golden cases link with `--distribution`. `record_wildcards` 4511 to 21 live
+  functions, compile 13.3 s to 0.66 s; `file_io` 359, 1.8 s; programs on `gen_server`, `supervisor`,
+  `application` or `logger` still keep everything (`gen:where/1` reaches `global` and the kernel
+  services; `?LOG` location keys keep `file`). `linking_exports` fixed. Full policy matrix: VAL15 — `pending`
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 

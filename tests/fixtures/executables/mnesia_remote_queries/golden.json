@@ -1,6 +1,9 @@
 {
   "schema": 1,
   "entry": "mnesia_remote_queries",
+  "options": [
+    "--distribution"
+  ],
   "host_otp": true,
   "runs": [
     {

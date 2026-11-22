@@ -39,6 +39,9 @@
 ]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3, resolve_it/4, get_locker/0]).
 -export([info/0]).
+%% global's atoms are registered names, application names and message tags; resolve methods are funs or tuples the
+%% callers name. Strict for export liveness (CLAU12c).
+-compile({clause_liveness, strict}).
 
 -define(SERVER, global_name_server).
 %% The protocol version this node speaks, and the versions that brought init_connect_ack and cancel_connect, the

@@ -166,7 +166,7 @@ Completed steps link to [the plan 11 record](11-finished.md).
 | N. Optional scope decisions | [RT1](#step-rt1), [RT2](#step-rt2), [CLAU3](#step-clau3)–[CLAU5](#step-clau5), [RT3](#step-rt3), [RT9](#step-rt9), [CLAU6](#step-clau6) | open |
 | N2. Parse transforms | [73A](11-finished.md)–[73G](11-finished.md), [CLAU7](#step-clau7) | open: [CLAU7](#step-clau7) |
 | P. Remaining features | [CLAU9](#step-clau9)–[CLAU11](#step-clau11), [RT6](#step-rt6)–[RT8](#step-rt8) | open |
-| T. Test gate cost | [VAL7](11-finished.md), [VAL8](11-finished.md), [CLAU12a](11-finished.md), [CLAU12b](11-finished.md), [CLAU12c](#step-clau12c), [VAL9](#step-val9)–[VAL15](#step-val15) | open |
+| T. Test gate cost | [VAL7](11-finished.md), [VAL8](11-finished.md), [CLAU12a](11-finished.md), [CLAU12b](11-finished.md), [CLAU12c](11-finished.md), [VAL9](#step-val9)–[VAL15](#step-val15) | open |
 | O. Final closure | [RT4](#step-rt4), [RT5](#step-rt5), [CLAU8](#step-clau8) | open |
 
 
@@ -743,39 +743,11 @@ Each step records the time alone of the tests it touches before and after, and t
 time in `.state/runs.md`.
 
 <a id="step-clau12"></a>
-<a id="step-clau12c"></a>
-
-### CLAU12c. Export liveness for programs that are not nodes
-
-Depends on: [CLAU12b](11-finished.md), which chose opt in.
-
-- Success criteria
-  - [ ] The rule CLAU12b chose: a node keeps every export by an explicit distribution rule, not by
-    the accident of an atom-producing builtin; the golden cases that start nodes link accordingly.
-  - [ ] In other programs the entry call of `clause_on_load:boot/3` and `clause_dist_start` does not
-    count as a call with a runtime module; `clause_on_load:boot/3` is a root only when a module has
-    `-on_load`; atoms of the generated `module_info/1` keep no exports.
-  - [ ] The next triggers in kernel and stdlib are listed; each is removed, covered by
-    `{clause_liveness, strict}` after review of the module's atoms, or recorded with its reason.
-    Known chain of `gen_servers`: `'global'` in `gen_server`, and `logger` → `clause_logger` →
-    `logger_formatter` → `error_logger` → `'kernel'` → `supervisor` → `application_controller` →
-    `clause_applications:library_modules/1`, whose `.app` module lists do name code. To review:
-    `gen_server`, `gen`, `proc_lib`, `sys`, the logger modules, `error_logger`, `supervisor`,
-    `net_adm`, `global`; to decide: `application_controller` and `clause_applications`.
-  - [ ] [Strict liveness](../docs/compile.md#strict-liveness) lists every strict library module (it
-    names 4 of the 10 today); [export liveness](../docs/executables.md#export-liveness) is current.
-  - [ ] Recorded: live functions (`[time] liveness`) and compile time of the three programs and of
-    `test-luerl` before and after.
-- Tests
-  - [ ] A CLI check on a program calling one `ets` function: kernel modules report dropped exports
-    in the `--verbose` liveness lines; a node keeps every export.
-  - [ ] Every golden case passes under the full policy matrix.
-
 <a id="step-val9"></a>
 
 ### VAL9. Return golden cases that became cheap to the fast gate
 
-Depends on: [VAL7](11-finished.md), [CLAU12c](#step-clau12c).
+Depends on: [VAL7](11-finished.md), [CLAU12c](11-finished.md).
 
 - Success criteria
   - [ ] Every `full_only` golden case is timed alone; those under VAL7's rule return to the fast
@@ -792,7 +764,7 @@ Depends on: [VAL7](11-finished.md), [CLAU12c](#step-clau12c).
 ### VAL15. Record the new gate baselines
 
 Depends on: [VAL7](11-finished.md)–[VAL14](11-finished.md), [CLAU12b](11-finished.md) and, if selected,
-[CLAU12c](#step-clau12c).
+[CLAU12c](11-finished.md).
 
 - Success criteria
   - [ ] Fresh fast and full gates timed at `-j 12`, with the 20 slowest tests of each, recorded in

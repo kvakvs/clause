@@ -1,6 +1,9 @@
 {
   "schema": 1,
   "entry": "mnesia_connect",
+  "options": [
+    "--distribution"
+  ],
   "host_otp": true,
   "runs": [
     {

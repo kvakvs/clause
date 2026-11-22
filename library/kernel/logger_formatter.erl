@@ -4,6 +4,8 @@
 %% OTP's legacy header (=ERROR REPORT==== ...) when asked.
 -module(logger_formatter).
 -export([format/2, check_config/1]).
+%% logger_formatter's atoms are template keys, metadata keys and re options. Strict for export liveness (CLAU12c).
+-compile({clause_liveness, strict}).
 
 -callback check_config(FConfig) -> ok | {error, Reason} when FConfig :: logger:formatter_config(), Reason :: term().
 -callback format(LogEvent, FConfig) -> FormattedLogEntry when

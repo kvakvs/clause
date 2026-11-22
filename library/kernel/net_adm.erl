@@ -15,6 +15,9 @@
     world_list/1,
     world_list/2
 ]).
+%% net_adm's atoms are registered names, node names and application names; it calls erl_epmd directly and a configured
+%% epmd module by the configuration's name. Strict for export liveness (CLAU12c).
+-compile({clause_liveness, strict}).
 
 host_file() ->
     Home =

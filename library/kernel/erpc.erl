@@ -55,8 +55,12 @@ call(N, M, F, A, #{timeout := infinity, always_spawn := false}) when
     N =:= node(), is_atom(M), is_atom(F), is_list(A)
 ->
     case local_call(M, F, A) of
+        %% OTP's erlang:Class(Reason) spelled out: a call of erlang by a runtime name would keep every export of
+        %% erlang in the executable (export liveness, CLAU12c).
         {ok, Return} -> Return;
-        {Class, Reason} -> erlang:Class(Reason)
+        {error, Reason} -> erlang:error(Reason);
+        {exit, Reason} -> erlang:exit(Reason);
+        {throw, Reason} -> erlang:throw(Reason)
     end;
 call(N, M, F, A, #{timeout := T, always_spawn := AlwaysSpawn}) when
     is_atom(N), is_atom(M), is_atom(F), is_list(A), is_boolean(AlwaysSpawn)
@@ -472,7 +476,10 @@ collection_result(Type, ReqId, Reason, Collection, Wrap, Delete) ->
                 Result when Wrap -> {{response, Result}, Label, Rest};
                 Result -> {Result, Label, Rest}
             catch
-                Class:Error -> erlang:Class({Error, Label, Rest})
+                %% erlang:Class/1 spelled out (export liveness, CLAU12c).
+                error:Error -> erlang:error({Error, Label, Rest});
+                exit:Error -> erlang:exit({Error, Label, Rest});
+                throw:Error -> erlang:throw({Error, Label, Rest})
             end;
         _ ->
             error({?MODULE, badarg})

@@ -1,6 +1,9 @@
 {
   "schema": 1,
   "entry": "dist_global",
+  "options": [
+    "--distribution"
+  ],
   "host_otp": true,
   "runs": [
     {

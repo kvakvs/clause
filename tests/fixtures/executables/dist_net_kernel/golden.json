@@ -1,6 +1,9 @@
 {
   "schema": 1,
   "entry": "dist_net_kernel",
+  "options": [
+    "--distribution"
+  ],
   "stdout_masks": [
     [
       "^nkb@localhost +up +normal .*$",

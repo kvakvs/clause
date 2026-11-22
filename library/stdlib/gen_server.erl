@@ -50,6 +50,9 @@
 %% OTP 29 exports implemented natively or not yet: catalog builtins, whose clause_builtin_placeholder body the runtime's
 %% builtin replaces, and stubs raising error({not_implemented, F, A}) (docs/libraries/library.md#runtime-module-replacements).
 -include("gen_server.types.hrl").
+%% gen_server's atoms are registration scopes, report keys and error tags; the callback module comes from the caller.
+%% Strict for export liveness (CLAU12c).
+-compile({clause_liveness, strict}).
 
 -behaviour(sys).
 
@@ -682,8 +685,12 @@ terminate(
                 false ->
                     error_report(Server, State, Msg, From, Reason, undefined, Debug)
             end,
-            case Stack of
-                [] -> erlang:Class(Reason);
+            %% OTP's erlang:Class(Reason) spelled out: a call of erlang by a runtime name would keep every export of
+            %% erlang in the executable (export liveness, CLAU12c).
+            case {Class, Stack} of
+                {error, []} -> erlang:error(Reason);
+                {exit, []} -> erlang:exit(Reason);
+                {throw, []} -> erlang:throw(Reason);
                 _ -> erlang:raise(Class, Reason, Stack)
             end
     end.

@@ -33,6 +33,9 @@
 
 -include_lib("kernel/include/logger.hrl").
 -include("supervisor.types.hrl").
+%% supervisor's atoms are strategies, report keys and error tags; the callback module and the children's {M, F, A} come
+%% from the callers. Strict for export liveness (CLAU12c).
+-compile({clause_liveness, strict}).
 
 -callback init(Args :: term()) ->
     {ok, {SupFlags :: sup_flags(), [ChildSpec :: child_spec()]}} | ignore.

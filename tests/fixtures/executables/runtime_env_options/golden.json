@@ -4,6 +4,9 @@
   "data": [
     "envapp.app"
   ],
+  "options": [
+    "--distribution"
+  ],
   "runs": [
     {
       "args": [],

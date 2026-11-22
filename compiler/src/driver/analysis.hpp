@@ -26,10 +26,18 @@ struct Analysis {
     std::size_t functions_ = 0;
 };
 
-// Run declaration, binding, call, declared-type and inference phases without creating LLVM state. With `live_only`
-// (export liveness, 62C) functions the entry cannot reach are left out right after call
-// resolution, so inference, contract checks and code generation never see them. With `cache` (58W), covered
-// modules reuse inference results kept in the build cache, and fresh ones are kept.
-bool analyze(const codegen::CompilationRequest &request, const EntryRequest &entry, bool live_only, Analysis &analysis,
-             const DiagnosticSink &sink, const InferenceCache *cache = nullptr);
+struct LivenessRequest {
+    // Leave out the functions the entry cannot reach (export liveness, 62C).
+    bool live_only_ = false;
+    // The program is linked as a node (--distribution or the manifest), which keeps every export. Added for export
+    // liveness (CLAU12c).
+    bool linked_node_ = false;
+};
+
+// Run declaration, binding, call, declared-type and inference phases without creating LLVM state. With `live_only_`
+// functions the entry cannot reach are left out right after call resolution, so inference, contract checks and code
+// generation never see them. With `cache` (58W), covered modules reuse inference results kept in the build cache,
+// and fresh ones are kept.
+bool analyze(const codegen::CompilationRequest &request, const EntryRequest &entry, LivenessRequest liveness,
+             Analysis &analysis, const DiagnosticSink &sink, const InferenceCache *cache = nullptr);
 } // namespace clause::cli

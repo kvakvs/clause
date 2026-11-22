@@ -42,11 +42,11 @@ void trace_analysis(const std::string_view phase, const codegen::CompilationRequ
 
 // Leave out the functions an executable cannot reach from its entry, tracing under --verbose which modules keep
 // every export and why; later phases then see only the live call graph. Added for export liveness (62C).
-void drop_unreachable(const codegen::CompilationRequest &request, Analysis &analysis) {
+void drop_unreachable(const codegen::CompilationRequest &request, const bool linked_node, Analysis &analysis) {
     const auto &entry = *analysis.entry;
     auto &module = *analysis.modules.at(entry.module);
     auto &function = module.functions.at(module.lookup.at(entry.function));
-    const auto report = semantic::mark_live(analysis.modules, analysis.calls, {&module, &function});
+    const auto report = semantic::mark_live(analysis.modules, analysis.calls, {&module, &function}, linked_node);
     for (std::size_t i = 0; i < analysis.modules.size(); ++i) {
         const auto &name = analysis.modules[i]->name;
         const auto kept = report.kept_.find(name);
@@ -82,7 +82,7 @@ void infer_batch(const codegen::CompilationRequest &request, const InferenceCach
 }
 } // namespace
 
-bool analyze(const codegen::CompilationRequest &request, const EntryRequest &entry, const bool live_only,
+bool analyze(const codegen::CompilationRequest &request, const EntryRequest &entry, const LivenessRequest liveness,
              Analysis &analysis, const DiagnosticSink &sink, const InferenceCache *cache) {
     codegen::validate_input_limits(request.inputs, request.limits);
     bool failed = false;
@@ -104,8 +104,8 @@ bool analyze(const codegen::CompilationRequest &request, const EntryRequest &ent
     if (failed) {
         return false;
     }
-    if (live_only && analysis.entry) {
-        phase(analysis, "liveness", [&] { drop_unreachable(request, analysis); });
+    if (liveness.live_only_ && analysis.entry) {
+        phase(analysis, "liveness", [&] { drop_unreachable(request, liveness.linked_node_, analysis); });
     }
     trace_analysis("declared-types", request, analysis);
     phase(analysis, "declared-types",

@@ -45,6 +45,9 @@
 %% OTP 29 exports implemented natively or not yet: catalog builtins, whose clause_builtin_placeholder body the runtime's
 %% builtin replaces, and stubs raising error({not_implemented, F, A}) (docs/libraries/library.md#runtime-module-replacements).
 -include("sys.types.hrl").
+%% sys's atoms are debug options and request tags; the process's module comes from the caller. Strict for export
+%% liveness (CLAU12c).
+-compile({clause_liveness, strict}).
 
 -callback system_code_change(Misc, Module, OldVsn, Extra) -> {ok, NMisc} when
     Misc :: term(),
@@ -225,8 +228,7 @@ replaced_state(StateFun, Module, Misc) ->
                     {{ok, State}, NewMisc};
                 Other ->
                     {
-                        {error,
-                            {callback_failed, {Module, system_replace_state}, {bad_return, Other}}},
+                        {error, {callback_failed, {Module, system_replace_state}, {bad_return, Other}}},
                         Misc
                     }
             catch

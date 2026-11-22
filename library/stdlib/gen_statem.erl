@@ -839,8 +839,12 @@ terminate(
             {shutdown, _} -> debug(Debug, P#params.name, {terminate, Reason, State});
             _ -> error_info(Class, Reason, Stack, Debug, P, S, Q)
         end,
-    case Stack of
-        [] -> erlang:Class(Reason);
+    %% OTP's erlang:Class(Reason) spelled out: a call of erlang by a runtime name would keep every export of erlang in
+    %% the executable (export liveness, CLAU12c).
+    case {Class, Stack} of
+        {error, []} -> erlang:error(Reason);
+        {exit, []} -> erlang:exit(Reason);
+        {throw, []} -> erlang:throw(Reason);
         _ -> erlang:raise(Class, Reason, Stack)
     end.
 

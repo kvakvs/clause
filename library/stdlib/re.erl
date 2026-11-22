@@ -21,6 +21,8 @@
 ]).
 
 -include("re.types.hrl").
+%% re's atoms are options and error tags. Strict for export liveness (CLAU12c).
+-compile({clause_liveness, strict}).
 
 %% Regular expressions over the pinned PCRE2 (plan step 41ZB, docs/builtins.md#re-module): clause_re:compile/2 and
 %% clause_re:run/4 are the halves OTP implements in C; this module converts Unicode chardata to UTF-8, runs global
@@ -517,10 +519,8 @@ split(Subject, RE, Options) ->
             Parts =
                 case run(Flat, Pattern, MatchOptions ++ [global]) of
                     nomatch when Group -> [[Flat]];
-                    nomatch ->
-                        [Flat];
-                    {match, Matches} ->
-                        trimmed(cut(Flat, 0, Matches, Groups, Limit, Group), Trim, Group)
+                    nomatch -> [Flat];
+                    {match, Matches} -> trimmed(cut(Flat, 0, Matches, Groups, Limit, Group), Trim, Group)
                 end,
             split_result(Parts, Return, Unicode, Group)
     end.

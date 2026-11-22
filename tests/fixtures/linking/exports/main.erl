@@ -4,8 +4,9 @@
 % Export liveness (plan step 62C): what an executable keeps of its modules' exports. worker is reached only
 % through literal spawn/apply/fun targets, so its other exports are left out; callbacks escapes as a value, so all
 % of its exports stay; hidden is named only through a stack trace, so its unreachable dead/0 raises undef when
-% called dynamically (docs/differences.md), unless the executable keeps every export (--keep-exports). strict
-% uses its name as a value but is compiled with strict liveness, so its unreached idle/0 is left out too.
+% called dynamically (docs/differences.md), unless the executable keeps every export (--keep-exports). strict is
+% compiled with strict liveness, so its atom producer keeps no other module's exports; its own name, used as a value,
+% keeps its own.
 
 main(_) ->
     Self = self(),

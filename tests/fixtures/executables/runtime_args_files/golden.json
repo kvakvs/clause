@@ -8,6 +8,9 @@
     "bad.args",
     "loop.args"
   ],
+  "options": [
+    "--distribution"
+  ],
   "runs": [
     {
       "args": [

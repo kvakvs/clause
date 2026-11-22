@@ -1,6 +1,9 @@
 {
   "schema": 1,
   "entry": "mnesia_remote_frag",
+  "options": [
+    "--distribution"
+  ],
   "host_otp": true,
   "runs": [
     {

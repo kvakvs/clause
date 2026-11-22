@@ -1,5 +1,6 @@
 """Export liveness (plan step 62C): executables leave out exports they cannot reach. Checks the fixture's output with
-and without --keep-exports (CLI and project option), the --verbose reasons, refused uses, every program fixture and
+and without --keep-exports (CLI and project option), the --verbose reasons, a library-using program with and without
+--distribution (a node keeps every export), refused uses, every program fixture and
 selected executable goldens with --keep-exports, and records -Os/--lto sizes with and without it (not a gate)."""
 import concurrent.futures
 import json
@@ -49,10 +50,37 @@ for level in ("-O0", "-O2"):
     clau([level, "--keep-exports", "-o", "kept" + level, *modules])
     assert output("kept" + level) == expected("dead"), level
 for line in ('module="worker" detail="dropped-exports=3"', 'module="hidden" detail="dropped-exports=3"',
-             'module="strict" detail="dropped-exports=3"',
+             'module="strict" detail="kept-all-exports reason=\'strict\' is used as a value in strict:tag/0"',
              'module="callbacks" detail="kept-all-exports reason=\'callbacks\' is used as a value in main:main/1"'):
     assert line in trace, (line, trace)
 print("exports: unreachable exports are left out, --keep-exports keeps them")
+
+# A program that is not a node leaves out what it cannot reach of kernel and stdlib, and refuses --sname; linked with
+# --distribution it is a node, which keeps every export by the distribution rule and starts. Added for export
+# liveness of programs that are not nodes (CLAU12c).
+(work / "tables.erl").write_text('-module(tables).\n-export([main/1]).\nmain(_) ->\n'
+                                 "    Spec = ets:match_spec_compile([{{'$1', '$2'}, [{'>', '$2', 1}], ['$1']}]),\n"
+                                 '    io:format("~p ~p~n", [ets:match_spec_run([{a, 1}, {b, 2}], Spec), node()]).\n',
+                                 encoding="utf-8")
+trace = [line for line in clau(["-O0", "--verbose", "-o", "tables", "tables.erl"]).splitlines()
+         if "phase=liveness" in line]
+for module in ("ets", "lists", "gen_server", "net_kernel", "clause_dist_start"):
+    assert any(f'module="{module}" detail="dropped-exports=' in line for line in trace), (module, trace)
+assert not any("kept-all-exports" in line for line in trace), trace
+assert output("tables") == "[b] nonode@nohost\n"
+refused = subprocess.run([str(work / ("tables" + suffix)), "--sname", "tables"], capture_output=True, text=True,
+                         timeout=60)
+REFUSAL = ("clau: runtime failure: --sname and --name need the distribution modules (link the program with "
+           "--distribution)\n")
+assert refused.returncode == 70 and refused.stderr == REFUSAL, refused
+REASON = 'detail="kept-all-exports reason=the distribution rule: the program is linked as a node"'
+trace = [line for line in clau(["-O0", "--verbose", "--distribution", "-o", "tables-node", "tables.erl"]).splitlines()
+         if "phase=liveness" in line]
+assert len(trace) > 50 and all(REASON in line for line in trace), trace
+started = subprocess.run([str(work / ("tables-node" + suffix)), "--sname", "tables", "--dist-listen", "false"],
+                         capture_output=True, text=True, timeout=60)
+assert started.returncode == 0 and started.stdout.startswith("[b] tables@"), started
+print("exports: a program that is not a node leaves out library exports; a node keeps them")
 
 # The project option keep_exports keeps every export of its target; a non-boolean value is refused.
 manifest = work / "project.toml"

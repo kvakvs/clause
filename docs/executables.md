@@ -86,7 +86,7 @@ wins. All are parsed the same way; a value goes in the next argument or after
 | `--schedulers N` | Scheduler workers running processes, 1 to 1,024; default one per CPU of `--scheduler-cpus`, else one per logical processor the program may run on (its affinity mask), like OTP's online schedulers ([workers](processes.md#workers)) |
 | `--scheduler-cpus SET` | Bind worker N to the N-th CPU of `SET`, round-robin, like OTP's `+sbt`/`+sct`: `performance` (the fastest core class: P-cores of a hybrid CPU, every CPU otherwise), `all`, or a list such as `0-15` or `2,4,6`; every listed CPU must be in the affinity mask. Default unbound ([CPU binding](processes.md#cpu-binding)) |
 | `--epmd MODE` | What a registration with epmd does when none listens: `bundled` (default) runs the epmd the program carries, `external` starts an epmd program (`clause-epmd` beside the program or on `PATH`, else OTP's `epmd`), `none` fails as OTP's; a program built with `--no-bundled-epmd` treats `bundled` as `none` ([epmd](distribution.md#epmd)) |
-| `--sname`, `--name`, `--setcookie`, `--nocookie`, `--hidden`, `--proto-dist`, `--dist-listen`, `--ssl-dist-optfile`, `--ssl-dist-opt` | Node start options, reported by `init:get_argument/1` under OTP's flag names; `--sname` and `--name` start distribution before the entry in a program linked with the distribution modules ([node start options](distribution.md#node-start-options)) |
+| `--sname`, `--name`, `--setcookie`, `--nocookie`, `--hidden`, `--proto-dist`, `--dist-listen`, `--ssl-dist-optfile`, `--ssl-dist-opt` | Node start options, reported by `init:get_argument/1` under OTP's flag names; `--sname` and `--name` start distribution before the entry in a program linked as a node ([node start options](distribution.md#node-start-options)) |
 | `--env APP KEY VALUE` | Sets `APP`'s environment parameter `KEY` to the term `VALUE`, as OTP's `-App Key Value`: `application_controller` parses it when it loads `APP` ([node start options](distribution.md#node-start-options)) |
 | `--config FILE` | Application environments from a `.config` file, as OTP's `-config FILE`; every one is kept ([config files](#config-files)) |
 | `--profile FILE` | Write a report of entries and self time per function and per process to `FILE` when the program ends ([profiling](profiling.md)); off by default |
@@ -308,7 +308,28 @@ builtins write to a process device through it). It stays conservative:
   (but not `M:F(...)` or `apply/3` with a literal module and a runtime
   function), atom-producing builtins and `binary_to_term/1,2` count for neither
   rule
-  ([strict liveness](compile.md#strict-liveness)).
+  ([strict liveness](compile.md#strict-liveness));
+- the distribution rule (plan 11 step CLAU12c): a program linked as a node
+  (`--distribution`, the manifest option `distribution = true` or
+  `runtime_options` naming the node), or one whose live code calls
+  `net_kernel:start/1,2` from outside `net_kernel`, is a node, which runs the
+  functions other nodes name with atoms the analysis never sees (spawn requests,
+  `rpc`, `erpc`). It keeps every export of every module, and
+  `clause_dist_start:boot/3` and `node/1`, which boot it, are live. A call that
+  becomes live late in the walk still keeps everything. `net_kernel:start/1,2`
+  kept only because `net_kernel`'s name escapes does not count. Another program
+  leaves out `clause_dist_start:boot/3`, so it refuses `--sname`, `--name` and
+  `--node` ([distribution](distribution.md#node-start-options)).
+
+What the runtime calls by name itself counts only where it does:
+
+- `clause_on_load:boot/3`, which runs the [`-on_load` functions](#on-load-functions)
+  before the entry, is live only when a module of the batch has `-on_load`, and
+  its `apply/3` of the entry is no call with a runtime module: the entry is live
+  already;
+- the generated `module_info/0,1` and `behaviour_info/1` return literal data
+  (the module's name, exports, attributes and callback names), so their atoms
+  keep no exports; their calls still count.
 
 A function nothing live reaches gets no code at all. A left-out export keeps its
 name in the module's export table without code, so `function_exported/3` and
@@ -316,9 +337,26 @@ name in the module's export table without code, so `function_exported/3` and
 reaches it raises `undef`
 ([differences](differences.md#errors-stack-traces-and-reports)). That can happen
 only when a module name comes from outside the analysis: a stack trace, an
-exception term or data from outside the program. `--verbose` traces the result
+exception term or data from outside the program, or another node's request in
+a program that started distribution by calling `net_kernel:start/1,2` through
+a runtime module name. `--verbose` traces the result
 per module (`phase=liveness detail="dropped-exports=3"`, or
-`detail="kept-all-exports reason='m' is used as a value in main:main/1"`).
+`detail="kept-all-exports reason='m' is used as a value in main:main/1"`, for a
+node `reason=the distribution rule: the program is linked as a node` or `...
+net_kernel:start/1 is called in main:main/1`), and
+`--print-stage-times` counts the live functions (`[time] liveness 82 modules:
+1.2 ms (21 of 4513 functions live)`).
+
+Programs that use `gen_server`, `supervisor`, `application` or `logger` still
+keep every export today (plan 11 step CLAU12c): `gen:where/1` reaches
+`global`, which starts `kernel_sup`, whose children reach `erl_distribution`,
+`net_kernel` and `auth` with their atom-producing builtins (node, carrier and
+cookie names), and `application_controller` reads config files through
+`filelib`, which calls `file` by a runtime module name, so `file`'s
+`eval`/`script` functions reach `erl_eval`; with the behaviours' calls of
+their callback modules, these keep everything. Kernel and stdlib modules
+reviewed as strict are listed under [strict
+liveness](compile.md#strict-liveness).
 
 A function nothing live reaches is also never type-inferred or checked against
 its `-spec`: inference covers only live code, which is faster for programs that
