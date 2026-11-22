@@ -5,7 +5,9 @@
 #include <span>
 #include <stdexcept>
 
-// Startup invariants that compiled source cannot reach: mismatched or failing descriptors never run the entry.
+// Descriptors a linked consumer can produce by mixing objects of other builds (ABI revision, flags, a module object
+// without the entry) and failed registrations never run the entry; another term width and a null descriptor cannot
+// link, so they are asserts in startup.cpp.
 namespace {
 using namespace clause::abi::v1;
 
@@ -55,10 +57,7 @@ int main() {
         changed.abi_version = version + 1;
         rejected(changed, "startup ABI revision mismatch reached the entry");
         changed = program(valid);
-        changed.term_bits = bits == 64 ? 32 : 64;
-        rejected(changed, "startup term width mismatch reached the entry");
-        changed = program(valid);
-        changed.flags = startup_escript << 1;
+        changed.flags = startup_no_arguments << 1;
         rejected(changed, "unknown startup flags reached the entry");
         const std::array mixed{&app, &stale};
         rejected(program(mixed), "module ABI mismatch reached the entry");
@@ -67,10 +66,10 @@ int main() {
         changed = program(valid);
         changed.entry_function_size = 3;
         rejected(changed, "missing entry function reached a different export");
-        require(CLAUSE_main_v1(0, nullptr, nullptr) == exit_runtime_failure, "null startup accepted");
     } catch (const std::exception &error) {
         std::cerr << error.what() << '\n';
         return 1;
     }
+    std::cout << "runtime_startup: ok\n";
     return 0;
 }

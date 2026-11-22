@@ -90,31 +90,8 @@ void check_foreign(const std::string &triple, unsigned bits, llvm::Triple::Objec
     require(machine.getOptLevel() == llvm::CodeGenOptLevel::Default, "speed policy lost");
 }
 
-// Distinguish invalid triples from valid architectures without a configured backend.
-enum class TargetFailure : std::uint8_t { unknown_architecture, unavailable_backend };
-
-// Check diagnostic classification as well as the absence of fallback state and output.
-void check_failure(const std::string &triple, TargetFailure failure) {
-    Compilation compilation(request(triple));
-    require(compilation.result().add_output({"staged", OutputKind::object, {std::byte{1}}}), "staging failed");
-    require(!configure_target(compilation), "invalid target accepted");
-    require(!configure_target(compilation), "failed target retried successfully");
-    const auto &state = detail::state(compilation);
-    require(!state.target_machine, "failed target substituted a machine");
-    for (const auto &module : state.modules) {
-        require(module->getDataLayoutStr().empty() && module->getTargetTriple().str().empty(),
-                "failure mutated module");
-    }
-    const auto result = std::move(compilation).take_result();
-    require(result.status() == CompilationStatus::failed && result.outputs().empty(), "failure retained artifacts");
-    require(result.diagnostics().size() == 1, "missing or repeated target diagnostic");
-    const auto message =
-        failure == TargetFailure::unknown_architecture ? "unknown target architecture" : "backend unavailable";
-    require(result.diagnostics().front().message.contains(message), "wrong target diagnostic");
-    require(result.diagnostics().front().message.contains(triple), "diagnostic lost target context");
-}
-
-// Exercise each configured backend without claiming foreign object emission or execution.
+// Exercise each configured backend without claiming foreign object emission or execution. Unknown and unavailable
+// targets are rejected through the CLI by codegen_cross_targets.
 void check_cross_targets() {
 #ifdef CLAUSE_LLVM_X86
     check_foreign("i686-unknown-linux-gnu", 32, llvm::Triple::ELF);
@@ -122,18 +99,12 @@ void check_cross_targets() {
     check_foreign("x86_64-linux-gnu", 64, llvm::Triple::ELF);
     check_foreign("i686-pc-windows-msvc", 32, llvm::Triple::COFF);
     check_foreign("x86_64-pc-windows-msvc", 64, llvm::Triple::COFF);
-#else
-    check_failure("x86_64-unknown-linux-gnu", TargetFailure::unavailable_backend);
 #endif
 #ifdef CLAUSE_LLVM_ARM
     check_foreign("armv7-unknown-linux-gnueabihf", 32, llvm::Triple::ELF);
-#else
-    check_failure("armv7-unknown-linux-gnueabihf", TargetFailure::unavailable_backend);
 #endif
 #ifdef CLAUSE_LLVM_AArch64
     check_foreign("aarch64-unknown-linux-gnu", 64, llvm::Triple::ELF);
-#else
-    check_failure("aarch64-unknown-linux-gnu", TargetFailure::unavailable_backend);
 #endif
 }
 
@@ -141,12 +112,11 @@ void check_cross_targets() {
 int main() {
     try {
         check_native();
-        check_failure("notacpu-unknown-linux-gnu", TargetFailure::unknown_architecture);
-        check_failure("riscv64-unknown-linux-gnu", TargetFailure::unavailable_backend);
         check_cross_targets();
     } catch (const std::exception &error) {
         std::cerr << error.what() << '\n';
         return 1;
     }
+    std::cout << "codegen_target: ok\n";
     return 0;
 }

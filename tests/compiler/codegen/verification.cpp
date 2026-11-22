@@ -108,18 +108,6 @@ void check_module_failure() {
     check_rejected(compilation, "'common' global must have a zero initializer");
 }
 
-// Target setup is explicit; verification must not silently configure or repair module settings.
-void check_target_failures() {
-    Compilation missing(request());
-    check_rejected(missing, "requires a configured target machine");
-    auto triple = synthetic_batch();
-    detail::state(triple).modules.back()->setTargetTriple(llvm::Triple("unknown-unknown-unknown"));
-    check_rejected(triple, "target triple does not match");
-    auto layout = synthetic_batch();
-    detail::state(layout).modules.back()->setDataLayout("");
-    check_rejected(layout, "data layout does not match");
-}
-
 // Earlier failures and completed results cannot enter another verification/emission phase.
 void check_status() {
     auto failed = synthetic_batch();
@@ -137,11 +125,11 @@ int main() {
         check_function_failure();
         check_return_failure();
         check_module_failure();
-        check_target_failures();
         check_status();
     } catch (const std::exception &error) {
         std::cerr << error.what() << '\n';
         return 1;
     }
+    std::cout << "codegen_verification: ok\n";
     return 0;
 }

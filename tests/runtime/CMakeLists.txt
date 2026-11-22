@@ -1,8 +1,3 @@
-add_executable(runtime_term_tag_tests term_tag.cpp)
-clause_project_options(runtime_term_tag_tests)
-target_link_libraries(runtime_term_tag_tests PRIVATE clause_runtime)
-add_test(NAME runtime_term_tag COMMAND runtime_term_tag_tests)
-
 add_library(runtime_term_layout_tests OBJECT term_layout.cpp)
 clause_project_options(runtime_term_layout_tests)
 target_link_libraries(runtime_term_layout_tests PRIVATE clause_runtime)

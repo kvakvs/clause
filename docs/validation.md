@@ -207,8 +207,12 @@ reach the state, each with its purpose stated in the test:
 - Private ownership, invalid/stale handle and rollback invariants in the parser,
   semantic type graph and backend.
 - Raw word validation and 32/64-bit term boundaries (`runtime_immediate`,
-  `runtime_term_tag`, `abi_integers`).
+  `abi_integers`).
 - Diagnostic sink failures and the stable feature ID snapshot.
+
+A condition that neither valid source nor a linked consumer can reach is an
+`assert` in the product code (active in Debug), not a test; a constant table is
+a `static_assert` (the term tag table in `runtime/src/terms/immediate.cpp`).
 
 Filesystem capability cases (links, case aliases) report per-case skips; they
 never stand in for a whole-test pass.

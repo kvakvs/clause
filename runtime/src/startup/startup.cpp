@@ -3,6 +3,7 @@
 #include "../scheduler/executor.hpp"
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <clause/abi/startup.hpp>
 #include <clause/runtime/modules.hpp>
 #include <clause/runtime/output.hpp>
@@ -60,6 +61,8 @@ bool borrowed(const StartupDescriptor &startup) {
 // Reject startup and module descriptors of another ABI revision or width before anything is registered.
 bool compatible(const StartupDescriptor &startup) {
     constexpr auto bits = sizeof(abi::v1::TermWord) * 8;
+    // Objects of another term width do not link into this image (VAL13: an assert, not a test).
+    assert(startup.term_bits == bits);
     if (startup.abi_version != abi::v1::version || startup.term_bits != bits ||
         (startup.flags & ~(abi::v1::startup_escript | abi::v1::startup_no_arguments)) != 0 || !borrowed(startup)) {
         return false;
@@ -332,6 +335,8 @@ TermResult<std::string> exception_reason(const CallFailure &failure) {
 
 int CLAUSE_main_v1(int argc, char **argv, const void *startup) noexcept {
     using namespace clause;
+    // The generated main always passes its own descriptor (VAL13: an assert, not a test).
+    assert(startup != nullptr);
     if (!startup) {
         return runtime::detail::runtime_failure("missing startup descriptor");
     }

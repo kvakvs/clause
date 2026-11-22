@@ -26,6 +26,9 @@ gotchas and user directions not recorded elsewhere.
   check-quality tidies one unit per changed header (dependents in check-quality-all); fast CTest ~75
   s at -j 16. Tidy default jobs = half the logical cores. Keep slow tests parallel. Keep 20-25% CPUs
   free.
+- Asserts, not tests (VAL13 2026-11-22): a condition neither valid source nor a linked consumer (generated code,
+  host, CMake consumer) reaches is a `<cassert>` assert at the product check (Debug runs it; keep the Release
+  return); admission, handles, external decoding, budgets and injected faults stay tests.
 - Golden compile cache (VAL8 2026-11-22): fast-mode run.py passes `--build-dir <work>-cache` to both drivers (kept
   across runs); full mode/--lto/cross stay cold. No runner pruning: the store replaces an entry per address (target@
   options hash, per-source inference), so a relinked clau keeps one generation. A warm timing needs that dir

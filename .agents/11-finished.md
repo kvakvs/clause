@@ -248,6 +248,15 @@ Compact record of [plan 11](11-plan.md), one bullet per step;
   `tracing_unsupported`, the disabled `codegen_resource_cli`; the `unavailable` bridge mode and the
   deferred-feature rollback of `codegen_atoms` too. The factory lifetime check moved to
   `runtime_containers`; `codegen_specialization` keeps its caps, policies and trace — `3bd6cdb3`
+- **VAL13** rare-condition unit tests became asserts; the rule is in AGENTS.md and the common gate.
+  `runtime_term_tag` is a `static_assert` in `runtime/src/terms/immediate.cpp` (test removed). Asserts with
+  their test cases deleted: startup term width and null descriptor (`runtime_startup`), unconfigured
+  target, triple and layout (`codegen_verification`, `codegen_term_abi`), a foreign checkpoint
+  (`parser_tokens`); `codegen_target`'s bad triple is left to `codegen_cross_targets`. Kept as tests, each a
+  real boundary: host admission (`runtime_immediate`, `runtime_memory`, `runtime_builtins`,
+  `runtime_floats`, `runtime_heap_walk`), decoding (`semantic_symbols`, `semantic_inference`), budgets
+  source can reach and injected faults (`codegen_limits`, `codegen_write_failure`, `project_*`,
+  `semantic_patterns`, `semantic_bindings`, `parser_hardening`). No golden case reaches an assert — `pending`
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 

@@ -1,5 +1,6 @@
 #include "term_abi.hpp"
 #include "llvm_state.hpp"
+#include <cassert>
 #include <llvm/IR/DerivedTypes.h>
 
 namespace clause::codegen {
@@ -8,6 +9,8 @@ llvm::IntegerType *term_type(Compilation &compilation) {
     if (state.result.status() != CompilationStatus::incomplete) {
         return nullptr;
     }
+    // Lowering configures the target first (VAL13: an assert, not a test).
+    assert(state.target_machine != nullptr);
     if (!state.target_machine) {
         state.result.report({.level = DiagnosticLevel::error,
                              .message = "Term ABI requires a configured target machine",

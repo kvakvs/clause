@@ -155,7 +155,9 @@ printed by `vcvars64.bat` is harmless.
   when a real workflow can cover the behavior.
 - Add focused unit tests only for important edge cases or invariants that cannot be covered reliably
   or practically through black-box or end-to-end tests. Avoid duplicating coverage across layers;
-  preserve existing useful tests unless equivalent behavioral coverage replaces them.
+  preserve existing useful tests unless equivalent behavioral coverage replaces them. A condition
+  that neither valid Erlang source nor a linked consumer (generated code, a host embedding the
+  runtime, a CMake consumer) can reach is an `assert` in the product code, not a test.
 - IMPORTANT: OTP source and copied files from OTP source remain transient and never join the Clause
   git, if necessary, save observations/oracle data/gold master data in Clause git, but not the
   license-protected files.

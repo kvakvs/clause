@@ -1,4 +1,5 @@
 #include "token_cursor.hpp"
+#include <cassert>
 #include <stdexcept>
 
 namespace clause {
@@ -37,6 +38,8 @@ bool TokenCursor::take_syntax(const std::u32string_view text) {
 std::size_t TokenCursor::checkpoint() const { return offset_; }
 
 void TokenCursor::restore(const std::size_t offset) {
+    // The parser restores only its own checkpoints (VAL13: an assert, not a test).
+    assert(offset <= tokens_.size());
     if (offset > tokens_.size()) {
         throw std::out_of_range("token cursor checkpoint");
     }

@@ -97,8 +97,9 @@ the earlier 51-step draft with smaller, single-commit steps.
 - **Tests:** prefer real `.erl` sources through the CLI, linked executables and OTP-derived goldens.
   Where applicable cover positional and project drivers, O0/O2, specialization on/off and
   local/remote calls. Add focused unit tests only for budgets, ownership, invalid handles and
-  injected faults that source cannot reach. Do not remove a useful test before equivalent behavioral
-  coverage exists.
+  injected faults that source cannot reach. A condition that neither valid source nor a linked
+  consumer (generated code, a host, a CMake consumer) can reach is an assert in the product code, not
+  a test. Do not remove a useful test before equivalent behavioral coverage exists.
 - **Representations:** a new term kind needs construction, comparison, printing, tracing, copying,
   destruction and error ownership rules before source code may produce it. Forged tagged words are
   never accepted as valid identities.
@@ -824,26 +825,6 @@ Depends on: [VAL7](11-finished.md), [CLAU12c](#step-clau12c).
     module that makes it so.
 - Tests
   - [ ] Fast gate wall time recorded.
-
-<a id="step-val13"></a>
-
-### VAL13. Rare-condition unit tests become asserts
-
-Depends on: none. Narrows the common rule on focused unit tests: a condition that neither valid
-source nor a linked consumer can reach is an assert in the product code, not a test.
-
-- Success criteria
-  - [ ] Each candidate has a recorded disposition (assert, `static_assert`, kept with reason):
-    forged words in `runtime_immediate`, `runtime_memory`, `runtime_builtins`; forged descriptors in
-    `runtime_startup` (one case stays); the tag table of `runtime_term_tag`; state invariants in
-    `codegen_verification`, `codegen_target`, `codegen_results`, `codegen_ownership`; injected
-    budgets and faults in `codegen_limits`, `project_limits`, `semantic_patterns`,
-    `semantic_bindings`, `parser_hardening`.
-  - [ ] Checks that guard the runtime against generated code or a host (admission, ownership,
-    invalid handles) stay tests; the rule in this plan's common gate and AGENTS.md is reworded.
-  - [ ] [VAL3](#step-val3)'s ledger cites each removed test.
-- Tests
-  - [ ] Debug builds keep the asserts on; fast gate passes.
 
 <a id="step-val14"></a>
 

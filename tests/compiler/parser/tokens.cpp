@@ -29,13 +29,6 @@ void cursor_bounds() {
     require(cursor.offset() == 0 && cursor.remaining().size() == 4);
     cursor.restore(tokens.size());
     require(!cursor.consume() && cursor.empty() && cursor.anchor().location.column == 7);
-    bool rejected = false;
-    try {
-        cursor.restore(tokens.size() + 1);
-    } catch (const std::out_of_range &) {
-        rejected = true;
-    }
-    require(rejected && cursor.empty());
     TokenCursor empty({}, end);
     require(empty.anchor().spelling.source == tokens.back().spelling.source);
 }

@@ -1,6 +1,7 @@
 #include "verification.hpp"
 #include "llvm_state.hpp"
 #include "progress.hpp"
+#include <cassert>
 #include <llvm/IR/Verifier.h>
 #include <llvm/Support/raw_ostream.h>
 #include <string>
@@ -19,6 +20,9 @@ bool reject(CompilationResult &result, const llvm::Module &module, const std::st
 
 // Refuse missing or stale target settings before IR can reach target-dependent emission.
 bool verify_target(const llvm::Module &module, const llvm::TargetMachine &machine, CompilationResult &result) {
+    // configure_target sets both on every module; no input supplies others (VAL13: asserts, not tests).
+    assert(module.getTargetTriple() == machine.getTargetTriple());
+    assert(module.getDataLayout() == machine.createDataLayout());
     if (module.getTargetTriple() != machine.getTargetTriple()) {
         return reject(result, module, "target triple does not match the configured target machine");
     }
@@ -62,6 +66,8 @@ bool verify_ir(Compilation &compilation) {
     if (state.result.status() != CompilationStatus::incomplete) {
         return false;
     }
+    // Lowering configures the target before any verification (VAL13: an assert, not a test).
+    assert(state.target_machine != nullptr);
     if (!state.target_machine) {
         state.result.report({.level = DiagnosticLevel::error,
                              .message = "LLVM IR verification requires a configured target machine",

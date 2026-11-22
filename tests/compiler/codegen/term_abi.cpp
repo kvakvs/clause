@@ -67,14 +67,6 @@ void check_target(const std::string &triple, unsigned bits) {
     require(emit_objects(compilation), "ABI signature failed verification/emission");
 }
 
-// ABI type construction must not invent a host target or recover an already failed batch.
-void check_unconfigured() {
-    Compilation compilation(CompilationRequest{});
-    require(generated_function_type(compilation) == nullptr, "unconfigured ABI accepted");
-    require(term_type(compilation) == nullptr, "failed ABI request retried");
-    require(compilation.result().diagnostics().size() == 1, "missing or duplicate ABI diagnostic");
-}
-
 // Native width/alignment agrees with the C++ header; cross-target checks stay independent of host sizeof.
 int main() {
     try {
@@ -90,10 +82,10 @@ int main() {
 #ifdef CLAUSE_LLVM_AArch64
         check_target("aarch64-unknown-linux-gnu", 64);
 #endif
-        check_unconfigured();
     } catch (const std::exception &error) {
         std::cerr << error.what() << '\n';
         return 1;
     }
+    std::cout << "codegen_term_abi: ok\n";
     return 0;
 }
