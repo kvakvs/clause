@@ -15,7 +15,11 @@ transform host takes minutes for it in a loaded Debug test run) also has
 instead of the `.erl`, and the oracle compiles the `.erl` (`qlc_queries`).
 `transforms_no_otp` checks that the transform host gives the same forms.
 Every such directory becomes the CTest `executables_<directory>`; nothing else
-is registered.
+is registered. Each case carries one area label from
+`tests/compiler/executables/areas.cmake` (`ctest -L <area>` runs one area; a
+case without an area fails configuration). A case of more than about 10 s alone
+is `full_only` unless it is in the smoke set there; new cases of the `mnesia_`,
+`dist_`, `epmd_` and `ssl_` families are `full_only` by rule.
 
 | `golden.json` field | Written by | Meaning |
 | --- | --- | --- |

@@ -102,12 +102,20 @@ cmake --preset debug -DBUILD_TESTING=ON
 cmake --build --preset debug
 ctest --preset debug-fast                # or windows-debug-fast
 ctest --preset debug -j 16               # full mode
+ctest --test-dir build/debug -C Debug -L mnesia   # one area's golden cases
 ```
 
 `CLAUSE_TEST_MODE=fast` (the `*-fast` presets, `make test`, `make-test.bat`)
 runs a reduced optimization/driver matrix and skips `full_only` tests; `full`
 (the default when unset, `make test-full`, `TEST_MODE=full`) runs everything.
 Each test reserves two CTest slots, so `-j N` runs N/2 tests at once.
+
+A test that takes more than about 10 s alone is labeled `full_only`, except a
+smoke set of heavy golden cases, about one per area, that stays in the fast
+gate. Every executable golden case carries one area label (`mnesia`, `dist`,
+`ssl`, `public_key`, `crypto`, `file`, `kernel`, `stdlib`, `tools`, `core`;
+listed in `tests/compiler/executables/areas.cmake`), so library work runs its
+area with `ctest -L <area>`.
 
 ## Quality gate
 

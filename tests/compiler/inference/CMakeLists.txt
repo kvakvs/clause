@@ -19,7 +19,9 @@ set_tests_properties(inference_contracts PROPERTIES TIMEOUT 120)
 # 58Q/58S: a map over a tree of two node shapes converges without flipping.
 add_test(NAME inference_budgets COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/budgets.py"
     "$<TARGET_FILE:clau>" "${CMAKE_CURRENT_BINARY_DIR}/budgets/$<CONFIG>")
-set_tests_properties(inference_budgets PROPERTIES TIMEOUT 300 PASS_REGULAR_EXPRESSION "inference_budgets: ok")
+# Slow (12 s in a loaded gate): full gate only (label full_only, plan 11 step VAL7); inference_walkers stays fast.
+set_tests_properties(inference_budgets PROPERTIES TIMEOUT 300 PASS_REGULAR_EXPRESSION "inference_budgets: ok"
+    LABELS full_only)
 
 # Plan 22 B.0: work steps, joins, passes and rounds of a compiler-pass-shaped module stay within their budgets.
 add_test(NAME inference_walkers COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/walkers.py"

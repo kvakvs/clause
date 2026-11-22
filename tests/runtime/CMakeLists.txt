@@ -23,6 +23,8 @@ foreach(suite IN ITEMS lifecycle_failure memory stack containers integers floats
     target_link_libraries(runtime_${suite} PRIVATE Clause::generated_program)
     add_test(NAME runtime_${suite} COMMAND runtime_${suite})
 endforeach()
+# Slow (8.5 s in a loaded gate): full gate only (label full_only, plan 11 step VAL7).
+set_tests_properties(runtime_lifecycle_failure PROPERTIES LABELS full_only)
 add_test(NAME runtime_generated_link COMMAND "${CMAKE_COMMAND}"
     "-DSOURCE_ROOT=${PROJECT_SOURCE_DIR}" "-DTEST_DIR=${CMAKE_CURRENT_BINARY_DIR}/consumer/$<CONFIG>"
     "-DHOST_SETTINGS=${PROJECT_BINARY_DIR}/TestHost.cmake"

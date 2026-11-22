@@ -19,8 +19,10 @@ gotchas and user directions not recorded elsewhere.
 - Test iteration counts: just large enough to prove the property.
 - Test/gate time: per step check-quality FIRST, then fast CTest (user 2026-10-29); full CTest only
   at phase/major completion, INSTEAD of fast. After a gate run, rank build/debug/Testing/Temporary/
-  CTestCostData.txt: cases of ~70 s or more alone go full_only (executables/CMakeLists.txt
-  full_only_cases; ssl connection cases and shell_expand/session moved 2026-10-29). Fast gate must stay fast (user 2026-10-17): slow workflows are full_only,
+  CTestCostData.txt: a test of more than ~10 s alone is full_only unless it is in the golden smoke
+  set; golden cases carry one area label, library work runs `ctest -L <area>` (VAL7 2026-11-22,
+  tests/compiler/executables/areas.cmake: area lists, smoke set with times alone, full_only
+  families mnesia_/dist_/epmd_/ssl_). Fast gate must stay fast (user 2026-10-17): slow workflows are full_only,
   check-quality tidies one unit per changed header (dependents in check-quality-all); fast CTest ~75
   s at -j 16. Tidy default jobs = half the logical cores. Keep slow tests parallel. Keep 20-25% CPUs
   free.

@@ -79,8 +79,9 @@ the earlier 51-step draft with smaller, single-commit steps.
   run `cmake --build build/debug --target check-quality` (changed files and one unit per changed
   header) first, so tidy and Lizard findings come before a long test run that would have to be
   repeated after fixing them (user 2026-10-29); then fast-mode CTest (`ctest --preset debug-fast`).
-  Cases of about 70 s or more alone go to the full gate (label `full_only`) instead of slowing the
-  fast one. When a phase or major feature completes, run full-mode CTest
+  A test of more than about 10 s alone runs in the full gate only (label `full_only`) unless it is
+  in the smoke set of golden cases; golden cases carry an area label, so library work runs its area
+  with `ctest -L <area>`. When a phase or major feature completes, run full-mode CTest
   (`ctest --preset debug -j <N>`; each test takes two slots, so N/2 run at once) instead of fast
   mode, never both (full covers every fast run), and `check-quality-all`. Lizard and clang-tidy pass
   without raised thresholds or suppressions. Code is clang-formatted; new and changed `.erl`/terms
@@ -164,7 +165,7 @@ Completed steps link to [the plan 11 record](11-finished.md).
 | N. Optional scope decisions | [RT1](#step-rt1), [RT2](#step-rt2), [CLAU3](#step-clau3)–[CLAU5](#step-clau5), [RT3](#step-rt3), [RT9](#step-rt9), [CLAU6](#step-clau6) | open |
 | N2. Parse transforms | [73A](11-finished.md)–[73G](11-finished.md), [CLAU7](#step-clau7) | open: [CLAU7](#step-clau7) |
 | P. Remaining features | [CLAU9](#step-clau9)–[CLAU11](#step-clau11), [RT6](#step-rt6)–[RT8](#step-rt8) | open |
-| T. Test gate cost | [VAL7](#step-val7), [VAL8](#step-val8), [CLAU12](#step-clau12), [VAL9](#step-val9)–[VAL15](#step-val15) | open |
+| T. Test gate cost | [VAL7](11-finished.md), [VAL8](#step-val8), [CLAU12](#step-clau12), [VAL9](#step-val9)–[VAL15](#step-val15) | open |
 | O. Final closure | [RT4](#step-rt4), [RT5](#step-rt5), [CLAU8](#step-clau8) | open |
 
 
@@ -738,29 +739,6 @@ Added 2026-11-22 (user direction): the fast gate is no longer fast. Evidence of 
 Each step records the time alone of the tests it touches before and after, and the fast gate's wall
 time in `.state/runs.md`.
 
-<a id="step-val7"></a>
-
-### VAL7. Move slow tests to the full gate, golden cases labeled by area
-
-Depends on: none.
-
-- Success criteria
-  - [ ] The heavy golden cases are `full_only`, except a smoke set of about 10, one per area, named
-    in `tests/compiler/executables/CMakeLists.txt` with each case's time alone (proposed: `file_io`,
-    `gen_servers`, `supervisors`, `applications`, `sockets`, `loggers`, `mnesia_dirty`, `dist_start`,
-    `public_key_certs`, `crypto_digests`, `ssl_engine`).
-  - [ ] Every golden case has an area label (`mnesia`, `dist`, `ssl`, `public_key`, `crypto`, `file`,
-    `kernel`, `stdlib`, `tools`, `core`), so library work runs its area with `ctest -L <area>`.
-  - [ ] Also `full_only`: `runtime_lifecycle_failure` (8.5 s), `inference_budgets` (12 s,
-    `inference_walkers` stays) and `parser_mutations_1`–`3` (shard 0 stays).
-  - [ ] The gate rule (this plan's common gate, the CMake comment, `docs/building.md`,
-    `docs/validation.md`, `aimemory.md`) reads: a test of more than about 10 s alone is `full_only`
-    unless it is in the smoke set.
-  - [ ] Fast gate wall time recorded; expected about 5 minutes at `-j 12`.
-- Tests
-  - [ ] `ctest -N` lists the same 522 tests before and after; fast and full lists differ only by the
-    moved tests.
-
 <a id="step-val8"></a>
 
 ### VAL8. Golden cases keep their compile cache between runs
@@ -806,7 +784,7 @@ Depends on: [62C](11-finished.md).
 
 ### VAL9. Return golden cases that became cheap to the fast gate
 
-Depends on: [VAL7](#step-val7), [CLAU12](#step-clau12).
+Depends on: [VAL7](11-finished.md), [CLAU12](#step-clau12).
 
 - Success criteria
   - [ ] Every `full_only` golden case is timed alone; those under VAL7's rule return to the fast
@@ -926,7 +904,7 @@ Depends on: none.
 
 ### VAL15. Record the new gate baselines
 
-Depends on: [VAL7](#step-val7)–[VAL14](#step-val14), [CLAU12](#step-clau12).
+Depends on: [VAL7](11-finished.md)–[VAL14](#step-val14), [CLAU12](#step-clau12).
 
 - Success criteria
   - [ ] Fresh fast and full gates timed at `-j 12`, with the 20 slowest tests of each, recorded in

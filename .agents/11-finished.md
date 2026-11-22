@@ -220,6 +220,10 @@ Compact record of [plan 11](11-plan.md), one bullet per step;
 - **73E** transforms run through the host OTP loader — `13a5e20`
 - **73F** transforms applied before lint in the compile pipeline — `1c92c5c`
 - **73G** precompiled and project transform modules — `d1ce36a`
+- **VAL7** slow tests moved to the full gate: 118 golden cases, `runtime_lifecycle_failure`,
+  `inference_budgets`, `parser_mutations_1`–`3`; golden cases labeled by area (`ctest -L <area>`,
+  `tests/compiler/executables/areas.cmake`) with a smoke set of 11; the gate rule is 10 s alone. Fast
+  gate 493 to 370 tests, about 30 minutes to 341 s at `-j 12` — `pending`
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 

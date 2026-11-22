@@ -104,6 +104,8 @@ to another node, its option split, SPAWN_REQUEST/SPAWN_REPLY read; GROUP_LEADER 
   generated codecs).
 - `tests/runtime/`, `tests/abi/`: LLVM-free runtime/ABI tests; `tests/prototypes/`: decision
   prototypes (not CTest).
+- Golden case areas and gate placement: `tests/compiler/executables/areas.cmake` (one area label per case,
+  the smoke set that stays in the fast gate, `full_only` families and names; plan 11 step VAL7).
 - Multi-node golden runs (`runs[].nodes`): `tests/compiler/executables/nodes.py` starts the epmd and the nodes for
   `run.py` and `regenerate.py`; `host_otp` cases (`epmd_interop`; `dist_ping`, `dist_connect` with OTP nodes, DIST4b4; `dist_signals`, DIST5c; `dist_funs`, DIST5d; `dist_rpc`, DIST7a) skip without an escript; `"epmd": "bundled"` runs
   start no epmd, other runs give Clause nodes `--epmd none`. `CLAUSE_TEST_EPMD` names the `clause-epmd` beside a

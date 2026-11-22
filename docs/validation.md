@@ -32,7 +32,15 @@ cmake --build build/debug --target check-quality-all  # whole tree
   (separate consumer projects such as `runtime_generated_link`, measurements,
   the host-OTP `library_freshness` audit, and the slow workflows `linking_lto`,
   `linking_exports`, `linking_compile_cache`, `programs_compile`,
-  `transforms_cache`, `printing_source` and the `qlc_queries` executable case). Full mode (default) runs all driver/policy combinations.
+  `transforms_cache`, `printing_source`). Full mode (default) runs all
+  driver/policy combinations.
+- Gate rule: a test that takes more than about 10 s alone is `full_only`
+  unless it is in the smoke set of golden cases (about one heavy case per area,
+  with its time alone, in `tests/compiler/executables/areas.cmake`). Every
+  golden case carries one area label (`mnesia`, `dist`, `ssl`, `public_key`,
+  `crypto`, `file`, `kernel`, `stdlib`, `tools`, `core`), so library work runs
+  its area with `ctest -L <area>`; a case without an area fails configuration,
+  and new `mnesia_`, `dist_`, `epmd_` and `ssl_` cases are `full_only` by rule.
 - Long tests driven by a Python or CMake script carry a fixed CTest `COST`:
   CTest learns a wrapper's cost from its own small CPU time and would start them
   last.

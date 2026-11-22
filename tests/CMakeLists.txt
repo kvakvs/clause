@@ -57,6 +57,10 @@ foreach(shard RANGE 0 3)
         "-DWORK=${CMAKE_CURRENT_BINARY_DIR}/parser-mutations/${shard}" -DSHARD=${shard} -DSHARDS=4
         -P "${CMAKE_CURRENT_SOURCE_DIR}/compiler/parser/mutations.cmake")
     set_tests_properties(parser_mutations_${shard} PROPERTIES TIMEOUT 180)
+    # Shard 0 keeps the corpus in the fast gate; the other shards run in the full gate only (plan 11 step VAL7).
+    if(shard GREATER 0)
+        set_tests_properties(parser_mutations_${shard} PROPERTIES LABELS full_only)
+    endif()
 endforeach()
 add_test(NAME parser_stress COMMAND "${CMAKE_COMMAND}"
     "-DTOOL=$<TARGET_FILE:clau>" "-DWORK=${CMAKE_CURRENT_BINARY_DIR}/parser-stress"
