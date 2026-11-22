@@ -268,7 +268,7 @@ Compact record of [plan 11](11-plan.md), one bullet per step;
   `--distribution` (manifest `distribution = true`, `runtime_options` with a node name) or with
   `net_kernel:start/1,2` live roots `clause_dist_start` and keeps every export; others refuse
   `--sname`/`--name` (exit 70). OTP starts any node with `-sname`: a difference, recorded with CLAU12c,
-  which implements it — `pending`
+  which implements it — `49a50af9`
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 
