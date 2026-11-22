@@ -66,7 +66,8 @@ def native(tool, cmake, source, work, settings, config, suffix):
 
 
 def widths(tool, work):
-    """Both-width immediate endpoints and promoted literals are object/IR evidence, not foreign execution."""
+    """Both-width immediate endpoints and promoted literals are verified-IR evidence (objects per target:
+    codegen_cross_targets, plan 11 step VAL14), not foreign execution."""
     records = []
     for bits, triple, bound in [(32, "i686-pc-windows-msvc", 1 << 27), (64, "x86_64-pc-windows-msvc", 1 << 59)]:
         path = work / "width.erl"
@@ -74,12 +75,10 @@ def widths(tool, work):
         ir = run([tool, "--target-triple", triple, "--print-ir", str(path)])
         # Immediate literals compare as words inline (OPT0.2A).
         assert f"icmp eq i{bits}" in ir and "exact.outcome" not in ir and "match.mismatch" in ir
-        run([tool, "--target-triple", triple, "--emit", "obj", "--artifact-dir", str(work / f"width{bits}"), str(path)])
         path.write_text(f"-module(width).\nf({bound}) -> ok.\n", encoding="utf-8")
         ir = run([tool, "--target-triple", triple, "--print-ir", str(path)])
         # A promoted literal is a cell of the module literal area (OPT0.4).
         assert "integer.outcome" not in ir and ".literals" in ir
-        run([tool, "--target-triple", triple, "--emit", "obj", "--artifact-dir", str(work / f"promoted{bits}"), str(path)])
         records.append({"bits": bits, "triple": triple, "execution": "not attempted", "endpoints": "accepted", "overflow": "promoted"})
     return records
 
@@ -92,7 +91,7 @@ def main():
     native(tool, cmake, source, work, settings, config, suffix)
     records["widths"] = widths(tool, work)
     (work / "evidence.json").write_text(json.dumps(records, indent=2) + "\n", encoding="utf-8")
-    print(f'{records["calls"]} OTP/native immediate calls; four policies; ownership/recovery; both-width objects passed.')
+    print(f'{records["calls"]} OTP/native immediate calls; four policies; ownership/recovery; both-width IR passed.')
 
 
 if __name__ == "__main__":

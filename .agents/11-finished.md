@@ -257,6 +257,13 @@ Compact record of [plan 11](11-plan.md), one bullet per step;
   `runtime_floats`, `runtime_heap_walk`), decoding (`semantic_symbols`, `semantic_inference`), budgets
   source can reach and injected faults (`codegen_limits`, `codegen_write_failure`, `project_*`,
   `semantic_patterns`, `semantic_bindings`, `parser_hardening`). No golden case reaches an assert — `badaf88f`
+- **VAL14** repeated checks removed: "an unlinked target fails to link" runs once (`codegen_registration_O2`);
+  pattern-match drivers keep one 32-bit emit per corpus instead of loops over triples;
+  `parser_phase1_golden` dropped (`parser_historical_golden` compares the same goldens); semantic
+  rejections run under one policy with both drivers; eight per-level `codegen_*` variants are `full_only`
+  and `codegen_examples` follows the fast matrix. Kept after checking: `runtime_printing` (9542 values no
+  other test prints), the startup IR check. 41 touched tests 77 s to 56 s alone; fast gate 349 tests,
+  100 s warm — `pending`
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 

@@ -110,7 +110,8 @@ use `build/debug/bin/clau`, `clang++` and
 `-DGENERATED_DIR="$PWD/build/example-aot"`. The example builds the runtime
 itself; `-DRUNTIME_TARGETS=build/debug/ClauseRuntimeTargets.cmake` links the
 runtime a Clause build already compiled instead. CTest `codegen_examples` runs
-these commands at every policy, with the parent build's runtime.
+these commands at every policy (O0 and O2 in fast mode), with the parent
+build's runtime.
 
 Other actions on the same sources:
 

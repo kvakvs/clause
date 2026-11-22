@@ -41,6 +41,10 @@ gotchas and user directions not recorded elsewhere.
   `-FS transform_host` + removed `%LOCALAPPDATA%/clause/transform-host/<clau>-*` shows who starts it.
 - Stub tests removed (VAL12 2026-11-22): `[feature] notimpl` reports, deferred services, library stubs and `notsup`
   paths have no tests; do not add any. A rollback proof needs a real error (a semantic one), not a deferred feature.
+- Repeated checks removed (VAL14 2026-11-22): the unlinked-consumer link failure runs only in codegen_registration_O2
+  (CHECK_UNLINKED); semantic rejection loops use matrix.rejection_lists() (one policy, both drivers: analyze() rejects
+  before codegen); pattern-match drivers emit one i686 object. runtime_printing keeps its 9542-value ~w/display pass:
+  printing_display only runs ~154 authored calls, so it is no substitute.
 - Tidy/Lizard run on the Windows dev host only; other platforms build+test.
 - All ABI symbol/namespace versions collapse to v1 in plan step RT4 (never released).
 - RT5: rename runtime/src/builtins files to builtin_<name>.

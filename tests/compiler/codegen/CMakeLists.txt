@@ -61,20 +61,27 @@ if("X86" IN_LIST test_backends)
 endif()
 
 if(CLAUSE_BUILD_RUNTIME)
+    # Fast mode runs one level or two policies of each nested consumer build; the others are full_only, and only
+    # codegen_registration_O2 checks that the objects fail to link without the runtime (plan 11 step VAL14).
     add_executable(codegen_registration_emit registration_emit.cpp)
     clause_project_options(codegen_registration_emit)
     target_include_directories(codegen_registration_emit PRIVATE "${PROJECT_SOURCE_DIR}/compiler/src")
     target_link_libraries(codegen_registration_emit PRIVATE clause_codegen clause_semantic clause_llvm_sdk)
     target_compile_definitions(codegen_registration_emit PRIVATE LOWERING_FIXTURES="${PROJECT_SOURCE_DIR}/tests/fixtures/codegen")
     foreach(level IN ITEMS O0 O2)
+        set(unlinked OFF)
+        if(level STREQUAL "O2")
+            set(unlinked ON)
+        endif()
         add_test(NAME codegen_registration_${level} COMMAND "${CMAKE_COMMAND}"
-            "-DEMITTER=$<TARGET_FILE:codegen_registration_emit>" "-DOPTIMIZATION=${level}"
+            "-DEMITTER=$<TARGET_FILE:codegen_registration_emit>" "-DOPTIMIZATION=${level}" "-DCHECK_UNLINKED=${unlinked}"
             "-DSOURCE_ROOT=${PROJECT_SOURCE_DIR}" "-DTEST_DIR=${CMAKE_CURRENT_BINARY_DIR}/registration-${level}/$<CONFIG>"
             "-DHOST_SETTINGS=${PROJECT_BINARY_DIR}/TestHost.cmake"
             "-DHOST_CONFIG=$<CONFIG>" "-DHOST_SUFFIX=${CMAKE_EXECUTABLE_SUFFIX}"
             -P "${CMAKE_CURRENT_SOURCE_DIR}/registration.cmake")
         set_tests_properties(codegen_registration_${level} PROPERTIES TIMEOUT 120)
     endforeach()
+    set_tests_properties(codegen_registration_O0 PROPERTIES LABELS full_only)
 
     add_executable(codegen_failure_emit failure_emit.cpp)
     add_executable(codegen_service_emit service_emit.cpp)
@@ -91,6 +98,7 @@ if(CLAUSE_BUILD_RUNTIME)
             -P "${CMAKE_CURRENT_SOURCE_DIR}/registration.cmake")
         set_tests_properties(codegen_service_${mode} PROPERTIES TIMEOUT 180)
     endforeach()
+    set_tests_properties(codegen_service_O0-on codegen_service_O2-off PROPERTIES LABELS full_only)
     clause_project_options(codegen_failure_emit)
     target_include_directories(codegen_failure_emit PRIVATE "${PROJECT_SOURCE_DIR}/compiler/src")
     target_link_libraries(codegen_failure_emit PRIVATE clause_codegen clause_semantic clause_llvm_sdk)
@@ -105,6 +113,7 @@ if(CLAUSE_BUILD_RUNTIME)
             -P "${CMAKE_CURRENT_SOURCE_DIR}/registration.cmake")
         set_tests_properties(codegen_failure_${mode} PROPERTIES TIMEOUT 180)
     endforeach()
+    set_tests_properties(codegen_failure_O0-on codegen_failure_O2-off PROPERTIES LABELS full_only)
 
     add_executable(codegen_specialization_emit specialization_emit.cpp)
     clause_project_options(codegen_specialization_emit)
@@ -229,6 +238,8 @@ if(CLAUSE_BUILD_RUNTIME)
         set_tests_properties(codegen_literal_heap_${level} PROPERTIES TIMEOUT 180
             PASS_REGULAR_EXPRESSION "literal_heap: ok")
     endforeach()
+    # Fast mode runs these at O2 only (plan 11 step VAL14).
+    set_tests_properties(codegen_native_O0 codegen_after_fault_O0 codegen_literal_heap_O0 PROPERTIES LABELS full_only)
     add_test(NAME codegen_differential COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/differential.py" "$<TARGET_FILE:clau>" "${CMAKE_COMMAND}"
         "${PROJECT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/differential/$<CONFIG>"

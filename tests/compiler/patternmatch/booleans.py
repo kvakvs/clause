@@ -12,7 +12,7 @@ OPERATORS = [("lazy_and", "andalso"), ("lazy_or", "orelse"), ("strict_and", "and
 
 
 def inspection(tool, work):
-    """Check word joins and lazy RHS blocks in verified IR; label both-width objects as inspection only."""
+    """Check word joins and lazy RHS blocks in verified IR; label both-width IR as inspection only."""
     source = work / "answer.erl"
     for mode in ["--print-ir", "--print-optimized-ir", "--print-types"]:
         options = [] if mode == "--print-types" else ["-O2"]
@@ -24,10 +24,9 @@ def inspection(tool, work):
     (work / "width.erl").write_bytes(b"-module(width). -export([f/2,g/1]).\nf(X,Y) -> X andalso Y. g(X) -> not X.\n")
     for bits, triple in [(32, "i686-pc-windows-msvc"), (64, "x86_64-pc-windows-msvc")]:
         ir = run([tool, "--target-triple", triple, "--print-ir", str(work / "width.erl")])
+        # Verified IR of each width; object emission per target is codegen_cross_targets' (plan 11 step VAL14).
         assert f"phi i{bits}" in ir and "CLAUSE_immediate_v1" in ir, ir
-        run([tool, "--target-triple", triple, "--emit", "obj", "--artifact-dir", str(work / f"width{bits}"),
-             str(work / "width.erl")])
-        widths.append({"bits": bits, "triple": triple, "objects_and_verified_ir": "passed", "execution": "not attempted"})
+        widths.append({"bits": bits, "triple": triple, "verified_ir": "passed", "execution": "not attempted"})
     return widths
 
 

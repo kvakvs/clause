@@ -4,7 +4,7 @@ import pathlib
 import re
 import subprocess
 import sys
-from matrix import option_lists
+from matrix import rejection_lists
 from evidence import native, run
 from stored import load
 
@@ -37,7 +37,8 @@ def compile_case(tool, work, row, policy, project):
 
 
 def cli(tool, work, rows):
-    """Run negative batches at both optimization levels and specialization settings, then prove recovery."""
+    """Run negative batches through both drivers at one policy (semantic errors precede code generation), then prove
+    recovery."""
     out = work / "out"
     out.mkdir(exist_ok=True)
     for child in out.iterdir():
@@ -45,7 +46,7 @@ def cli(tool, work, rows):
             child.unlink()
     (out / "sentinel").write_bytes(b"preserve")
     rejected = [row for row in rows if row["diagnostic"] or row["capability"]]
-    for policy, project in option_lists():
+    for policy, project in rejection_lists():
         for row in rejected:
             compile_case(tool, work, row, policy, project)
     assert (out / "sentinel").read_bytes() == b"preserve"

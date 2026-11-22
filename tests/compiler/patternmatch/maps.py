@@ -20,10 +20,10 @@ def main():
     native(tool,cmake,source,work,settings,config,suffix)
     ir = run([tool,'--print-ir',str(work/'answer.erl'),str(work/'client.erl')])
     assert 'map.outcome' in ir and 'map.badmap' in ir and 'map.badkey' in ir
-    for bits,triple in [(32,'i686-pc-windows-msvc'),(64,'x86_64-pc-windows-msvc')]:
-        run([tool,'--target-triple',triple,'--emit','obj','--artifact-dir',str(work/f'width{bits}'),str(work/'answer.erl'),str(work/'client.erl')])
+    # 32-bit lowering; the native runs cover 64 bits, codegen_cross_targets other targets (plan 11 step VAL14).
+    run([tool,'--target-triple','i686-pc-windows-msvc','--emit','obj','--artifact-dir',str(work/'width32'),str(work/'answer.erl'),str(work/'client.erl')])
     (work/'evidence.json').write_text(json.dumps(records,indent=2)+'\n',encoding='utf8')
-    print(f'{records["calls"]} map OTP/native calls passed in four policies; both word widths emitted.')
+    print(f'{records["calls"]} map OTP/native calls passed in four policies; 32-bit objects emitted.')
 
 
 if __name__ == '__main__':

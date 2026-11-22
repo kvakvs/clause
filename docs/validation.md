@@ -28,7 +28,7 @@ cmake --build build/debug --target check-quality-all  # whole tree
 ```
 
 - `CLAUSE_TEST_MODE=fast` runs golden corpora at O0 positional plus O2
-  specialization-off project, runs mutations once and skips `full_only` tests
+  project, runs mutations once and skips `full_only` tests
   (separate consumer projects such as `runtime_generated_link`, measurements,
   the host-OTP `library_freshness` audit, and the slow workflows `linking_lto`,
   `linking_exports`, `linking_compile_cache`, `programs_compile`,
@@ -41,6 +41,17 @@ cmake --build build/debug --target check-quality-all  # whole tree
   `crypto`, `file`, `kernel`, `stdlib`, `tools`, `core`), so library work runs
   its area with `ctest -L <area>`; a case without an area fails configuration,
   and new `mnesia_`, `dist_`, `epmd_` and `ssl_` cases are `full_only` by rule.
+- A check runs once, in the cheapest test that reaches it (plan 11 step VAL14):
+  only `codegen_registration_O2` builds a consumer without the runtime and
+  expects the link to fail on `CLAUSE_register_module_v4`; the pattern-match
+  drivers emit one 32-bit object (`i686-pc-windows-msvc`) of their corpus, while
+  object formats and ABIs per target are `codegen_cross_targets`'; semantic
+  rejection rows compile under one policy with both drivers, since the driver
+  reports them in `analyze()` before code generation reads the policy. Fast mode
+  runs `codegen_service_*` and `codegen_failure_*` as `O0-off` and `O2-on`,
+  `codegen_registration`, `codegen_native`, `codegen_after_fault` and
+  `codegen_literal_heap` at O2, and `codegen_examples` at O0 and O2; the other
+  variants are `full_only`.
 - Long tests driven by a Python or CMake script carry a fixed CTest `COST`:
   CTest learns a wrapper's cost from its own small CPU time and would start them
   last.
@@ -171,7 +182,8 @@ SDK exists for those hosts):
   any fixture is used.
 - Nineteen pattern/guard corpora hold 67,748 native expected values/errors and
   106 semantic acceptance rows. Each native corpus runs positional and project
-  drivers at O0/O2 with specialization on/off, local and remote calls.
+  drivers at O0/O2 with specialization on/off, local and remote calls; rejected
+  rows run both drivers at O0.
 - Committed Erlang inputs are locally authored
   (`tests/fixtures/patternmatch/fragments/`, preprocessor `semantic/headers/`);
   `fixture_sources` enforces isolation from OTP sources.

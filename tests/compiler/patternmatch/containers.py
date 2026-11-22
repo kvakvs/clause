@@ -18,12 +18,11 @@ def main():
     # Match shapes are tested inline (OPT0.2A); construction still calls its service.
     assert 'match.tuple.header' in ir and 'container.outcome' in ir
     assert re.search(r'container.arguments\w* = getelementptr i64, ptr %frame.slots', ir)
-    for triple in ['i686-pc-windows-msvc', 'x86_64-unknown-linux-gnu', 'i686-unknown-linux-gnu',
-                   'aarch64-unknown-linux-gnu', 'armv7-unknown-linux-gnueabihf',
-                   'aarch64-apple-darwin', 'aarch64-pc-windows-msvc']:
-        run([tool, '--target-triple', triple, '--emit', 'obj', '--artifact-dir', str(work / triple), str(work / 'answer.erl'), str(work / 'client.erl')])
+    # 32-bit container lowering; other target formats and ABIs are codegen_cross_targets' (plan 11 step VAL14).
+    run([tool, '--target-triple', 'i686-pc-windows-msvc', '--emit', 'obj', '--artifact-dir', str(work / 'width32'),
+         str(work / 'answer.erl'), str(work / 'client.erl')])
     (work / 'evidence.json').write_text(json.dumps(records, indent=2) + '\n', encoding='utf-8')
-    print(f'{records["calls"]} OTP/native container calls passed in four policies; seven foreign object targets.')
+    print(f'{records["calls"]} OTP/native container calls passed in four policies; 32-bit objects emitted.')
 
 
 if __name__ == '__main__':

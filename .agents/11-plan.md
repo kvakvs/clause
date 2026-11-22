@@ -826,34 +826,11 @@ Depends on: [VAL7](11-finished.md), [CLAU12c](#step-clau12c).
 - Tests
   - [ ] Fast gate wall time recorded.
 
-<a id="step-val14"></a>
-
-### VAL14. Remove repeated checks
-
-Depends on: none.
-
-- Success criteria
-  - [ ] "An unlinked target fails to link" runs once (`codegen_registration_O2`), not in each of
-    about 45 nested builds.
-  - [ ] Foreign-triple `--emit obj` loops leave the pattern-match drivers (`containers`, `integers`,
-    `floats`, `maps`, `bits`, `immediate`, `booleans`, `facts`); `codegen_cross_targets` covers them.
-  - [ ] `parser_phase1_golden` is dropped (`parser_historical_golden` compares the same three
-    byte-identical goldens).
-  - [ ] In fast mode `codegen_service_*` and `codegen_failure_*` run two of their four variants,
-    `codegen_registration`, `codegen_native`, `codegen_after_fault` and `codegen_literal_heap` one
-    level, `codegen_examples` the fast matrix; the full gate runs all.
-  - [ ] Semantic rejection loops run under one policy when the diagnostic comes before code
-    generation (confirmed in the pipeline first).
-  - [ ] `runtime_printing` keeps its bounded-work cases only (`printing_display` runs the value
-    goldens).
-- Tests
-  - [ ] Fast and full gates pass; time alone of the changed tests recorded.
-
 <a id="step-val15"></a>
 
 ### VAL15. Record the new gate baselines
 
-Depends on: [VAL7](11-finished.md)–[VAL14](#step-val14), [CLAU12b](#step-clau12b) and, if selected,
+Depends on: [VAL7](11-finished.md)–[VAL14](11-finished.md), [CLAU12b](#step-clau12b) and, if selected,
 [CLAU12c](#step-clau12c).
 
 - Success criteria

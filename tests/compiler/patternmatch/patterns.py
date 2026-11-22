@@ -4,7 +4,7 @@ import pathlib
 import re
 import subprocess
 import sys
-from matrix import option_lists
+from matrix import rejection_lists
 from bindings import compile_case
 from evidence import digest, run, verify_manifest
 from stored import load
@@ -13,9 +13,9 @@ ERRORS = r"illegal pattern|illegal expression in pattern|unbound variable|unsafe
 
 
 def policies(tool, work, rows):
-    """Repeat semantic/capability rejection through both batch modes and all optimization policies."""
+    """Repeat semantic/capability rejection through both batch modes at one policy (they precede code generation)."""
     rejected = [row for row in rows if row["diagnostic"] or row["capability"]]
-    for policy, project in option_lists():
+    for policy, project in rejection_lists():
         for row in rejected:
             compile_case(tool, work, row, policy, project)
 
@@ -89,7 +89,7 @@ def main():
     (work / "evidence.json").write_text(json.dumps({"reference": 'project-owned generated/patterns/manifest.json',
         "pattern_manifests": {name: digest(fixtures / name) for name in ["pattern-otp.tsv", "pattern-fixtures.tsv"]},
         "cases": rows, "helpers": records, "oracle": oracle,
-        "policies": "O0/O2; specialization on/off; positional/project; nonpublication/recovery",
+        "policies": "O0; positional/project; nonpublication/recovery",
         "execution": "deferred; existing native identity/projection workflows remain required"}, indent=2) + "\n", encoding="utf-8")
     print(oracle + "Retained pattern legality, source limits and batch nonpublication passed.")
 

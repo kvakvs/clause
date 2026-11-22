@@ -16,8 +16,8 @@ def main():
     native(tool,cmake,source,work,settings,config,suffix)
     ir = run([tool,'--print-ir',str(work/'answer.erl'),str(work/'client.erl')])
     assert all(name in ir for name in ['integer.checked','smul.with.overflow','integer.fallback'])
-    for bits,triple in [(32,'i686-pc-windows-msvc'),(64,'x86_64-pc-windows-msvc')]:
-        run([tool,'--target-triple',triple,'--emit','obj','--artifact-dir',str(work/f'width{bits}'),str(work/'answer.erl'),str(work/'client.erl')])
+    # 32-bit lowering; the native runs cover 64 bits, codegen_cross_targets other targets (plan 11 step VAL14).
+    run([tool,'--target-triple','i686-pc-windows-msvc','--emit','obj','--artifact-dir',str(work/'width32'),str(work/'answer.erl'),str(work/'client.erl')])
     # 20,000 digits passed the former 10,000-digit cap; 1,262,594 digits exceed 2^4194240 - 1, OTP's largest integer
     # (its scanner reports a longer literal as an illegal integer).
     for body in ['f() -> NUMBER.', 'f(NUMBER) -> ok.']:
@@ -33,7 +33,7 @@ def main():
             assert result.returncode == 1 and 'illegal integer (more than 4194240 bits)' in result.stderr, result.stderr
             assert not output.exists()
     (work/'evidence.json').write_text(json.dumps(records,indent=2)+'\n',encoding='utf8')
-    print(f'{records["calls"]} exact integer OTP/native calls passed in four policies; both target payload widths emitted.')
+    print(f'{records["calls"]} exact integer OTP/native calls passed in four policies; 32-bit objects emitted.')
 
 
 if __name__ == '__main__':

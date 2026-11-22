@@ -25,6 +25,12 @@ def combinations():
 
 
 def option_lists():
-    """Policy option lists paired with the driver, for compile-only rejection loops."""
+    """Policy option lists paired with the driver, for compile-only inspection loops."""
     return [([f"-{level}"] + ([extra] if extra else []), project) for level, extra, _, project in combinations()]
+
+
+def rejection_lists():
+    """One policy with both drivers, for semantic rejection loops (plan 11 step VAL14): the driver reports these
+    diagnostics in analyze() (compiler/src/driver/analysis.cpp) before code generation reads the policy."""
+    return [(["-O0"], False), (["-O0"], True)]
 

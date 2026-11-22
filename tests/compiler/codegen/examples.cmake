@@ -1,7 +1,12 @@
 include("${HOST_SETTINGS}")
 set(example "${SOURCE_ROOT}/examples/compile")
 # Execute the documented commands at both levels and link using the public example CMake recipe.
-foreach(policy IN ITEMS O0 O0-off O2 O2-off)
+set(policies O0 O0-off O2 O2-off)
+if("$ENV{CLAUSE_TEST_MODE}" STREQUAL "fast")
+    # The fast matrix (tests/compiler/patternmatch/matrix.py) runs O0 and O2 only (plan 11 step VAL14).
+    set(policies O0 O2)
+endif()
+foreach(policy IN LISTS policies)
     string(REGEX REPLACE "-off$" "" level "${policy}")
     set(extra)
     if(policy MATCHES "-off$")

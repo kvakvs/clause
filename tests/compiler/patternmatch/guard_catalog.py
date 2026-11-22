@@ -3,7 +3,7 @@ import itertools
 import json
 import pathlib
 import sys
-from matrix import option_lists
+from matrix import rejection_lists
 from evidence import digest, run
 from immediate import native
 from stored import load
@@ -57,7 +57,7 @@ def main():
     (work/'out/sentinel').write_bytes(b'preserve')
     for row in evidence['cases']:
         if row['diagnostic'] or row['capability']:
-            for policy,project in option_lists():
+            for policy,project in rejection_lists():
                 compile_case(tool,work,row,policy,project)
         else:
             run([tool,'--print-types',str(work/(row['name']+'.erl'))])

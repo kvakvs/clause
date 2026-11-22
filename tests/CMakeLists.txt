@@ -242,24 +242,7 @@ set_tests_properties(parser_forms PROPERTIES TIMEOUT 20)
 add_executable(parser_dump compiler/parser/dump.cpp)
 clause_project_options(parser_dump)
 target_link_libraries(parser_dump PRIVATE clause_frontend)
-foreach(mode IN LISTS oracle_modes)
-    if(mode STREQUAL "oracle")
-        set(live TRUE)
-    else()
-        set(live FALSE)
-    endif()
-    add_test(NAME parser_phase1_${mode} COMMAND "${CMAKE_COMMAND}"
-        "-DFIXTURES=${CMAKE_CURRENT_SOURCE_DIR}/fixtures/parser"
-        "-DDUMP=$<TARGET_FILE:parser_dump>"
-        "-DESCRIPT=${CLAUSE_ESCRIPT}"
-        "-DHARNESS=${CMAKE_CURRENT_SOURCE_DIR}/compiler/parser/oracle.escript"
-        "-DLIVE=${live}"
-        -P "${CMAKE_CURRENT_SOURCE_DIR}/compiler/parser/phase1.cmake")
-endforeach()
-if(CLAUSE_OTP_AUDITS)
-set_tests_properties(parser_phase1_oracle PROPERTIES TIMEOUT 60)
-endif()
-
+# The Phase I records (minimal, expanded, phase1) are compared by parser_historical_* (plan 11 step VAL14).
 foreach(mode IN LISTS oracle_modes)
     if(mode STREQUAL "oracle")
         set(live TRUE)

@@ -3,7 +3,7 @@ import json
 import pathlib
 import re
 import sys
-from matrix import option_lists
+from matrix import rejection_lists
 from stored import load
 from evidence import run
 from immediate import native
@@ -27,7 +27,7 @@ def rejection(tool, work):
     for name, body, diagnostic in cases:
         (directory / (name + ".erl")).write_text(f"-module({name}).\n\n{body}\n", encoding="utf-8")
         row = {"name": name, "diagnostic": diagnostic, "capability": ""}
-        for options, project in option_lists():
+        for options, project in rejection_lists():
             compile_case(tool, directory, row, options, project)
     run([tool, "--emit", "obj", "--artifact-dir", str(directory / "recovery"), str(directory / "client.erl")])
     return len(cases)
