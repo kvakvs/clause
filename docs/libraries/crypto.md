@@ -204,8 +204,9 @@ runtime-selectable FIPS modes.
 | Test | Suite | Coverage |
 | --- | --- | --- |
 | `executables_crypto_digests`, `executables_crypto_ciphers` | fast | OTP 29.1.1 golden fixtures: vectors, states, errors, detected algorithm lists and `info_fips` without a provider |
-| `linking_crypto` | fast | Conditional archive linking, `--with-crypto[=PATH]`, `CLAUSE_OPENSSL_ROOT` and invalid input rejection |
-| `linking_fips` | fast | Invalid `--fips` argument rejection, build failures for missing or malformed providers, deployment file copying and startup failures |
-| `linking_crypto_source` | full | Initial build and cache reuse for the OpenSSL 4.1.0 source tree selected by `--with-crypto=SOURCE` |
+| `linking_crypto` | fast | Invalid `--with-crypto` rejection and `--print-env`, without a compile |
+| `linking_fips` | fast | Invalid `--fips` argument rejection and `--print-env`, without a compile |
+| `linking_crypto_source` | full | Conditional archive linking, `--with-crypto[=PATH]`, `CLAUSE_OPENSSL_ROOT`, a bad OpenSSL path, then the initial build and cache reuse for the OpenSSL 4.1.0 source tree selected by `--with-crypto=SOURCE` |
+| `linking_fips_providers` | full | Build failures for missing or malformed providers, deployment file copying and startup failures |
 | `linking_crypto_minimum` | full | Crypto fixture output matches the golden output when linked against libcrypto built from OpenSSL 3.1.2 source |
 | `linking_fips_real` | full | OpenSSL 3.1.2 FIPS provider built with `enable-fips` for testing: mandatory FIPS mode enforcement, forbidden algorithms, startup failure after module modification, and runtime mode selection through `OPENSSL_MODULES` and `OPENSSL_CONF` |

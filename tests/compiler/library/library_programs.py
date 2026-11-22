@@ -4,7 +4,8 @@
   library_programs.py precedence ROOT CLAU WORK SUFFIX  Clause modules win over search paths, explicit inputs win
                                                         over Clause modules with a warning, missing names are reserved,
                                                         a listed source the ignore rules match is kept with a warning
-  library_programs.py types ROOT CLAU WORK SUFFIX       exported types of every library module resolve (41K1)
+  library_programs.py types ROOT CLAU WORK SUFFIX       exported types of every library module resolve (41K1), checked
+                                                        by --print-types without a link (VAL10)
   library_programs.py ignored ROOT CLAU WORK SUFFIX     a type of an ignored module warns, the build succeeds (41K2)
 """
 
@@ -106,15 +107,15 @@ def precedence(root, clau, work, suffix):
 
 
 def types(root, clau, work, suffix):
-    """Specs naming a type of each library module compile without a diagnostic of their own and run."""
+    """Specs naming a type of each library module compile without a diagnostic of their own. The type inspection
+    checks them without code generation or a link: it resolves remote types and reports them as a link build does
+    (plan 11 step VAL10, shown by a spec naming a missing type)."""
     shutil.rmtree(work, ignore_errors=True)
     work.mkdir(parents=True)
     source = root / "tests/fixtures/library/types/main.erl"
-    status, _, err = run([clau, "-o", work / "types", source])
+    status, _, err = run([clau, "--print-types", source], cwd=work)
     assert status == 0 and "undefined remote type" not in err, err
     assert not [line for line in err.splitlines() if "types" + "/main.erl" in line.replace("\\", "/")], err
-    status, out, err = run([work / ("types" + suffix)])
-    assert status == 0 and out == "library_types: ok\n", (out, err)
     print("library_types: ok")
 
 

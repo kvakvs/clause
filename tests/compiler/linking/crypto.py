@@ -1,6 +1,13 @@
 """The crypto runtime archive (plan 21 step LIB79): programs link it only when they compile the library crypto module
 or ask with --with-crypto; --with-crypto=PATH and CLAUSE_OPENSSL_ROOT select another OpenSSL (an installation, or a
-source tree built once into the build cache with --source); refused uses."""
+source tree built once into the build cache with --source); refused uses.
+
+  crypto.py CLAU ROOT WORK SUFFIX           linking_crypto (fast gate): the refusals and --print-env, no compile
+  crypto.py CLAU ROOT WORK SUFFIX --source  linking_crypto_source (full gate): every link, then the source tree build
+
+The links take a compile each, and linking_crypto_source has always repeated them, so they run there only; the fast
+gate links crypto statically through the golden smoke case crypto_digests (plan 11 step VAL10). Links share a build
+directory, so a batch built again with another OpenSSL replays its compile."""
 import os
 from pathlib import Path
 import shutil
@@ -12,6 +19,7 @@ source_build = "--source" in sys.argv[5:]
 work = Path(directory)
 shutil.rmtree(work, ignore_errors=True)
 work.mkdir(parents=True)
+BUILD = ["--build-dir", str(work / "build")]
 HASH = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
 
 (work / "plain.erl").write_text('-module(plain).\n-export([main/1]).\nmain(_) -> io:format("plain: ok~n").\n',
@@ -52,46 +60,60 @@ def with_root(path):
     return dict(os.environ, CLAUSE_OPENSSL_ROOT=str(path))
 
 
-bogus = work / "no-openssl"
-# Programs without crypto never look at an OpenSSL: a bad CLAUSE_OPENSSL_ROOT does not matter to them.
-clau(["plain.erl", "-o", "plain"], environment=with_root(bogus))
-assert output("plain") == "plain: ok\n"
-clau(["static.erl", "-o", "static"])
-assert output("static") == f"{HASH}\nstatic: ok\n"
-assert "neither an OpenSSL source tree" in clau(["static.erl", "-o", "bad"], 1, with_root(bogus))
-print("crypto: linked only into programs that call crypto")
+def openssl_prefix():
+    """--print-env reports --with-crypto; returns the prefix of the source-built OpenSSL the crypto archive recorded
+    (its libcrypto sits in <prefix>/lib), or None when that is no installation with headers."""
+    environment = subprocess.run([tool, "--print-env", "dynamic.erl", "--with-crypto", "-o", "x"], cwd=work,
+                                 capture_output=True, text=True, timeout=60, check=True).stdout
+    assert "with_crypto = true" in environment, environment
+    runtime = Path(next(line.split("=", 1)[1].strip().strip('"') for line in environment.splitlines()
+                        if line.startswith("runtime_library")))
+    link = next(runtime.parent.glob("*clause_runtime_crypto.link"), None)
+    libcrypto = Path(link.read_text(encoding="utf-8").splitlines()[0]) if link else None
+    prefix = libcrypto.parent.parent if libcrypto else None
+    return prefix if prefix and (prefix / "include" / "openssl" / "opensslv.h").exists() else None
 
-clau(["dynamic.erl", "-o", "without"])
-assert output("without") == "undef\ndynamic: ok\n"
-clau(["dynamic.erl", "--with-crypto", "-o", "with"])
-assert output("with") == f"{HASH}\ndynamic: ok\n"
-print("crypto: --with-crypto links it for dynamic callers")
 
-# The recorded libcrypto of a source-built OpenSSL sits in <prefix>/lib: link that installation by its prefix.
-environment = subprocess.run([tool, "--print-env", "dynamic.erl", "--with-crypto", "-o", "x"], cwd=work,
-                             capture_output=True, text=True, timeout=60, check=True).stdout
-assert "with_crypto = true" in environment, environment
-runtime = Path(next(line.split("=", 1)[1].strip().strip('"') for line in environment.splitlines()
-                    if line.startswith("runtime_library")))
-link = next(runtime.parent.glob("*clause_runtime_crypto.link"), None)
-libcrypto = Path(link.read_text(encoding="utf-8").splitlines()[0]) if link else None
-prefix = libcrypto.parent.parent if libcrypto else None
-if prefix and (prefix / "include" / "openssl" / "opensslv.h").exists():
-    clau(["dynamic.erl", f"--with-crypto={prefix}", "-o", "installed"])
-    assert output("installed") == f"{HASH}\ndynamic: ok\n"
-    clau(["static.erl", "-o", "rooted"], environment=with_root(prefix))
-    assert output("rooted") == f"{HASH}\nstatic: ok\n"
-    print("crypto: --with-crypto=PREFIX and CLAUSE_OPENSSL_ROOT link an installation")
-assert "neither an OpenSSL source tree" in clau(["dynamic.erl", f"--with-crypto={bogus}", "-o", "bad"], 1)
-assert "--with-crypto requires --output" in clau(["dynamic.erl", "--with-crypto"], 2)
-assert "--with-crypto specified more than once" in clau(["dynamic.erl", "--with-crypto", "--with-crypto", "-o", "x"], 2)
-assert "expected an OpenSSL path" in clau(["dynamic.erl", "--with-crypto=", "-o", "x"], 2)
-print("crypto: refused uses")
+def check_refusals():
+    """Uses clau refuses before compiling."""
+    assert "--with-crypto requires --output" in clau(["dynamic.erl", "--with-crypto"], 2)
+    assert "--with-crypto specified more than once" in clau(["dynamic.erl", "--with-crypto", "--with-crypto", "-o",
+                                                             "x"], 2)
+    assert "expected an OpenSSL path" in clau(["dynamic.erl", "--with-crypto=", "-o", "x"], 2)
+    openssl_prefix()
+    print("crypto: refused uses and --print-env")
 
-# A source tree is configured and built once into the build cache, then reused (minutes: --source only).
-if source_build:
+
+def check_links(bogus):
+    """Programs link the crypto archive only when they call crypto or ask for it, with the OpenSSL selected."""
+    # Programs without crypto never look at an OpenSSL: a bad CLAUSE_OPENSSL_ROOT does not matter to them.
+    clau(["plain.erl", *BUILD, "-o", "plain"], environment=with_root(bogus))
+    assert output("plain") == "plain: ok\n"
+    clau(["static.erl", *BUILD, "-o", "static"])
+    assert output("static") == f"{HASH}\nstatic: ok\n"
+    assert "neither an OpenSSL source tree" in clau(["static.erl", *BUILD, "-o", "bad"], 1, with_root(bogus))
+    print("crypto: linked only into programs that call crypto")
+
+    clau(["dynamic.erl", *BUILD, "-o", "without"])
+    assert output("without") == "undef\ndynamic: ok\n"
+    clau(["dynamic.erl", *BUILD, "--with-crypto", "-o", "with"])
+    assert output("with") == f"{HASH}\ndynamic: ok\n"
+    print("crypto: --with-crypto links it for dynamic callers")
+
+    if prefix := openssl_prefix():
+        clau(["dynamic.erl", *BUILD, f"--with-crypto={prefix}", "-o", "installed"])
+        assert output("installed") == f"{HASH}\ndynamic: ok\n"
+        clau(["static.erl", *BUILD, "-o", "rooted"], environment=with_root(prefix))
+        assert output("rooted") == f"{HASH}\nstatic: ok\n"
+        print("crypto: --with-crypto=PREFIX and CLAUSE_OPENSSL_ROOT link an installation")
+    assert "neither an OpenSSL source tree" in clau(["dynamic.erl", *BUILD, f"--with-crypto={bogus}", "-o", "bad"], 1)
+    print("crypto: a bogus --with-crypto path fails the build")
+
+
+def check_source_build():
+    """A source tree is configured and built once into the build cache, then reused (minutes)."""
     tree = Path(root) / "thirdparty" / "openssl-4.1.0"
-    build = ["dynamic.erl", f"--with-crypto={tree}", "--build-dir", str(work / "build"), "-o", "sourced"]
+    build = ["dynamic.erl", f"--with-crypto={tree}", *BUILD, "-o", "sourced"]
     clau(build)
     assert output("sourced") == f"{HASH}\ndynamic: ok\n"
     built = list((work / "build" / "cache" / "openssl").glob("*/install/.complete"))
@@ -99,4 +121,12 @@ if source_build:
     clau(build)
     assert list((work / "build" / "cache" / "openssl").glob("*/install/.complete")) == built
     print("crypto: --with-crypto=SOURCE builds the tree once")
-print("crypto: ok")
+
+
+check_refusals()
+if source_build:
+    check_links(work / "no-openssl")
+    check_source_build()
+    print("linking_crypto_source: ok")
+else:
+    print("linking_crypto: ok")

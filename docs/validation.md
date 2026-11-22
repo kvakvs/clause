@@ -32,8 +32,8 @@ cmake --build build/debug --target check-quality-all  # whole tree
   (separate consumer projects such as `runtime_generated_link`, measurements,
   the host-OTP `library_freshness` audit, and the slow workflows `linking_lto`,
   `linking_exports`, `linking_compile_cache`, `programs_compile`,
-  `transforms_cache`, `printing_source`). Full mode (default) runs all
-  driver/policy combinations.
+  `transforms_cache`, `printing_source`, and the linking parts split from fast
+  tests below). Full mode (default) runs all driver/policy combinations.
 - Gate rule: a test that takes more than about 10 s alone is `full_only`
   unless it is in the smoke set of golden cases (about one heavy case per area,
   with its time alone, in `tests/compiler/executables/areas.cmake`). Every
@@ -62,6 +62,20 @@ cmake --build build/debug --target check-quality-all  # whole tree
   edited source replaces the case's entries, so the caches stay at one
   generation. Full mode compiles cold, so the full gate keeps cold compiles
   covered; `--lto` and other-target runs compile cold too.
+- A program that links kernel/stdlib compiles about 83 modules, about 10 s
+  alone, so a fast test links at most one and keeps its link-free checks; the
+  other links are a `full_only` test of the same driver with a mode argument
+  (plan 11 step VAL10): `linking_shell` / `linking_shell_session` (`--shell`
+  link and session), `linking_crypto` / `linking_crypto_source` (every crypto
+  link), `linking_fips` / `linking_fips_providers` (provider builds),
+  `linking_runtime_options` (one build) / `linking_runtime_options_full`
+  (refused built-in word, distribution, kernel services). Positional compiles
+  of one driver share a `--build-dir`, so a batch rebuilt with another OpenSSL
+  or provider replays its compile. `linking_runtime_options` and
+  `project_applications` keep their build cache beside the work directory in
+  fast mode, as the golden runner does (11 s and 12 s cold, 2 s and 3 s warm).
+  `library_types` checks remote types with `--print-types`, which reports an
+  undefined remote type as a link build does, without code generation.
 - `transforms_host_setup` (fixture `transform_host`) builds Clause's transform
   host before the tests that run library parse transforms (`transforms_*` and
   the executable cases whose sources name a parse transform or include

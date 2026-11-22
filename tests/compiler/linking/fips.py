@@ -3,7 +3,15 @@ is found and copied beside the executable or the build fails, and whose loading 
 runs. With --real SOURCE, the FIPS provider of the OpenSSL source tree SOURCE (3.1.2, the latest validated one) is
 built with enable-fips (test-only, minutes) and loaded into the pinned libcrypto, for a pinned program (FIPS mode
 stays on, forbidden algorithms raise OTP's errors) and a switchable one (OPENSSL_MODULES/OPENSSL_CONF as OTP finds a
-provider; enable_fips_mode/1 switches)."""
+provider; enable_fips_mode/1 switches).
+
+  fips.py CLAU ROOT WORK SUFFIX                linking_fips (fast gate): refused options and --print-env, no compile
+  fips.py CLAU ROOT WORK SUFFIX --providers    linking_fips_providers (full gate): missing and malformed providers,
+                                               a fake provider copied beside the program, which then stops
+  fips.py CLAU ROOT WORK SUFFIX --real SOURCE  linking_fips_real (full gate): the real provider of SOURCE
+
+The provider checks compile the probe once (about as long as the fast gate allows a test, plan 11 step VAL10), so
+they run in the full gate."""
 import os
 import re
 from pathlib import Path
@@ -13,11 +21,15 @@ import sys
 
 tool, root, directory, suffix = sys.argv[1:5]
 real = sys.argv[sys.argv.index("--real") + 1] if "--real" in sys.argv[5:] else None
+providers = "--providers" in sys.argv[5:]
 work = Path(directory)
 shutil.rmtree(work, ignore_errors=True)
 work.mkdir(parents=True, exist_ok=True)
 MODULE = "fips.dll" if os.name == "nt" else ("fips.dylib" if sys.platform == "darwin" else "fips.so")
 CONFIG = "[fips_sect]\nactivate = 1\nmodule-mac = 00:11:22\n"
+# Compiles share one build directory: the probe's builds with a provider replay one compile, since clau checks the
+# provider only when it links (plan 11 step VAL10).
+BUILD = ["--build-dir", str(work / "build")]
 
 # The probe prints what FIPS mode makes of each call: the mode, switching it, and allowed and forbidden algorithms.
 (work / "probe.erl").write_text("""-module(probe).
@@ -97,34 +109,48 @@ assert "--fips specified more than once" in clau(["probe.erl", "--fips=a", "--fi
 assert "--fips requires --output" in clau(["probe.erl", "--fips=a"], 2)
 print("fips: refused options")
 
-# A missing or malformed provider fails the build, and nothing is written.
-assert f"no FIPS provider module {MODULE}" in clau(["probe.erl", f"--fips={provider('empty', False, None)}", "-o", "a"], 1)
-assert "no fipsmodule.cnf" in clau(["probe.erl", f"--fips={provider('no_config', config=None)}", "-o", "b"], 1)
-bad = provider("bad_config", config="[fips_sect]\nactivate = 1\n")
-assert "has no module-mac in a [fips_sect] section" in clau(["probe.erl", f"--fips={bad}", "-o", "c"], 1)
-assert not any((work / (name + suffix)).exists() for name in "abc")
-print("fips: missing or malformed providers fail the build")
+def installed_provider():
+    """A fake provider in an OpenSSL installation's layout, which --print-env reports; returns its prefix."""
+    installed = work / "installed"
+    (installed / "lib" / "ossl-modules").mkdir(parents=True)
+    (installed / "ssl").mkdir()
+    (installed / "lib" / "ossl-modules" / MODULE).write_bytes(b"not a provider module")
+    (installed / "ssl" / "fipsmodule.cnf").write_text(CONFIG, encoding="utf-8")
+    environment = subprocess.run([tool, "--print-env", "probe.erl", f"--fips={installed}", "-o", "fake"], cwd=work,
+                                 capture_output=True, text=True, timeout=60, check=True).stdout
+    assert "fips = " in environment and "installed" in environment, environment
+    return installed
 
-# A provider in an OpenSSL installation's layout is found and copied beside the executable; a module that does not
-# load stops the program before it runs.
-installed = work / "installed"
-(installed / "lib" / "ossl-modules").mkdir(parents=True)
-(installed / "ssl").mkdir()
-(installed / "lib" / "ossl-modules" / MODULE).write_bytes(b"not a provider module")
-(installed / "ssl" / "fipsmodule.cnf").write_text(CONFIG, encoding="utf-8")
-environment = subprocess.run([tool, "--print-env", "probe.erl", f"--fips={installed}", "-o", "fake"], cwd=work,
-                             capture_output=True, text=True, timeout=60, check=True).stdout
-assert "fips = " in environment and "installed" in environment, environment
-clau(["probe.erl", f"--fips={installed}", "-o", "fake"])
-assert (work / MODULE).read_bytes() == b"not a provider module"
-assert (work / "fipsmodule.cnf").read_text(encoding="utf-8") == CONFIG
-started = run("fake", "pinned")
-assert started.returncode != 0 and "probe: ok" not in started.stdout, started
-assert "crypto: cannot load the FIPS provider from" in started.stderr, started
-(work / "fipsmodule.cnf").unlink()
-started = run("fake", "pinned")
-assert started.returncode != 0 and "crypto: cannot read" in started.stderr, started
-print("fips: providers are copied beside the program, which stops when they do not load")
+
+def check_providers(installed):
+    """A missing or malformed provider fails the build, and nothing is written. A provider in an OpenSSL
+    installation's layout is found and copied beside the executable; a module that does not load stops the program
+    before it runs."""
+    empty = provider("empty", False, None)
+    assert f"no FIPS provider module {MODULE}" in clau(["probe.erl", *BUILD, f"--fips={empty}", "-o", "a"], 1)
+    no_config = provider("no_config", config=None)
+    assert "no fipsmodule.cnf" in clau(["probe.erl", *BUILD, f"--fips={no_config}", "-o", "b"], 1)
+    bad = provider("bad_config", config="[fips_sect]\nactivate = 1\n")
+    assert "has no module-mac in a [fips_sect] section" in clau(["probe.erl", *BUILD, f"--fips={bad}", "-o", "c"], 1)
+    assert not any((work / (name + suffix)).exists() for name in "abc")
+    print("fips: missing or malformed providers fail the build")
+
+    clau(["probe.erl", *BUILD, f"--fips={installed}", "-o", "fake"])
+    assert (work / MODULE).read_bytes() == b"not a provider module"
+    assert (work / "fipsmodule.cnf").read_text(encoding="utf-8") == CONFIG
+    started = run("fake", "pinned")
+    assert started.returncode != 0 and "probe: ok" not in started.stdout, started
+    assert "crypto: cannot load the FIPS provider from" in started.stderr, started
+    (work / "fipsmodule.cnf").unlink()
+    started = run("fake", "pinned")
+    assert started.returncode != 0 and "crypto: cannot read" in started.stderr, started
+    print("fips: providers are copied beside the program, which stops when they do not load")
+
+
+# The provider builds compile the probe (clau checks a provider when it links): linking_fips_providers only.
+installed_prefix = installed_provider()
+if providers:
+    check_providers(installed_prefix)
 
 
 def recipe():
@@ -174,7 +200,7 @@ def build_provider(source):
 
 if real:
     install = build_provider(real)
-    clau(["probe.erl", f"--fips={install}", "-o", "pinned"])
+    clau(["probe.erl", *BUILD, f"--fips={install}", "-o", "pinned"])
     pinned = run("pinned", "pinned")
     assert pinned.returncode == 0, pinned
     expected = [
@@ -201,7 +227,7 @@ if real:
     assert tampered.returncode != 0 and "cannot load the FIPS provider" in tampered.stderr, tampered
     print("fips: a tampered provider stops the program")
 
-    clau(["probe.erl", "--with-crypto", "-o", "switch"])
+    clau(["probe.erl", *BUILD, "--with-crypto", "-o", "switch"])
     config = work / "openssl.cnf"
     config.write_text("openssl_conf = openssl_init\n"
                       f".include {(install / 'fipsmodule.cnf').as_posix()}\n"
@@ -218,4 +244,4 @@ if real:
     unprovided = run("switch", "switch")
     assert "mode not_supported" in unprovided.stdout and "enable false" in unprovided.stdout, unprovided
     print("fips: a switchable program enables and disables FIPS mode")
-print("fips: ok")
+print("linking_fips_real: ok" if real else "linking_fips_providers: ok" if providers else "linking_fips: ok")

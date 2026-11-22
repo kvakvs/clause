@@ -30,6 +30,9 @@ gotchas and user directions not recorded elsewhere.
   across runs); full mode/--lto/cross stay cold. No runner pruning: the store replaces an entry per address (target@
   options hash, per-source inference), so a relinked clau keeps one generation. A warm timing needs that dir
   present; delete `<case>/Debug-cache` for a cold time. `CLAUSE_TEST_COMPILE_TIMES=1` shows `(cached)` per policy.
+- Link test split (VAL10 2026-11-22): a kernel-linking compile is ~10 s alone (no -o compiles and emits as much;
+  `--print-types` stops before LLVM, 4.5 s, same remote-type errors). runtime_options/kernel services are in the
+  compile key, the --fips/--with-crypto path is not (checked at link), so shared --build-dir replays those batches.
 - Tidy/Lizard run on the Windows dev host only; other platforms build+test.
 - All ABI symbol/namespace versions collapse to v1 in plan step RT4 (never released).
 - RT5: rename runtime/src/builtins files to builtin_<name>.

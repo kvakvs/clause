@@ -54,39 +54,62 @@ if(CLAUSE_BUILD_RUNTIME)
     # The slow linking workflows below run in the full gate only (label full_only), keeping the fast gate fast.
     set_tests_properties(linking_lto PROPERTIES TIMEOUT 900 COST 18 LABELS full_only)
     # --shell: an executable that starts the interactive shell over its inputs and the library (plan 21 LIB74).
+    # linking_shell checks --print-env and refused uses without a link; the link of the whole library and a session
+    # are full_only (plan 11 step VAL10; the golden shell_session covers the session against OTP).
     add_test(NAME linking_shell COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/shell.py"
         "$<TARGET_FILE:clau>" "${PROJECT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/shell/$<CONFIG>"
         "${CMAKE_EXECUTABLE_SUFFIX}")
-    set_tests_properties(linking_shell PROPERTIES TIMEOUT 600 COST 20)
+    set_tests_properties(linking_shell PROPERTIES TIMEOUT 120 PASS_REGULAR_EXPRESSION "linking_shell: ok")
+    add_test(NAME linking_shell_session COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/shell.py"
+        "$<TARGET_FILE:clau>" "${PROJECT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/shell_session/$<CONFIG>"
+        "${CMAKE_EXECUTABLE_SUFFIX}" --session)
+    set_tests_properties(linking_shell_session PROPERTIES TIMEOUT 600 COST 20 LABELS full_only
+        PASS_REGULAR_EXPRESSION "linking_shell_session: ok")
     # --epmd-executable and the project option epmd_executable (plan 30 step DIST3c).
     add_test(NAME linking_epmd COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/epmd.py"
         "$<TARGET_FILE:clau>" "${CMAKE_CURRENT_BINARY_DIR}/epmd/$<CONFIG>")
     set_tests_properties(linking_epmd PROPERTIES TIMEOUT 300)
     # The project option runtime_options built into executables, under CLAUSE_FLAGS and the command line (DIST4a3b).
+    # Each build is a batch of its own, so the fast test builds once (built-in defaults and overrides) and the refused
+    # built-in word, distribution and kernel service builds are full_only (plan 11 step VAL10).
     add_test(NAME linking_runtime_options COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/runtime_options.py"
         "$<TARGET_FILE:clau>" "${CMAKE_CURRENT_BINARY_DIR}/runtime_options/$<CONFIG>" "${CMAKE_EXECUTABLE_SUFFIX}")
-    set_tests_properties(linking_runtime_options PROPERTIES TIMEOUT 600)
+    set_tests_properties(linking_runtime_options PROPERTIES TIMEOUT 300
+        PASS_REGULAR_EXPRESSION "linking_runtime_options: ok")
+    add_test(NAME linking_runtime_options_full COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/runtime_options.py" "$<TARGET_FILE:clau>"
+        "${CMAKE_CURRENT_BINARY_DIR}/runtime_options_full/$<CONFIG>" "${CMAKE_EXECUTABLE_SUFFIX}" --full)
+    set_tests_properties(linking_runtime_options_full PROPERTIES TIMEOUT 600 COST 15 LABELS full_only
+        PASS_REGULAR_EXPRESSION "linking_runtime_options_full: ok")
     # Export liveness: unreachable exports left out, --keep-exports and keep_exports keep them; sizes recorded (62C).
     add_test(NAME linking_exports COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/exports.py"
         "$<TARGET_FILE:clau>" "${PROJECT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/exports/$<CONFIG>"
         "${CMAKE_EXECUTABLE_SUFFIX}")
     set_tests_properties(linking_exports PROPERTIES TIMEOUT 900 COST 30 LABELS full_only)
     # The crypto runtime archive: linked only when used, --with-crypto[=PATH], CLAUSE_OPENSSL_ROOT (plan 21 LIB79);
-    # building an OpenSSL source tree takes minutes, so that part runs in the full suite only.
+    # linking_crypto checks the refusals without a compile; every link, and building an OpenSSL source tree
+    # (minutes), run in the full suite only (plan 11 step VAL10).
     if(TARGET clause_runtime_crypto)
         add_test(NAME linking_crypto COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/crypto.py"
             "$<TARGET_FILE:clau>" "${PROJECT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/crypto/$<CONFIG>"
             "${CMAKE_EXECUTABLE_SUFFIX}")
-        set_tests_properties(linking_crypto PROPERTIES TIMEOUT 600 COST 10)
+        set_tests_properties(linking_crypto PROPERTIES TIMEOUT 120 PASS_REGULAR_EXPRESSION "linking_crypto: ok")
         add_test(NAME linking_crypto_source COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/crypto.py"
             "$<TARGET_FILE:clau>" "${PROJECT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/crypto_source/$<CONFIG>"
             "${CMAKE_EXECUTABLE_SUFFIX}" --source)
-        set_tests_properties(linking_crypto_source PROPERTIES TIMEOUT 3600 COST 30 LABELS full_only)
-        # FIPS mode (plan 21 LIB79F): --fips=PATH refusals and start failures.
+        set_tests_properties(linking_crypto_source PROPERTIES TIMEOUT 3600 COST 30 LABELS full_only
+            PASS_REGULAR_EXPRESSION "linking_crypto_source: ok")
+        # FIPS mode (plan 21 LIB79F): --fips=PATH refusals without a compile; the provider builds and start failures
+        # compile the probe, so they are full_only (plan 11 step VAL10).
         add_test(NAME linking_fips COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/fips.py"
             "$<TARGET_FILE:clau>" "${PROJECT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/fips/$<CONFIG>"
             "${CMAKE_EXECUTABLE_SUFFIX}")
-        set_tests_properties(linking_fips PROPERTIES TIMEOUT 900 COST 10)
+        set_tests_properties(linking_fips PROPERTIES TIMEOUT 120 PASS_REGULAR_EXPRESSION "linking_fips: ok")
+        add_test(NAME linking_fips_providers COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/fips.py"
+            "$<TARGET_FILE:clau>" "${PROJECT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/fips_providers/$<CONFIG>"
+            "${CMAKE_EXECUTABLE_SUFFIX}" --providers)
+        set_tests_properties(linking_fips_providers PROPERTIES TIMEOUT 900 COST 15 LABELS full_only
+            PASS_REGULAR_EXPRESSION "linking_fips_providers: ok")
         # The minimum OpenSSL (minutes, full suite only): the crypto goldens linked with its libcrypto, and its
         # validated FIPS provider, built from source for the test only, in pinned and switchable programs.
         if(CLAUSE_TEST_OPENSSL_MINIMUM)
@@ -98,7 +121,8 @@ if(CLAUSE_BUILD_RUNTIME)
             add_test(NAME linking_fips_real COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/fips.py"
                 "$<TARGET_FILE:clau>" "${PROJECT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/fips_real/$<CONFIG>"
                 "${CMAKE_EXECUTABLE_SUFFIX}" --real "${minimum_openssl}")
-            set_tests_properties(linking_fips_real PROPERTIES TIMEOUT 3600 COST 30 LABELS full_only)
+            set_tests_properties(linking_fips_real PROPERTIES TIMEOUT 3600 COST 30 LABELS full_only
+                PASS_REGULAR_EXPRESSION "linking_fips_real: ok")
         endif()
     endif()
     # Compile cache: warm project builds reuse the whole batch; edits and options miss (62D4).

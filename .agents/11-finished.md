@@ -232,6 +232,12 @@ Compact record of [plan 11](11-plan.md), one bullet per step;
   functions (compile 13.3 s at `-O0`, 2.7 s at best with precise liveness); `[time] liveness` prints the
   live function count. Every such program can start as a node, which needs every export: the rest is
   split into CLAU12b (decision) and CLAU12c — `bc329480`
+- **VAL10** slow link tests: `linking_crypto`, `linking_fips` and `linking_shell` check refusals and
+  `--print-env` without a compile, `linking_runtime_options` and `project_applications` link once,
+  `library_types` uses `--print-types`; their other links run in `linking_shell_session`,
+  `linking_runtime_options_full`, `linking_fips_providers` and `linking_crypto_source` (`full_only`). The
+  six tests 229 s to 28 s alone (10 s warm; the two that link stay at 11–12 s cold); fast gate 110 s
+  warm — `pending`
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 

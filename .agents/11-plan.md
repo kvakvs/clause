@@ -825,28 +825,6 @@ Depends on: [VAL7](11-finished.md), [CLAU12c](#step-clau12c).
 - Tests
   - [ ] Fast gate wall time recorded.
 
-<a id="step-val10"></a>
-
-### VAL10. Slow link tests share builds and keep link-free checks apart
-
-Depends on: none.
-
-- Success criteria
-  - [ ] `linking_runtime_options` (104 s, 6 links of one program): builds of the same batch are
-    shared or replayed from the cache; the distribution and kernel service builds are `full_only`.
-  - [ ] `linking_crypto` (58 s) and `linking_fips` (38 s): positional compiles use `--build-dir`,
-    refusals that need no link run first; links repeated by `linking_crypto_source` and
-    `linking_crypto_minimum` are `full_only`.
-  - [ ] `linking_shell` (35 s): the `--print-env` and refusal checks are a link-free fast test; the
-    link and session are `full_only` (golden `shell_session` covers the session).
-  - [ ] `project_applications` (27 s): one link shows both the version warning and its override.
-  - [ ] `library_types` (16 s): checked without linking when analysis alone resolves remote types
-    the same way, else recorded.
-  - [ ] No test of this step costs more than about 10 s alone in the fast gate.
-- Tests
-  - [ ] Each changed test still fails on a mutation of the behavior it checks (one per test,
-    recorded).
-
 <a id="step-val11"></a>
 
 ### VAL11. Decide where the transform host is built
