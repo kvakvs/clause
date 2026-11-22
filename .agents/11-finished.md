@@ -227,7 +227,7 @@ Compact record of [plan 11](11-plan.md), one bullet per step;
 - **VAL8** golden cases keep their compile cache between fast-mode runs (`run.py` `--build-dir` beside the
   work directory; the full gate, `--lto` and other targets compile cold); `executables_selfcheck` proves
   replay, recompile after an edit and a wrong golden failing warm. `file_io` 56 s to 2 s; fast gate 456 s
-  with empty caches (as after a `clau` relink), 173 s warm; caches 568 MB — `pending`
+  with empty caches (as after a `clau` relink), 173 s warm; caches 568 MB — `774bc5fa`
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 
