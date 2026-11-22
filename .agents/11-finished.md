@@ -247,7 +247,7 @@ Compact record of [plan 11](11-plan.md), one bullet per step;
   `codegen_feature_output`, `abi_features`, `codegen_placeholders`, `library_stubs`, golden
   `tracing_unsupported`, the disabled `codegen_resource_cli`; the `unavailable` bridge mode and the
   deferred-feature rollback of `codegen_atoms` too. The factory lifetime check moved to
-  `runtime_containers`; `codegen_specialization` keeps its caps, policies and trace — `pending`
+  `runtime_containers`; `codegen_specialization` keeps its caps, policies and trace — `3bd6cdb3`
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 
