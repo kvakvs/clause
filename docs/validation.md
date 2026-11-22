@@ -77,11 +77,23 @@ cmake --build build/debug --target check-quality-all  # whole tree
   `library_types` checks remote types with `--print-types`, which reports an
   undefined remote type as a link build does, without code generation.
 - `transforms_host_setup` (fixture `transform_host`) builds Clause's transform
-  host before the tests that run library parse transforms (`transforms_*` and
-  the executable cases whose sources name a parse transform or include
-  `ms_transform.hrl`, `qlc.hrl` or `merl.hrl`), so they do not wait for its lock
-  holding their slots. It starts first and reserves eight slots; with a built
-  host it takes a fraction of a second.
+  host before the tests that start it, so they do not wait for its lock holding
+  their slots: `transforms_pipeline`, `transforms_no_otp`, `transforms_project`
+  and the executable cases that compile a transform, whose sources other than
+  an `.erl` with an `.abstr` beside it have a `-compile` naming
+  `parse_transform` or include `ms_transform.hrl`, `qlc.hrl` or `merl.hrl`
+  (`merl_templates`, `mnesia_events`). It starts first and reserves eight
+  slots; with a built host it takes a fraction of a second.
+- Where the host is built (plan 11 step VAL11, 2026-11-22, measured alone):
+  the setup takes 31–33 s after a `clau`, runtime or library change and 0.2 s
+  otherwise; its fast dependents take 5.4, 5.3 and 7.5 s with a built host.
+  Cases compiled from an `.abstr` and runtime calls of `compile:forms/2` or a
+  transform's `parse_transform/2` never start the host, nor do
+  `transforms_build_dir` and `transforms_cache` (they pass `--erl`), so they no
+  longer wait for it. The host stays a fast test, not a build target: as a
+  target every build after a library edit would spend those 33 s even when no
+  transform test runs, and the fast gate keeps running library transforms in
+  Clause's own host.
 - `CLAUSE_TEST_TIMEOUT_SCALE=N` multiplies the per-run limits of the golden
   runner (60 s) and the semantic case runner (15 s) for instrumented builds.
 - `check-quality`, `make format` and `make-format.bat` cover files changed since

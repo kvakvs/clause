@@ -825,24 +825,6 @@ Depends on: [VAL7](11-finished.md), [CLAU12c](#step-clau12c).
 - Tests
   - [ ] Fast gate wall time recorded.
 
-<a id="step-val11"></a>
-
-### VAL11. Decide where the transform host is built
-
-Depends on: none. **Decision.**
-
-`transforms_host_setup` links the whole library with every export kept (59 s alone at all threads)
-after any change of `clau`, the runtime or a library file; 14 tests wait for it, 8 of them golden
-cases.
-
-- Success criteria
-  - [ ] Chosen and implemented: the host is a build target keyed on its identity, or its setup and
-    dependents are `full_only` with `transforms_terms`, `transforms_abstract` and `transforms_inputs`
-    left in the fast gate.
-  - [ ] Golden cases compiled from `.abstr` no longer require the host when they do not use it.
-- Tests
-  - [ ] Fast gate after a library-only edit: recorded time of the host build and of its dependents.
-
 <a id="step-val12"></a>
 
 ### VAL12. Remove tests of stubs and do-nothing code

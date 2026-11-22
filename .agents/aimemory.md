@@ -33,6 +33,9 @@ gotchas and user directions not recorded elsewhere.
 - Link test split (VAL10 2026-11-22): a kernel-linking compile is ~10 s alone (no -o compiles and emits as much;
   `--print-types` stops before LLVM, 4.5 s, same remote-type errors). runtime_options/kernel services are in the
   compile key, the --fips/--with-crypto path is not (checked at link), so shared --build-dir replays those batches.
+- Transform host fixture (VAL11 2026-11-22): host build 31-33 s alone, stays a fast setup test (not a build target).
+  Only tests that start the host require it: .abstr cases and runtime compile:forms/parse_transform calls do not;
+  `-FS transform_host` + removed `%LOCALAPPDATA%/clause/transform-host/<clau>-*` shows who starts it.
 - Tidy/Lizard run on the Windows dev host only; other platforms build+test.
 - All ABI symbol/namespace versions collapse to v1 in plan step RT4 (never released).
 - RT5: rename runtime/src/builtins files to builtin_<name>.

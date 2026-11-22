@@ -42,7 +42,8 @@ set_tests_properties(transforms_loader PROPERTIES TIMEOUT 300 LABELS host_otp
 # Added for the transform host setup: builds Clause's transform host (a library transform under --erl none) before
 # the tests that use it, which otherwise wait for its lock while holding their CTest slots. It starts first (COST)
 # and reserves more slots: the host build links the whole library with every hardware thread. A built host makes it
-# instant.
+# instant. It stays a fast test rather than a build target (plan 11 step VAL11, docs/validation.md): a library edit
+# would rebuild the host on every build, and the fast gate keeps running library transforms in Clause's host.
 add_test(NAME transforms_host_setup COMMAND "$<TARGET_FILE:clau>" --erl none --print-abstr ms.erl
     WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}/tests/fixtures/transforms/pipeline")
 set_tests_properties(transforms_host_setup PROPERTIES TIMEOUT 900 COST 1000 PROCESSORS 8
@@ -80,7 +81,8 @@ add_test(NAME transforms_cache COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_
 set_tests_properties(transforms_cache PROPERTIES TIMEOUT 600 COST 12 LABELS "host_otp;full_only"
     PASS_REGULAR_EXPRESSION "cache: ok" SKIP_REGULAR_EXPRESSION "SKIP: no host Erlang/OTP")
 
-# Tests that run the library's transforms in the transform host wait for its setup (added for the transform host
-# setup).
-set_tests_properties(transforms_pipeline transforms_no_otp transforms_project transforms_build_dir transforms_cache
+# Tests that run transforms in the transform host wait for its setup (added for the transform host setup).
+# transforms_build_dir and transforms_cache pass --erl to every build, so their project transforms run on the host OTP
+# and never start the host (plan 11 step VAL11).
+set_tests_properties(transforms_pipeline transforms_no_otp transforms_project
     PROPERTIES FIXTURES_REQUIRED transform_host)

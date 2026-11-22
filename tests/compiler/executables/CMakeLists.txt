@@ -38,14 +38,20 @@ if(CLAUSE_BUILD_RUNTIME)
             set_tests_properties(executables_${case} PROPERTIES COST 15)
         endif()
         set_tests_properties(executables_${case} PROPERTIES LABELS "${labels}")
-        # A case whose sources name a parse transform compiles through the transform host: it waits for the host's
-        # setup instead of its lock (added for the transform host setup).
+        # A case that compiles a transform waits for the transform host's setup instead of its lock (added for the
+        # transform host setup). run.py compiles an .erl with an .abstr beside it from the .abstr, so only the other
+        # sources count, and only a -compile parse_transform or an include of a library header that names one (plan 11
+        # step VAL11): a runtime call of compile:forms/2 or ms_transform:parse_transform/2 needs no host.
         file(GLOB_RECURSE case_sources "${case_dir}/*.erl" "${case_dir}/*.hrl")
         foreach(source IN LISTS case_sources)
-            file(STRINGS "${source}" transform_lines REGEX "parse_transform|ms_transform\\.hrl|qlc\\.hrl|merl\\.hrl")
-            if(transform_lines)
-                set_tests_properties(executables_${case} PROPERTIES FIXTURES_REQUIRED transform_host)
-                break()
+            string(REGEX REPLACE "\\.erl$" ".abstr" abstract "${source}")
+            if(abstract STREQUAL source OR NOT EXISTS "${abstract}")
+                file(STRINGS "${source}" transform_lines
+                    REGEX "^-compile\\(.*parse_transform|^-include(_lib)?\\(\"(.*/)?(ms_transform|qlc|merl)\\.hrl\"")
+                if(transform_lines)
+                    set_tests_properties(executables_${case} PROPERTIES FIXTURES_REQUIRED transform_host)
+                    break()
+                endif()
             endif()
         endforeach()
     endforeach()

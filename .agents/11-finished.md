@@ -238,6 +238,10 @@ Compact record of [plan 11](11-plan.md), one bullet per step;
   `linking_runtime_options_full`, `linking_fips_providers` and `linking_crypto_source` (`full_only`). The
   six tests 229 s to 28 s alone (10 s warm; the two that link stay at 11–12 s cold); fast gate 110 s
   warm — `9f139c51`
+- **VAL11** transform host decided: `transforms_host_setup` stays a fast setup test (31–33 s after a
+  `clau`, runtime or library change, 0.2 s else), not a build target; only tests that start the host
+  require it: 5 instead of 14 (golden cases compiled from `.abstr` and tests passing `--erl` no longer
+  wait). Fast gate with the host removed 132 s (setup 37 s, its three fast dependents 25 s) — `pending`
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 
