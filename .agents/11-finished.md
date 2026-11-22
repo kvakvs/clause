@@ -256,7 +256,7 @@ Compact record of [plan 11](11-plan.md), one bullet per step;
   real boundary: host admission (`runtime_immediate`, `runtime_memory`, `runtime_builtins`,
   `runtime_floats`, `runtime_heap_walk`), decoding (`semantic_symbols`, `semantic_inference`), budgets
   source can reach and injected faults (`codegen_limits`, `codegen_write_failure`, `project_*`,
-  `semantic_patterns`, `semantic_bindings`, `parser_hardening`). No golden case reaches an assert — `pending`
+  `semantic_patterns`, `semantic_bindings`, `parser_hardening`). No golden case reaches an assert — `badaf88f`
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 
