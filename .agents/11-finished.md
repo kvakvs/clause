@@ -237,7 +237,7 @@ Compact record of [plan 11](11-plan.md), one bullet per step;
   `library_types` uses `--print-types`; their other links run in `linking_shell_session`,
   `linking_runtime_options_full`, `linking_fips_providers` and `linking_crypto_source` (`full_only`). The
   six tests 229 s to 28 s alone (10 s warm; the two that link stay at 11–12 s cold); fast gate 110 s
-  warm — `pending`
+  warm — `9f139c51`
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 
