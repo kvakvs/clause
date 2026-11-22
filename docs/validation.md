@@ -8,10 +8,64 @@ the per-plan `.agents/NN-finished.md` files:
 
 | Check | Result |
 | --- | --- |
+| Fast gate (2026-11-22, plan 11 step VAL15, `-j 12`) | 375/375 in 103 s with kept compile caches, 532 test-seconds; [baselines](#gate-baselines) |
+| Full gate (same day, `-j 12`, 512 tests) | 507/512 in 2536 s, 14700 test-seconds; the failures are listed with the [baselines](#gate-baselines) |
+| `check-quality-all` (same day, tree with uncommitted distribution work) | Clean: Lizard 0 warnings over 15628 functions, clang-tidy 779 units |
 | Fresh combined Debug CTest (2026-10-14, plan 11 step 41S) | 299/300 passed; the failure is the known `codegen_measurements` IR size bound; `codegen_resource_cli` is disabled |
 | `check-quality-all` (same run) | Clean; Lizard CCN 10 |
 | Opt-in OTP audit tests (2026-10-14, pin `d199a49a01a2`, oracle OTP 29.1.1) | 17/17 |
 | `regenerate.py --corpus all --check` (same) | 19/19 corpora reproduce |
+
+## Gate baselines
+
+Windows x64 Debug, 32 logical processors, `ctest --parallel 12` (six tests at
+once) at below-normal priority on 24 of them, 2026-11-22 (plan 11 phase T,
+commit `202f09b9`). Seconds are a test's wall time inside the loaded gate.
+
+| Tier | Command | Tests | Wall time | Test-seconds |
+| --- | --- | --- | --- | --- |
+| Fast gate | `ctest --preset debug-fast` | 375 | 103 s with kept compile caches; 216–274 s right after a `clau` relink | 532 |
+| One area | `ctest --test-dir build/debug -C Debug -L mnesia` | 22 (`mnesia`) | minutes: every case of the area, also the `full_only` ones | |
+| Full gate | `ctest --preset debug -j 12` | 512 | 2536 s (42 min) | 14700 |
+
+- Before phase T the fast gate ran 493 tests in about 30 minutes (1792 s on
+  2026-11-07); the first full gate of the day, before step VAL16, took 5716 s
+  and 33500 test-seconds, with 21 cold `-O2` compiles over the runner's limit.
+- Full gate by group, test-seconds: `mnesia_*` 3170, `dist_*` and `epmd_*`
+  1734, `ssl_*` 1296, other golden cases 7325, all other tests 1135. CTest
+  starts the costliest tests first: the first 100 to finish took 27 of the 42
+  minutes.
+- Fast gate, 20 slowest: `frontend_cli` 10.8, `transforms_project` 9.3,
+  `transforms_pipeline` 7.1, `transforms_no_otp` 6.9, `patternmatch_patterns`
+  6.8, `executables_ets_portions` 6.5, `executables_forward_lists` 6.2,
+  `linking_project` 6.2, `codegen_options` 6.2, `linking_executable` 6.0,
+  `executables_dist_start` 5.9, `parser_mutations_0` 5.7, `linking_debugger`
+  5.6, `executables_ets_concurrency` 5.2, `executables_public_key_certs` 5.0,
+  `executables_ssl_engine` 5.0, `executables_many_ports` 4.7,
+  `executables_public_key_ocsp` 4.7, `executables_public_key_path` 4.7,
+  `library_types` 4.7.
+- Full gate, 20 slowest (all golden cases of 133 modules, four cold compiles
+  each): `mnesia_replicas` 178, `mnesia_dirty` 167,
+  `mnesia_remote_checkpoints` 157, `mnesia_events` 151, `mnesia_partitions`
+  149, `qlc_queries` 148, `mnesia_disc_masters` 145, `mnesia_two_phase` 143,
+  `mnesia_disc_nodes` 142, `mnesia_dir_exchange` 142, `mnesia_connect` 141,
+  `mnesia_merge` 141, `mnesia_remote_frag` 140, `mnesia_remote_dirty` 140,
+  `mnesia_remote_backups` 139, `mnesia_disc` 139, `mnesia_remote_locks` 139,
+  `mnesia_remote_queries` 138, `mnesia_backups` 137, `mnesia_transactions`
+  136. Slowest other tests: `linking_exports` 125, `codegen_dependency` 88,
+  `parser_consumer` 88, `runtime_generated_link` 80,
+  `linking_runtime_options_full` 76, `linking_shell_session` 52,
+  `linking_crypto_minimum` 47, `linking_crypto_source` 38.
+- Every test's cost: CTest keeps its average per test in
+  `build/debug/Testing/Temporary/CTestCostData.txt` and the last run's times in
+  `LastTest.log` beside it; rank the former after a gate.
+- Full gate failures of that run: `codegen_measurements` (annotated IR over
+  its size bound) and `library_freshness` (`ssl_crl_cache_api.terms` against
+  the host OTP), both known; `executables_runtime_args_files` (uncommitted work
+  on `-s`/`-run` in the tree); `executables_mnesia_remote_checkpoints` (two
+  checkpoint deactivation events in the other order than OTP's, intermittent;
+  open); `executables_inet_res_queries` (its UDP port's TCP twin lay in
+  a port range Windows excludes; fixed after the run, 1600 of 1600 runs).
 
 ## Running the gate
 
@@ -22,7 +76,8 @@ From an x64 Visual Studio developer shell with `C:\Program Files\LLVM\bin` on
 cmake --preset debug --fresh -DBUILD_TESTING=ON -G Ninja -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl
 cmake --build build/debug
 ctest --preset debug-fast                  # during development
-ctest --preset debug -j 16                 # full mode, at feature completion
+ctest --test-dir build/debug -C Debug -L mnesia   # one area's golden cases, for library work
+ctest --preset debug -j 12                 # full mode, at feature completion
 cmake --build build/debug --target check-quality      # changed files, one unit per header
 cmake --build build/debug --target check-quality-all  # whole tree
 ```

@@ -161,6 +161,13 @@ printed by `vcvars64.bat` is harmless.
 - IMPORTANT: OTP source and copied files from OTP source remain transient and never join the Clause
   git, if necessary, save observations/oracle data/gold master data in Clause git, but not the
   license-protected files.
+- Test tiers (times at `ctest -j 12`, see `docs/validation.md#gate-baselines`): the fast gate
+  (`ctest --preset debug-fast`, about 2 minutes) per step; one area's golden cases
+  (`ctest -L mnesia`, labels in `tests/compiler/executables/areas.cmake`) for library work; the full
+  gate (about 45 minutes) at phase completion. The fast gate stays fast: a test of more than about
+  10 s alone is `full_only` unless it is in the golden smoke set, and after a gate run the costliest
+  tests in `build/debug/Testing/Temporary/CTestCostData.txt` are moved or cut. Test programs wait
+  for events instead of sleeping and use iteration counts just above the threshold they test.
 - CPU budget: builds, clang-tidy and test runs together use at most 3/4 of the logical cores (24 of
   32 here), leaving 1/4 (the E-cores are enough) so that the machine stays responsive. Run heavy
   jobs one after another, never several at once (a build, quality gate or test suite each alone).

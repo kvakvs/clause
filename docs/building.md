@@ -101,18 +101,29 @@ cached value with `-DCMAKE_CXX_FLAGS:STRING=`); use the root options instead.
 cmake --preset debug -DBUILD_TESTING=ON
 cmake --build --preset debug
 ctest --preset debug-fast                # or windows-debug-fast
-ctest --preset debug -j 16               # full mode
+ctest --preset debug -j 12               # full mode
 ctest --test-dir build/debug -C Debug -L mnesia   # one area's golden cases
 ```
+
+| Tier | When | What runs | Time at `-j 12` |
+| --- | --- | --- | --- |
+| Fast gate | Every change | 375 of 512 tests; golden cases under O0 positional and O2 project, compiles replayed from kept caches | About 2 minutes; 4 after a `clau` relink |
+| One area (`-L <area>`) | Library work on that area | Every golden case of the area, also its `full_only` ones | Minutes |
+| Full gate | A finished phase or feature | Everything, compiled cold; light golden cases under all 8 driver and policy combinations, heavy ones under each of the 4 policies once | About 45 minutes |
+
+With `CLAUSE_TEST_MODE=fast` in the environment an area run uses the fast
+matrix and the kept compile caches. Recorded times and the slowest tests are in
+[validation](validation.md#gate-baselines).
 
 `CLAUSE_TEST_MODE=fast` (the `*-fast` presets, `make test`, `make-test.bat`)
 runs a reduced optimization/driver matrix and skips `full_only` tests; `full`
 (the default when unset, `make test-full`, `TEST_MODE=full`) runs everything.
 Each test reserves two CTest slots, so `-j N` runs N/2 tests at once.
 
-A test that takes more than about 10 s alone is labeled `full_only`, except a
-smoke set of heavy golden cases, about one per area, that stays in the fast
-gate. Every executable golden case carries one area label (`mnesia`, `dist`,
+The rule that keeps the fast gate fast: a test that takes more than about 10 s
+alone is labeled `full_only`, except a smoke set of heavy golden cases, about
+one per area, that stays in the fast gate. After a gate run, rank
+`build/debug/Testing/Temporary/CTestCostData.txt` and move or cut what grew. Every executable golden case carries one area label (`mnesia`, `dist`,
 `ssl`, `public_key`, `crypto`, `file`, `kernel`, `stdlib`, `tools`, `core`;
 listed in `tests/compiler/executables/areas.cmake`), so library work runs its
 area with `ctest -L <area>`.

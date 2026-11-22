@@ -166,7 +166,7 @@ Completed steps link to [the plan 11 record](11-finished.md).
 | N. Optional scope decisions | [RT1](#step-rt1), [RT2](#step-rt2), [CLAU3](#step-clau3)–[CLAU5](#step-clau5), [RT3](#step-rt3), [RT9](#step-rt9), [CLAU6](#step-clau6) | open |
 | N2. Parse transforms | [73A](11-finished.md)–[73G](11-finished.md), [CLAU7](#step-clau7) | open: [CLAU7](#step-clau7) |
 | P. Remaining features | [CLAU9](#step-clau9)–[CLAU11](#step-clau11), [RT6](#step-rt6)–[RT8](#step-rt8) | open |
-| T. Test gate cost | [VAL7](11-finished.md), [VAL8](11-finished.md), [CLAU12a](11-finished.md), [CLAU12b](11-finished.md), [CLAU12c](11-finished.md), [VAL9](11-finished.md)–[VAL14](11-finished.md), [VAL16](11-finished.md), [VAL15](#step-val15) | open |
+| T. Test gate cost | [VAL7](11-finished.md), [VAL8](11-finished.md), [CLAU12a](11-finished.md), [CLAU12b](11-finished.md), [CLAU12c](11-finished.md), [VAL9](11-finished.md)–[VAL14](11-finished.md), [VAL16](11-finished.md), [VAL15](11-finished.md) | done |
 | O. Final closure | [RT4](#step-rt4), [RT5](#step-rt5), [CLAU8](#step-clau8) | open |
 
 
@@ -745,21 +745,9 @@ Added 2026-11-22 (user direction): the fast gate is no longer fast. Evidence of 
 Each step records the time alone of the tests it touches before and after, and the fast gate's wall
 time in `.state/runs.md`.
 
-<a id="step-clau12"></a>
-<a id="step-val15"></a>
-
-### VAL15. Record the new gate baselines
-
-Depends on: [VAL7](11-finished.md)–[VAL14](11-finished.md), [CLAU12b](11-finished.md) and, if selected,
-[CLAU12c](11-finished.md), [VAL16](11-finished.md).
-
-- Success criteria
-  - [ ] Fresh fast and full gates timed at `-j 12`, with the 20 slowest tests of each, recorded in
-    `docs/validation.md` and `.state/runs.md`; the full gate has a recorded cost for every test.
-  - [ ] `docs/building.md`, `aimemory.md` and AGENTS.md describe the tiers (fast, area labels, full)
-    and the rule that keeps the fast gate fast.
-- Tests
-  - [ ] Full-mode CTest and `check-quality-all`.
+All steps of the phase are finished (2026-11-22): fast gate 375 tests in 103 s, full gate 512 tests in
+2536 s at `-j 12`; see [11-finished.md](11-finished.md) and
+[the gate baselines](../docs/validation.md#gate-baselines).
 
 ## O. Final closure
 

@@ -23,9 +23,11 @@ gotchas and user directions not recorded elsewhere.
   set; golden cases carry one area label, library work runs `ctest -L <area>` (VAL7 2026-11-22,
   tests/compiler/executables/areas.cmake: area lists, smoke set with times alone, full_only
   families mnesia_/dist_/epmd_/ssl_). Fast gate must stay fast (user 2026-10-17): slow workflows are full_only,
-  check-quality tidies one unit per changed header (dependents in check-quality-all); fast CTest ~75
-  s at -j 16. Tidy default jobs = half the logical cores. Keep slow tests parallel. Keep 20-25% CPUs
-  free.
+  check-quality tidies one unit per changed header (dependents in check-quality-all). Baselines
+  2026-11-22 at -j 12 (VAL15, docs/validation.md#gate-baselines): fast 375 tests 103 s warm (216-274 s
+  after a clau relink), full 512 tests 2536 s; per-test costs of that day in .state/gate-costs-*.tsv. A
+  full gate takes its first 27 min for the 100 costliest tests; report progress by time, not by count.
+  Tidy default jobs = half the logical cores. Keep slow tests parallel. Keep 20-25% CPUs free.
 - Asserts, not tests (VAL13 2026-11-22): a condition neither valid source nor a linked consumer (generated code,
   host, CMake consumer) reaches is a `<cassert>` assert at the product check (Debug runs it; keep the Release
   return); admission, handles, external decoding, budgets and injected faults stay tests.
