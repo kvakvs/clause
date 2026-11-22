@@ -264,6 +264,11 @@ Compact record of [plan 11](11-plan.md), one bullet per step;
   and `codegen_examples` follows the fast matrix. Kept after checking: `runtime_printing` (9542 values no
   other test prints), the startup IR check. 41 touched tests 77 s to 56 s alone; fast gate 349 tests,
   100 s warm — `0f14b4b4`
+- **CLAU12b** decided (user, 2026-11-22): a program is a node by opt in. Only a program linked with
+  `--distribution` (manifest `distribution = true`, `runtime_options` with a node name) or with
+  `net_kernel:start/1,2` live roots `clause_dist_start` and keeps every export; others refuse
+  `--sname`/`--name` (exit 70). OTP starts any node with `-sname`: a difference, recorded with CLAU12c,
+  which implements it — `pending`
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 

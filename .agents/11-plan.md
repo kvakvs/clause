@@ -166,7 +166,7 @@ Completed steps link to [the plan 11 record](11-finished.md).
 | N. Optional scope decisions | [RT1](#step-rt1), [RT2](#step-rt2), [CLAU3](#step-clau3)–[CLAU5](#step-clau5), [RT3](#step-rt3), [RT9](#step-rt9), [CLAU6](#step-clau6) | open |
 | N2. Parse transforms | [73A](11-finished.md)–[73G](11-finished.md), [CLAU7](#step-clau7) | open: [CLAU7](#step-clau7) |
 | P. Remaining features | [CLAU9](#step-clau9)–[CLAU11](#step-clau11), [RT6](#step-rt6)–[RT8](#step-rt8) | open |
-| T. Test gate cost | [VAL7](11-finished.md), [VAL8](11-finished.md), [CLAU12a](11-finished.md), [CLAU12b](#step-clau12b), [CLAU12c](#step-clau12c), [VAL9](#step-val9)–[VAL15](#step-val15) | open |
+| T. Test gate cost | [VAL7](11-finished.md), [VAL8](11-finished.md), [CLAU12a](11-finished.md), [CLAU12b](11-finished.md), [CLAU12c](#step-clau12c), [VAL9](#step-val9)–[VAL15](#step-val15) | open |
 | O. Final closure | [RT4](#step-rt4), [RT5](#step-rt5), [CLAU8](#step-clau8) | open |
 
 
@@ -743,50 +743,11 @@ Each step records the time alone of the tests it touches before and after, and t
 time in `.state/runs.md`.
 
 <a id="step-clau12"></a>
-<a id="step-clau12b"></a>
-
-### CLAU12b. Decide what makes a program a node
-
-Depends on: [CLAU12a](11-finished.md). **Decision** (user). CLAU12 was split on 2026-11-22 after
-its measurement ([CLAU12a](11-finished.md)).
-
-Measured (`-O0 --no-cache --jobs 2`, `record_wildcards` / `file_io` / `gen_servers`): each links the
-same 82 modules and keeps 4511 / 4508 / 4538 of about 4510 functions; compile 13.3 / 13.3 / 13.5 s.
-With the keep-all rule and the value rule switched off (a bound, not a correct build): 894 / 909 /
-977 live functions, compile 2.7 / 2.9 / 3.0 s, 79% less.
-
-Why the rule cannot simply go: every program that links kernel's Erlang modules is a node in
-waiting. `net_kernel` joins the batch by name (`file` → `gen_tcp` → `inet` → `net` → `net_adm` →
-`net_kernel`; `gen_server` → `global` → `net_kernel`), the driver then adds `clause_dist_start`
-(`frontend.cpp` `add_after_scan`), and liveness roots its `boot/3`. So `record_wildcards.exe --sname
-x`, built without `--distribution`, starts distribution; a program of `ets` builtins only links 2
-modules and refuses `--sname` with exit 70. A started node runs `M:F/A` named by other nodes (spawn
-requests, `rex`, `erpc`), with atoms the analysis never sees, so it must keep every export. Today it
-does so only by accident (`list_to_atom/1` in `clause_socket`), and about 26 golden cases rely on
-it: they start nodes with `CLAUSE_FLAGS --sname` and neither link with `--distribution` nor call
-`net_kernel:start/1,2` (the multi-node `dist_*` and `mnesia_*` cases, `runtime_options`,
-`runtime_env_options`).
-
-- Success criteria
-  - [ ] One of these chosen and recorded in [distribution](../docs/distribution.md) and
-    [differences](../docs/differences.md):
-    - **Opt in:** a program is a node only when linked with `--distribution` (manifest
-      `distribution = true`, `runtime_options` with a node name) or when `net_kernel:start/1,2` is
-      live; only then are `clause_dist_start:boot/3` and `node/1` roots and every export kept. Other
-      programs refuse `--sname`/`--name` with today's exit 70 message. OTP starts any node with
-      `-sname`: a difference. A trial build gave `record_wildcards` 21 live functions and 0.74 s,
-      `file_io` 359 and 2.1 s; `gen_servers` still kept nearly everything (CLAU12c's reviews).
-    - **Opt out:** the default stays as today; `--no-distribution` (manifest
-      `distribution = false`) drops the roots and the keep-all rule. No difference from OTP by
-      default, no gain without the option.
-    - **Unchanged:** CLAU12c is rejected in `00-reject.md`; only programs that link no kernel
-      Erlang module get precise liveness.
-
 <a id="step-clau12c"></a>
 
 ### CLAU12c. Export liveness for programs that are not nodes
 
-Depends on: [CLAU12b](#step-clau12b), unless it chose "unchanged".
+Depends on: [CLAU12b](11-finished.md), which chose opt in.
 
 - Success criteria
   - [ ] The rule CLAU12b chose: a node keeps every export by an explicit distribution rule, not by
@@ -830,7 +791,7 @@ Depends on: [VAL7](11-finished.md), [CLAU12c](#step-clau12c).
 
 ### VAL15. Record the new gate baselines
 
-Depends on: [VAL7](11-finished.md)–[VAL14](11-finished.md), [CLAU12b](#step-clau12b) and, if selected,
+Depends on: [VAL7](11-finished.md)–[VAL14](11-finished.md), [CLAU12b](11-finished.md) and, if selected,
 [CLAU12c](#step-clau12c).
 
 - Success criteria
