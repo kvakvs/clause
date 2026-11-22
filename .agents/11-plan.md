@@ -166,7 +166,7 @@ Completed steps link to [the plan 11 record](11-finished.md).
 | N. Optional scope decisions | [RT1](#step-rt1), [RT2](#step-rt2), [CLAU3](#step-clau3)–[CLAU5](#step-clau5), [RT3](#step-rt3), [RT9](#step-rt9), [CLAU6](#step-clau6) | open |
 | N2. Parse transforms | [73A](11-finished.md)–[73G](11-finished.md), [CLAU7](#step-clau7) | open: [CLAU7](#step-clau7) |
 | P. Remaining features | [CLAU9](#step-clau9)–[CLAU11](#step-clau11), [RT6](#step-rt6)–[RT8](#step-rt8) | open |
-| T. Test gate cost | [VAL7](11-finished.md), [VAL8](11-finished.md), [CLAU12a](11-finished.md), [CLAU12b](11-finished.md), [CLAU12c](11-finished.md), [VAL9](11-finished.md)–[VAL15](#step-val15) | open |
+| T. Test gate cost | [VAL7](11-finished.md), [VAL8](11-finished.md), [CLAU12a](11-finished.md), [CLAU12b](11-finished.md), [CLAU12c](11-finished.md), [VAL9](11-finished.md)–[VAL14](11-finished.md), [VAL16](11-finished.md), [VAL15](#step-val15) | open |
 | O. Final closure | [RT4](#step-rt4), [RT5](#step-rt5), [CLAU8](#step-clau8) | open |
 
 
@@ -445,6 +445,9 @@ assertion. Repro: `clau -O2 --no-cache --jobs 2 --entry mnesia_schema_ops ...` i
 in 3 runs; `--jobs 1` passed 6 of 6. Warm caches hide it. Seen at `-O0` too (2026-11-22, CLAU12a):
 `clau -O0 --no-cache --jobs 2` on the 82-module batch of golden `record_wildcards` crashed about 1 run in 4
 (0xC0000005, once 0x80000003 on `gen_servers`), so golden cases, which compile with `--jobs 2`, can fail on it.
+Seen again during VAL16 (2026-11-22): three cold `--project` builds of `linking_runtime_options*` under load, and
+golden `inet_res_queries` `-O2` project alone (84 modules, `--jobs 2`); no golden compile crashed in either full
+gate of that day.
 
 - Success criteria
   - [ ] The race found (`-DCLAUSE_OPTIMIZED_COMPILER=OFF`, several jobs) and fixed; 20 cold `-O2` builds with
@@ -748,7 +751,7 @@ time in `.state/runs.md`.
 ### VAL15. Record the new gate baselines
 
 Depends on: [VAL7](11-finished.md)–[VAL14](11-finished.md), [CLAU12b](11-finished.md) and, if selected,
-[CLAU12c](11-finished.md).
+[CLAU12c](11-finished.md), [VAL16](11-finished.md).
 
 - Success criteria
   - [ ] Fresh fast and full gates timed at `-j 12`, with the 20 slowest tests of each, recorded in

@@ -200,6 +200,6 @@
     "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
   },
   "inputs": {
-    "mnesia_two_phase.erl": "04ff5f9726d070c1fd93a7556368c1ed8e4cf8075e13ec3e2f73d5e681466061"
+    "mnesia_two_phase.erl": "42f54c3051557f9b9ae054cc862058bf8dc2931e1e2760e080e3d6be66adbb1a"
   }
 }

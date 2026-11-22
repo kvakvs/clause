@@ -18,6 +18,6 @@
     "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
   },
   "inputs": {
-    "inet_res_queries.erl": "b4a68ea211e928bd80aab39d19c7ae1202aef846eb5044fbe4b07c7fad426cbf"
+    "inet_res_queries.erl": "5e730c94dacb0d65d44224fe0ed5daefdf03f7b82a71f349ca4c654756cc94b7"
   }
 }

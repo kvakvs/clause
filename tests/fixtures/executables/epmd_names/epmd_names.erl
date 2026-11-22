@@ -49,8 +49,12 @@ node_b() ->
 
 %% erl_epmd's and net_adm's questions while alpha and beta are registered.
 clients() ->
-    show("names", [erl_epmd:names(), erl_epmd:names("localhost"), erl_epmd:names({127, 0, 0, 1})]),
-    show("net_adm", [net_adm:names(), net_adm:names(localhost)]),
+    [Names, NetAdm] = parallel([
+        fun() -> [erl_epmd:names(), erl_epmd:names("localhost"), erl_epmd:names({127, 0, 0, 1})] end,
+        fun() -> [net_adm:names(), net_adm:names(localhost)] end
+    ]),
+    show("names", Names),
+    show("net_adm", NetAdm),
     show("no host", erl_epmd:names("nohost.invalid")),
     show("port_please", [
         erl_epmd:port_please(alpha, localhost),
@@ -73,8 +77,12 @@ raw_requests() ->
     show("delta", first(Delta)),
     Epsilon = alive("epsilon", 40006, $M, 7, 5, <<>>),
     show("epsilon", first(Epsilon)),
-    show("alpha twice", reply(alive("alpha", 40007, $M, 6, 5, <<>>))),
-    show("delta twice", reply(alive("delta", 40007, $M, 5, 5, <<>>))),
+    [AlphaTwice, DeltaTwice] = parallel([
+        fun() -> reply(alive("alpha", 40007, $M, 6, 5, <<>>)) end,
+        fun() -> reply(alive("delta", 40007, $M, 5, 5, <<>>)) end
+    ]),
+    show("alpha twice", AlphaTwice),
+    show("delta twice", DeltaTwice),
     show("no name", reply(alive("", 40008, $M, 6, 5, <<>>))),
     show("short alive", reply(request(packet(<<120, 1, 2>>)))),
     show("long name", reply(request(packet(<<120, 40009:16, $M, 0, 6:16, 5:16, 10:16, "ab", 0:16>>)))),
@@ -112,7 +120,10 @@ relaxed() ->
     show("names", erl_epmd:names(localhost)),
     show("kill", reply(request(packet(<<107>>)))),
     wait_names({error, address}),
-    show("after kill", [erl_epmd:port_please(alpha, localhost), erl_epmd:names(localhost)]),
+    show(
+        "after kill",
+        parallel([fun() -> erl_epmd:port_please(alpha, localhost) end, fun() -> erl_epmd:names(localhost) end])
+    ),
     ok = erl_epmd:stop(),
     show(
         "stopped",
@@ -151,6 +162,22 @@ wait_registered(Wanted) ->
     end).
 
 show(Label, Value) -> io:format("~s: ~tp~n", [Label, Value]).
+
+%% The results of Funs, run at once: a refused connection takes 2 s on Windows, and an open one waits in reply/1.
+parallel(Funs) ->
+    Self = self(),
+    Refs = [spawn_result(Self, Fun) || Fun <- Funs],
+    [
+        receive
+            {Ref, Result} -> Result
+        end
+     || Ref <- Refs
+    ].
+
+spawn_result(Self, Fun) ->
+    Ref = make_ref(),
+    spawn(fun() -> Self ! {Ref, Fun()} end),
+    Ref.
 
 catch_exit(Fun) ->
     try Fun() of

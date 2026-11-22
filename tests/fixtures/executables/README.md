@@ -67,6 +67,26 @@ on/off × positional `--entry … -o` and project manifest `entry`/`output`; fas
 mode: O0 positional and O2 project, so inferred proofs run in fast mode too), runs every `runs[]` entry and prints a
 unified stdout diff, exit-status and stderr-pattern mismatches.
 
+A heavy case (`full_only`, or in the smoke set: CTest passes `--heavy`) links
+each of the four policies once in full mode, the drivers alternating: O0
+positional, O0-off project, O2 project, O2-off positional. Its time is the cold
+compile of 80 to 200 library modules per combination, and both drivers compile
+the same modules with the same options (same liveness and stage times), so the
+second driver of a policy repeated the compile; light cases keep all eight
+combinations. A case compiles two combinations at once, with two code
+generation threads each, and runs up to four at once.
+
+Keep a case's run short (plan 11 step VAL16): an iteration count is just large
+enough to cross the threshold it tests, and the comment names the threshold. A
+program waits for the event it needs (a message, a monitor, a registered name,
+a poll every 10–20 ms with a generous limit), not for a fixed sleep; a fixed
+wait stays only where a timeout is under test or where nothing must happen,
+with a margin that holds on a loaded machine. Calls that must time out block
+the callee until the caller has timed out instead of racing a sleep. Refused
+connections cost 2 s each on Windows: run them in parallel or start them early.
+`CLAUSE_TEST_COMPILE_TIMES=1` with `ctest -V` shows each run's seconds and each
+policy's compile time.
+
 In fast mode both drivers share a
 [build directory](../../../docs/projects.md#build-caches) beside the work
 directory (`<work>-cache`), which the runner never deletes: a

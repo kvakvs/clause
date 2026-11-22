@@ -8,7 +8,7 @@
 %% travel, so either node may be an OTP node.
 -module(mnesia_disc_masters).
 -export([main/1]).
--export([start/0, stop/0, info/1, masters/0, files/0, finish/0]).
+-export([start/0, start/1, stop/0, info/1, masters/0, files/0, finish/0]).
 
 -define(TABLES, [td, tm, tr, to, tx]).
 -define(COPIES, [td, tn, tp, tq, tu, tr]).
@@ -84,7 +84,7 @@ masters_and_majority(A, B) ->
     ]),
     show("a_stops", stop()),
     show("b_stops_last", rpc:call(B, ?MODULE, stop, [])),
-    show("a_starts_alone", start()),
+    show("a_starts_alone", start([td, tm])),
     show("tables_with_a_alone", info({tables, ?TABLES})),
     show("forced", [mnesia:force_load_table(td), mnesia:force_load_table(tm)]),
     show("tables_forced", info({tables, ?TABLES})),
@@ -106,7 +106,7 @@ masters_and_majority(A, B) ->
 
 copies(A, B) ->
     % b stopped last: it loads its disc replicas and waits for tx, which a holds on disc; a then loads from b.
-    show("b_starts_first", rpc:call(B, ?MODULE, start, [])),
+    show("b_starts_first", rpc:call(B, ?MODULE, start, [[tx]])),
     show("a_starts_after", start()),
     % A majority table's lock would refuse b leaving the schema while it is down.
     show("no_majority", [mnesia:change_table_majority(T, false) || T <- [td, tm]]),
@@ -154,13 +154,24 @@ copies(A, B) ->
     show("both_stop_again", [stop(), rpc:call(B, ?MODULE, stop, [])]),
     show("files_at_end", [{N, file_names(Files)} || {N, Files} <- both(B, files, [])]).
 
-%% mnesia started; then whether this node's tables loaded within a moment, or which did not.
-start() ->
+start() -> start([]).
+
+%% mnesia started; then whether this node's tables loaded, those of Waiting, which wait for another node, within a
+%% moment after the others, or which did not.
+start(Waiting) ->
     Started = mnesia:start(),
     Local = mnesia:system_info(local_tables),
-    case mnesia:wait_for_tables(Local, 2000) of
-        {timeout, Tabs} -> {Started, {timeout, lists:sort(Tabs)}};
-        Waited -> {Started, Waited}
+    case mnesia:wait_for_tables(Local -- Waiting, 10000) of
+        ok -> {Started, waited(Waiting)};
+        Other -> {Started, Other}
+    end.
+
+waited([]) ->
+    ok;
+waited(Waiting) ->
+    case mnesia:wait_for_tables(Waiting, 300) of
+        {timeout, Tabs} -> {timeout, lists:sort(Tabs)};
+        Waited -> Waited
     end.
 
 stop() -> mnesia:stop().

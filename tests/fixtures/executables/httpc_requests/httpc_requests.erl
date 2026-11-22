@@ -13,14 +13,26 @@ main(_) ->
     ok = logger:add_handler(reports, ?MODULE, #{level => all}),
     services(),
     options(),
+    % A refused connection takes 2 s on Windows, and a cancelled request waits 1.5 s for a message that must not come:
+    % they start now, beside the other requests, and show in their places.
+    ok = ssl:start(),
+    Refused = early(fun() -> httpc:request("http://localhost:1/x") end),
+    AsyncError = early(fun() -> asynchronous_result("http://localhost:1/") end),
+    TlsRefused = early(fun() ->
+        httpc:request(get, {"https://localhost:1/", []}, [{ssl, [{verify, verify_none}]}], [])
+    end),
+    CancelUrl = url(server(listen(), false)),
+    Cancelled = early(fun() -> cancel(CancelUrl) end),
     Port = server(listen(), true),
     requests(url(Port)),
     redirects(url(Port)),
-    failures(url(Port)),
-    asynchronous(url(Port)),
-    cancel(url(server(listen(), false))),
+    failures(url(Port), Refused),
+    asynchronous(url(Port), AsyncError),
+    {Cancel, Message} = result(Cancelled),
+    show(cancel, Cancel),
+    show(cancelled, Message),
     proxy(Port),
-    tls(),
+    tls(TlsRefused),
     io:format("stop ~p~n", [inets:stop()]),
     io:format("after stop ~p~n", [httpc:get_option(max_sessions)]),
     io:format("httpc_requests: ok~n").
@@ -216,7 +228,7 @@ redirects(U) ->
 request(Method, Url) when Method =:= post; Method =:= put -> {Url, [], "a/b", "x"};
 request(_, Url) -> {Url, []}.
 
-failures(U) ->
+failures(U, Refused) ->
     show(dropped, httpc:request(U("/drop"))),
     show(garbage, httpc:request(U("/garbage"))),
     show(invalid_version, httpc:request(U("/invalid_version"))),
@@ -224,7 +236,7 @@ failures(U) ->
     show(no_reason, httpc:request(U("/no_reason"))),
     show(timeout, httpc:request(get, {U("/slow"), []}, [{timeout, 300}], [])),
     show(after_timeout, httpc:request(U("/ok"))),
-    show(refused, httpc:request("http://localhost:1/x")),
+    show(refused, result(Refused)),
     show(no_scheme, httpc:request("foo")),
     show(relative, httpc:request("//localhost/x")),
     show(bad_scheme, httpc:request("ftp://localhost/x")),
@@ -241,7 +253,7 @@ failures(U) ->
     show(method_first, httpc:request(foo, {"foo", [{x, 1}]}, [], [])),
     show(stream_sync, httpc:request(get, {U("/ok"), []}, [], [{stream, self}])).
 
-asynchronous(U) ->
+asynchronous(U, AsyncError) ->
     Self = self(),
     Async = fun(Label, Url, Options) ->
         {ok, Id} = httpc:request(get, {Url, []}, [], [{sync, false} | Options]),
@@ -254,7 +266,7 @@ asynchronous(U) ->
     Async(async, U("/ok"), []),
     Async(async_string, U("/ok"), [{body_format, string}]),
     Async(async_full, U("/404"), [{full_result, false}]),
-    Async(async_error, "http://localhost:1/", []),
+    show(async_error, result(AsyncError)),
     Async(async_fun, U("/ok"), [{receiver, fun(Reply) -> Self ! {got, 'fun', Reply} end}]),
     Async(async_mfa, U("/ok"), [{receiver, {?MODULE, receiver, [Self]}}]),
     {ok, Failing} = httpc:request(get, {U("/ok"), []}, [], [{sync, false}, {receiver, {?MODULE, nothing, []}}]),
@@ -265,6 +277,26 @@ asynchronous(U) ->
 
 receiver(Reply, Pid) -> Pid ! {got, mfa, Reply}.
 
+% The result of an asynchronous request to Url, which this process receives.
+asynchronous_result(Url) ->
+    {ok, Id} = httpc:request(get, {Url, []}, [], [{sync, false}]),
+    receive
+        {http, {Id, Result}} -> Result
+    after 5000 -> no_message
+    end.
+
+% Fun's result, computed by a process of its own while this one goes on; result/1 waits for it.
+early(Fun) ->
+    Self = self(),
+    Ref = make_ref(),
+    spawn(fun() -> Self ! {Ref, Fun()} end),
+    Ref.
+
+result(Ref) ->
+    receive
+        {Ref, Result} -> Result
+    end.
+
 stream(Id) ->
     receive
         {http, {Id, stream_end, Headers}} -> [{stream_end, Headers}];
@@ -272,12 +304,13 @@ stream(Id) ->
     after 5000 -> [no_message]
     end.
 
+% A request cancelled at once: the cancellations' results and whether a message still came for it.
 cancel(U) ->
     {ok, Id} = httpc:request(get, {U("/slow"), []}, [], [{sync, false}]),
-    show(cancel, {httpc:cancel_request(Id), httpc:cancel_request(Id), httpc:cancel_request(make_ref())}),
+    Cancel = {httpc:cancel_request(Id), httpc:cancel_request(Id), httpc:cancel_request(make_ref())},
     receive
-        {http, {Id, _}} -> show(cancelled, message)
-    after 1500 -> show(cancelled, no_message)
+        {http, {Id, _}} -> {Cancel, message}
+    after 1500 -> {Cancel, no_message}
     end.
 
 % Requests through a profile whose proxy is the local server.
@@ -289,7 +322,7 @@ proxy(Port) ->
     show(proxied_http10, httpc:request(get, {"http://example.com/x", []}, [{version, "HTTP/1.0"}], [], proxied)),
     show(not_proxied, httpc:request(get, {"http://localhost:" ++ integer_to_list(Port) ++ "/ok", []}, [], [], proxied)).
 
-tls() ->
+tls(TlsRefused) ->
     ok = ssl:start(),
     AltName = #'Extension'{extnID = ?'id-ce-subjectAltName', extnValue = [{dNSName, "localhost"}], critical = false},
     Config = public_key:pkix_test_data(#{
@@ -312,7 +345,7 @@ tls() ->
     show(tls_verified, httpc:request(get, {Url(), []}, [{ssl, [{cacerts, [Root]}, {log_level, none}]}], [])),
     show(tls_unknown_ca, alert(httpc:request(get, {Url(), []}, [{ssl, [{log_level, none}]}], []))),
     show(tls_default, alert(httpc:request(Url()))),
-    show(tls_refused, httpc:request(get, {"https://localhost:1/", []}, [{ssl, [{verify, verify_none}]}], [])).
+    show(tls_refused, result(TlsRefused)).
 
 % A connection error with the server's port masked, a TLS alert without its description text.
 alert({error, {failed_connect, [{to_address, {Host, _}}, {inet, Family, {tls_alert, {Alert, _}}}]}}) ->

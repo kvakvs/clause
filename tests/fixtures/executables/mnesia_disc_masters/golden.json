@@ -108,6 +108,6 @@
     "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
   },
   "inputs": {
-    "mnesia_disc_masters.erl": "f3326a52a4af1fcbf0291f91803c118048d448537cfc7c856356a2122819bd08"
+    "mnesia_disc_masters.erl": "77bb3c9b0c90855d9d62a507acf05f423b89ca8baa13918a60eabc46829c6921"
   }
 }

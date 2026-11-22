@@ -118,16 +118,17 @@ prefixes() ->
             end,
         {R, get(seen)}
     end),
-    show("prefix strings", fun() -> length(lists:append(strings(-50000, 50000, []))) end).
+    show("prefix strings", fun() -> length(lists:append(strings(-5000, 5000, []))) end).
 
 strings(N, Last, Acc) when N > Last -> Acc;
 strings(N, Last, Acc) ->
     strings(N + 1, Last, [integer_to_list(N * 31) ++ "-" ++ atom_to_list(item) | Acc]).
 
-%% Enough conversions to fill heap blocks, so some take the builtin when a block has no room.
+%% Enough conversions to fill heap blocks many times, so some take the builtin when a block has no room; the values
+%% pass the 32-bit small-integer limit 2^27.
 loops() ->
-    show("round trip", fun() -> round_trip(-100000, 100000, 0) end),
-    show("lengths", fun() -> lengths(1, 200000, 0) end).
+    show("round trip", fun() -> round_trip(-20000, 20000, 0) end),
+    show("lengths", fun() -> lengths(1, 20000, 0) end).
 
 round_trip(N, Last, Acc) when N > Last -> Acc;
 round_trip(N, Last, Acc) ->

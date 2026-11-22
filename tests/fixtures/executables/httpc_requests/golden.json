@@ -18,6 +18,6 @@
     "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
   },
   "inputs": {
-    "httpc_requests.erl": "cc5477d6182398d197c7ad43fa5411a1f757fdf1f45f3743a203eb1b57f6eab4"
+    "httpc_requests.erl": "75386e737bb5b32211e92ae3b7e7f4f214b8347b252df0574ed87e873d976c84"
   }
 }

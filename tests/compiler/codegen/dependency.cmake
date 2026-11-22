@@ -80,11 +80,8 @@ execute_process(COMMAND "${CMAKE_COMMAND}" -E env "CXXFLAGS=" "${CMAKE_COMMAND}"
 if(NOT result EQUAL 0 OR "${output}${error}" MATCHES "LLVM .*global SDK search")
     message(FATAL_ERROR "Runtime-only configuration depended on LLVM: ${output}\n${error}")
 endif()
-execute_process(COMMAND "${CMAKE_COMMAND}" --build "${TEST_DIR}/runtime" --config "${HOST_CONFIG}"
-    RESULT_VARIABLE result OUTPUT_VARIABLE output ERROR_VARIABLE error)
-if(NOT result EQUAL 0)
-    message(FATAL_ERROR "Runtime-only build failed: ${output}\n${error}")
-endif()
+# The configuration alone shows the independence from LLVM: building it (minutes of the whole runtime) is
+# runtime_generated_link's job, the one test that rebuilds the runtime (plan 11 step VAL16).
 file(GLOB_RECURSE downloaded "${TEST_DIR}/*-populate*" "${TEST_DIR}/_deps/*")
 if(downloaded)
     message(FATAL_ERROR "Dependency discovery created download/bootstrap artifacts: ${downloaded}")

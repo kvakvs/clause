@@ -17,7 +17,9 @@ id(X) -> X.
 
 show(Label, Value) -> io:format("~p: ~w~n", [Label, Value]).
 
--define(COUNT, 100000).
+%% Objects of a large table: a full slice walks about 16000, so each operation takes at least three portions (with
+%% 20000 the pair missed a quarter of the operations); OTP's ets:delete/1 traps from about 10000.
+-define(COUNT, 50000).
 
 filled(Type) ->
     T = ets:new(t, [Type, public]),

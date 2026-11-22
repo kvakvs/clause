@@ -199,6 +199,6 @@
     "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
   },
   "inputs": {
-    "dist_connect.erl": "0abf69dc40bd04474dd09acf3fb0e80a68ea90aaf2e55b88ae409e63f66433c6"
+    "dist_connect.erl": "b031cac90d6575e27529981613e3526a162a84ae8e3403b808266571d28a9220"
   }
 }

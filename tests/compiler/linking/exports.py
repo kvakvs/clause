@@ -132,9 +132,11 @@ print("exports: unreachable code is left out before inference")
 
 
 def golden_run(case):
-    """Link and run one case with --keep-exports against its golden; returns (case, ok, output)."""
+    """Link and run one case with --keep-exports against its golden; returns (case, ok, output). Each policy once
+    (--heavy): both drivers hand the same modules to the same compile, and keeping exports changes what is compiled,
+    not how a driver gets there (plan 11 step VAL16)."""
     result = subprocess.run([sys.executable, str(runner), tool, str(work / "runs" / case.name), str(case),
-                             f"--suffix={suffix}", "--target-option=--keep-exports"],
+                             f"--suffix={suffix}", "--target-option=--keep-exports", "--heavy"],
                             capture_output=True, text=True, timeout=900)
     return case.name, result.returncode == 0, result.stdout + result.stderr
 

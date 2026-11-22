@@ -7,6 +7,7 @@
 %% travel, so either node may be an OTP node.
 -module(mnesia_replicas).
 -export([main/1]).
+-export([merged/0]).
 -export([start/1, info/1, digest/1, restart/1, write_one/1, finish/0]).
 
 main(["a"]) ->
@@ -17,7 +18,7 @@ main(["a"]) ->
     ok = start([ta, tl, tc, te, tg]),
     ok = rpc:call(B, ?MODULE, start, [[tb, td, tf, th]]),
     show("merge", mnesia:change_config(extra_db_nodes, [B])),
-    timer:sleep(300),
+    ok = wait_merged(B, 250),
     [ok = mnesia:dirty_write({tl, K, lists:duplicate(100, $x)}) || K <- lists:seq(10, 3000)],
     step("a_copies_ta_to_b", B, ta, fun() -> mnesia:add_table_copy(ta, B, ram_copies) end),
     step("a_copies_tb_to_a", B, tb, fun() -> mnesia:add_table_copy(tb, A, ram_copies) end),
@@ -151,6 +152,22 @@ caught(Fun) ->
 finish() ->
     io:format(user, "mnesia_replicas: ok~n", []),
     erlang:halt().
+
+%% Polled until both nodes run mnesia together and read every table, instead of a fixed pause (test run time cut).
+wait_merged(B, N) ->
+    Both = lists:sort([node(), B]),
+    case N =:= 0 orelse [merged(), rpc:call(B, ?MODULE, merged, [])] =:= [{Both, []}, {Both, []}] of
+        true ->
+            ok;
+        false ->
+            timer:sleep(20),
+            wait_merged(B, N - 1)
+    end.
+
+%% The nodes running mnesia with this one and the tables read nowhere here.
+merged() ->
+    Unread = [T || T <- mnesia:system_info(tables), mnesia:table_info(T, where_to_read) =:= nowhere],
+    {lists:sort(mnesia:system_info(running_db_nodes)), Unread}.
 
 show(Label, Value) -> io:format("~s: ~p~n", [Label, Value]).
 

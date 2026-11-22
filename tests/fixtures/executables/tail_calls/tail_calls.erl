@@ -6,6 +6,9 @@
 %% words each, branch/2 frames 41.
 -define(STEPS, 2000000).
 -define(BRANCH_STEPS, 500000).
+%% Loops that catch an exception every other step: far beyond the 4096-byte
+%% stack of the capped runs, which prove that their frames stay one.
+-define(TRY_STEPS, 50000).
 
 %% The first argument selects a loop of tail calls.
 main(["local"]) ->
@@ -18,9 +21,9 @@ main(["branches"]) ->
     show(branch(id(?BRANCH_STEPS), 0));
 main(["self"]) ->
     show(wide(id(?BRANCH_STEPS), 1, 2, 3, 4, 5, 6, 7, [])),
-    show(guarded(id(?BRANCH_STEPS), 0));
+    show(guarded(id(?TRY_STEPS), 0));
 main(["peers"]) ->
-    show(left(id(?BRANCH_STEPS), [], 0)),
+    show(left(id(?TRY_STEPS), [], 0)),
     show(failing_peer(id(1001))),
     show(tick(id(1001), 0)),
     show(tock(id(1001), 0)).

@@ -175,6 +175,6 @@
     "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
   },
   "inputs": {
-    "dist_net_kernel.erl": "d842f1e194d1ff7a32bd6266eb6924d8e10e1bf0073cf918db7b66be67751c8e"
+    "dist_net_kernel.erl": "49bd7b33689e7918b3d62cb17cb88fc8cc875ce4d0ab6b8b5478820054610361"
   }
 }

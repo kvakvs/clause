@@ -8,6 +8,8 @@
 -include_lib("public_key/include/public_key.hrl").
 
 main(_) ->
+    % A refused connection takes 2 s on Windows: the open of a refused port runs beside the rest and shows last.
+    Refused = refused_open(),
     constructors(),
     Port = server(fun answer/1, none),
     opening(Port),
@@ -20,6 +22,7 @@ main(_) ->
     timeouts(Port),
     logged(Port),
     tls(),
+    refused_shown(Refused),
     io:format("eldap_requests: ok~n").
 
 show(Name, Value) ->
@@ -75,8 +78,6 @@ caught(Fun) ->
 %% --- Opening ---
 
 opening(Port) ->
-    Log = fun(Level, Format, Args) -> io:format("log ~p ~ts", [Level, io_lib:format(Format, Args)]) end,
-    Refused = refused_port(),
     show(open_options, [
         eldap:open(["localhost"], [{timeout, 0}]),
         eldap:open(["localhost"], [{port, x}]),
@@ -85,7 +86,6 @@ opening(Port) ->
         eldap:open(["localhost"], [{tcpopts, [binary]}]),
         eldap:open(["localhost"], [{tcpopts, x}])
     ]),
-    show(open_refused, eldap:open(["localhost"], [{port, Refused}, {log, Log}])),
     show(open_none, eldap:open([], [{port, Port}])),
     {ok, H} = eldap:open(["localhost", "localhost"], [{port, Port}, {timeout, 1000}, {log, x}]),
     show(handle, [is_pid(H), lists:member(H, links(self()))]),
@@ -114,6 +114,27 @@ links(Pid) ->
 
 mask_port({ok, [{port, _} | Rest]}) -> {ok, [{port, port} | Rest]};
 mask_port(Other) -> Other.
+
+%% eldap:open/2 of a port nothing listens on, in a process of its own; refused_shown/1 shows its log and result.
+refused_open() ->
+    Self = self(),
+    Ref = make_ref(),
+    spawn(fun() ->
+        Log = fun(Level, Format, Args) ->
+            Self ! {Ref, log, io_lib:format("log ~p ~ts", [Level, io_lib:format(Format, Args)])}
+        end,
+        Self ! {Ref, result, eldap:open(["localhost"], [{port, refused_port()}, {log, Log}])}
+    end),
+    Ref.
+
+refused_shown(Ref) ->
+    receive
+        {Ref, log, Text} ->
+            io:format("~ts", [Text]),
+            refused_shown(Ref);
+        {Ref, result, Result} ->
+            show(open_refused, Result)
+    end.
 
 %% A local port nothing listens on.
 refused_port() ->

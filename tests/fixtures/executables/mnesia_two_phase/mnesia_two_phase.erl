@@ -10,7 +10,7 @@
 -module(mnesia_two_phase).
 -export([main/1]).
 -export([start/1, writes/3, contents/1, info/1, sub/1, events/0, counts/0, ask/2, make_ets/1, upgrade/1]).
--export([suspend/1, resume/0, coordinate/2, looked/0, finish/0, write_one/1]).
+-export([suspend/1, resume/0, coordinate/2, looked/0, finish/0, write_one/1, merged/0, wait_queued/2]).
 
 main(["a"]) ->
     B = connect(),
@@ -56,8 +56,24 @@ connect() ->
     ok = start(ta),
     ok = rpc:call(B, ?MODULE, start, [tb]),
     show("merge", mnesia:change_config(extra_db_nodes, [B])),
-    timer:sleep(300),
+    ok = wait_merged(B, 250),
     B.
+
+%% Polled until both nodes run mnesia together and read every table, instead of a fixed pause (test run time cut).
+wait_merged(B, N) ->
+    Both = lists:sort([node(), B]),
+    case N =:= 0 orelse [merged(), rpc:call(B, ?MODULE, merged, [])] =:= [{Both, []}, {Both, []}] of
+        true ->
+            ok;
+        false ->
+            timer:sleep(20),
+            wait_merged(B, N - 1)
+    end.
+
+%% The nodes running mnesia with this one and the tables read nowhere here.
+merged() ->
+    Unread = [T || T <- mnesia:system_info(tables), mnesia:table_info(T, where_to_read) =:= nowhere],
+    {lists:sort(mnesia:system_info(running_db_nodes)), Unread}.
 
 %% mnesia started with a table of this node only, holding record 0.
 start(Tab) ->
@@ -243,7 +259,8 @@ participant_down(B) ->
     ok = rpc:call(B, ?MODULE, suspend, [mnesia_tm]),
     Before = counts(),
     _ = spawn(fun() ->
-        timer:sleep(500),
+        % b goes down once its suspended transaction manager holds the request for its vote (test run time cut).
+        _ = rpc:call(B, ?MODULE, wait_queued, [1, 500]),
         rpc:cast(B, ?MODULE, finish, [])
     end),
     Result = mnesia:transaction(fun() -> mnesia:write({tr, 200, x, y}) end),

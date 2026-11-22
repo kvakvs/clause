@@ -3,10 +3,12 @@
 %% OTP's answers for a node that is not alive.
 -module(rpcs).
 -export([main/1]).
--export([fail/1, slow/1, echo/1, server/0]).
+-export([fail/1, slow/1, held/1, echo/1, server/0]).
 -compile(nowarn_deprecated_function).
 
 -define(OTHER, 'other@host').
+%% A call that must time out sleeps longer than the program runs, so its result never wins against the timeout.
+-define(NEVER_MS, 60000).
 
 main(_) ->
     rpc_calls(),
@@ -42,6 +44,13 @@ slow(Time) ->
     after Time -> slept
     end.
 
+%% A call that returns once Main tells it to.
+held(Main) ->
+    Main ! {held, self()},
+    receive
+        go -> slept
+    end.
+
 echo(Value) -> Value.
 
 %% A registered process answering rpc:server_call/4 and rpc:multi_server_call/2,3.
@@ -66,7 +75,7 @@ rpc_calls() ->
         rpc:call(node(), ?MODULE, fail, [exit_tuple]),
         strip(rpc:call(node(), no_such_module, f, []))
     ]),
-    show("timeouts", [rpc:call(node(), ?MODULE, slow, [300], 50), rpc:call(node(), ?MODULE, slow, [0], 1000)]),
+    show("timeouts", [rpc:call(node(), ?MODULE, slow, [?NEVER_MS], 50), rpc:call(node(), ?MODULE, slow, [0], 1000)]),
     show("block_call", [
         rpc:block_call(node(), lists, sum, [[1, 2]]),
         rpc:block_call(node(), ?MODULE, fail, [exit]),
@@ -77,7 +86,7 @@ rpc_calls() ->
     show("async", [
         rpc:yield(rpc:async_call(node(), lists, sum, [[4]])),
         rpc:yield(rpc:async_call(?OTHER, lists, sum, [[4]])),
-        rpc:nb_yield(rpc:async_call(node(), ?MODULE, slow, [300]), 10),
+        rpc:nb_yield(rpc:async_call(node(), ?MODULE, slow, [?NEVER_MS]), 10),
         rpc:nb_yield(rpc:async_call(node(), lists, sum, [[5]]), 1000),
         rpc:nb_yield(rpc:async_call(?OTHER, lists, sum, [[5]]), 100),
         strip(element(2, rpc:nb_yield(rpc:async_call(node(), ?MODULE, fail, [error]), 1000)))
@@ -90,7 +99,7 @@ rpc_spread() ->
         rpc:multicall([node(), ?OTHER], lists, sum, [[1, 2]]),
         rpc:multicall(lists, sum, [[3]]),
         rpc:multicall([node()], ?MODULE, fail, [exit]),
-        rpc:multicall([node()], ?MODULE, slow, [300], 50)
+        rpc:multicall([node()], ?MODULE, slow, [?NEVER_MS], 50)
     ]),
     show("parallel", [
         rpc:parallel_eval([{lists, sum, [[1]]}, {?MODULE, echo, [two]}]),
@@ -136,7 +145,7 @@ erpc_calls() ->
         attempt(fun() -> erpc:call(node(), ?MODULE, fail, [throw]) end),
         attempt(fun() -> erpc:call(node(), ?MODULE, fail, [error], 1000) end),
         attempt(fun() -> erpc:call(node(), ?MODULE, fail, [exit], 1000) end),
-        attempt(fun() -> erpc:call(node(), ?MODULE, slow, [300], 50) end),
+        attempt(fun() -> erpc:call(node(), ?MODULE, slow, [?NEVER_MS], 50) end),
         attempt(fun() -> erpc:call(node(), no_such_module, f, []) end),
         attempt(fun() -> erpc:call(node(), not_a_fun) end),
         attempt(fun() -> erpc:call("node", lists, sum, [[1]]) end),
@@ -146,7 +155,7 @@ erpc_calls() ->
         [strip_result(R) || R <- erpc:multicall([node(), ?OTHER, node()], ?MODULE, fail, [error])],
         erpc:multicall([node(), ?OTHER], lists, sum, [[1]]),
         erpc:multicall([node()], fun() -> from_fun end),
-        erpc:multicall([node()], ?MODULE, slow, [300], 50),
+        erpc:multicall([node()], ?MODULE, slow, [?NEVER_MS], 50),
         erpc:multicall([node()], ?MODULE, fail, [throw], #{always_spawn => true}),
         attempt(fun() -> erpc:multicall([node()], "m", f, []) end)
     ]),
@@ -163,17 +172,23 @@ strip_result({Class, Reason}) -> {Class, strip(Reason)}.
 erpc_requests() ->
     R1 = erpc:send_request(node(), lists, sum, [[1, 2]]),
     show("receive_response", erpc:receive_response(R1)),
-    R2 = erpc:send_request(node(), ?MODULE, slow, [100]),
-    show("wait_response", [erpc:wait_response(R2), erpc:wait_response(R2, 1000)]),
+    R2 = erpc:send_request(node(), ?MODULE, held, [self()]),
+    NoResponse = erpc:wait_response(R2),
+    receive
+        {held, Held} -> Held ! go
+    end,
+    show("wait_response", [NoResponse, erpc:wait_response(R2, 1000)]),
     R3 = erpc:send_request(node(), fun() -> checked end),
     Message =
         receive
             {'DOWN', _, process, _, _} = Down -> Down
         end,
-    show("check_response", [erpc:check_response(Message, R3), erpc:check_response(other, R3)]),
+    show("check_response", [
+        erpc:check_response(Message, R3), erpc:check_response(Message, R1), erpc:check_response(other, R3)
+    ]),
     R4 = erpc:send_request(?OTHER, lists, sum, [[1]]),
     show("other_node", attempt(fun() -> erpc:receive_response(R4, 1000) end)),
-    R5 = erpc:send_request(node(), ?MODULE, slow, [300]),
+    R5 = erpc:send_request(node(), ?MODULE, slow, [?NEVER_MS]),
     show("response_timeout", attempt(fun() -> erpc:receive_response(R5, 20) end)),
     C0 = erpc:reqids_new(),
     C1 = erpc:send_request(node(), lists, sum, [[1]], one, C0),
@@ -193,7 +208,7 @@ erpc_requests() ->
         attempt(fun() -> erpc:reqids_to_list(#{a => b}) end),
         attempt(fun() -> erpc:receive_response(not_a_request) end)
     ]),
-    C4 = erpc:send_request(node(), ?MODULE, slow, [300], late, C0),
+    C4 = erpc:send_request(node(), ?MODULE, slow, [?NEVER_MS], late, C0),
     show("collection_timeout", attempt(fun() -> erpc:receive_response(C4, 20, true) end)),
     C5 = erpc:send_request(?OTHER, lists, sum, [[1]], far, C0),
     show("collection_error", attempt(fun() -> erpc:receive_response(C5, 1000, true) end)).
@@ -206,6 +221,22 @@ collect3(C) ->
     0 = erpc:reqids_size(C3),
     {{LA, A}, {LB, B}, {LC, Last}}.
 
+%% The results of Funs, run at once.
+parallel(Funs) ->
+    Self = self(),
+    Refs = [spawn_result(Self, Fun) || Fun <- Funs],
+    [
+        receive
+            {Ref, Result} -> Result
+        end
+     || Ref <- Refs
+    ].
+
+spawn_result(Self, Fun) ->
+    Ref = make_ref(),
+    spawn(fun() -> Self ! {Ref, Fun()} end),
+    Ref.
+
 take_last(C) ->
     receive
         Message ->
@@ -216,13 +247,19 @@ take_last(C) ->
     end.
 
 network() ->
+    %% Each question to the epmd that does not run waits for a refused connection, 2 s on Windows: they go at once.
+    [Names, LocalNames, World] = parallel([
+        fun() -> net_adm:names() end,
+        fun() -> net_adm:names("localhost") end,
+        fun() -> net_adm:world_list([localhost]) end
+    ]),
     show("net_adm", [
         net_adm:ping(?OTHER),
         net_adm:ping(node()),
-        net_adm:names(),
-        net_adm:names("localhost"),
+        Names,
+        LocalNames,
         net_adm:localhost() =:= element(2, inet:gethostname()),
-        net_adm:world_list([localhost]),
+        World,
         net_adm:dns_hostname("no.such.host.invalid")
     ]),
     show("net_kernel", [

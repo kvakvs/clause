@@ -11,7 +11,10 @@ provider; enable_fips_mode/1 switches).
   fips.py CLAU ROOT WORK SUFFIX --real SOURCE  linking_fips_real (full gate): the real provider of SOURCE
 
 The provider checks compile the probe once (about as long as the fast gate allows a test, plan 11 step VAL10), so
-they run in the full gate."""
+they run in the full gate. The real provider's build is kept across runs under a key of its inputs and is built
+again only when they change (kept_openssl.py, plan 11 step VAL16)."""
+import inspect
+import json
 import os
 import re
 from pathlib import Path
@@ -19,12 +22,14 @@ import shutil
 import subprocess
 import sys
 
+import kept_openssl
+
 tool, root, directory, suffix = sys.argv[1:5]
 real = sys.argv[sys.argv.index("--real") + 1] if "--real" in sys.argv[5:] else None
 providers = "--providers" in sys.argv[5:]
 work = Path(directory)
-shutil.rmtree(work, ignore_errors=True)
-work.mkdir(parents=True, exist_ok=True)
+# Everything but the kept provider builds starts afresh.
+kept_providers = kept_openssl.fresh_work(work, "openssl")
 MODULE = "fips.dll" if os.name == "nt" else ("fips.dylib" if sys.platform == "darwin" else "fips.so")
 CONFIG = "[fips_sect]\nactivate = 1\nmodule-mac = 00:11:22\n"
 # Compiles share one build directory: the probe's builds with a provider replay one compile, since clau checks the
@@ -174,11 +179,8 @@ def known_options(source, options):
 
 def build_provider(source):
     """Build the FIPS provider of `source` with enable-fips and write its fipsmodule.cnf (test-only): a directory
-    holding both."""
+    holding both, kept from an earlier run when the tree, the recipe and this build are unchanged."""
     settings = recipe()
-    build, provided = work / "openssl" / "build", work / "openssl" / "provider"
-    build.mkdir(parents=True)
-    provided.mkdir()
     environment = dict(os.environ)
     environment["PATH"] = os.pathsep.join([*filter(None, settings.get("tools", "").split("|")), environment["PATH"]])
     if settings.get("cc"):
@@ -186,6 +188,17 @@ def build_provider(source):
     options = [option for option in known_options(source, settings["options"].split()) if option != "no-module"]
     configure = [shutil.which("perl", path=environment["PATH"]), str(Path(source) / "Configure"),
                  *filter(None, [settings.get("target")]), *options, "enable-fips"]
+    version = (Path(source) / "VERSION.dat").read_text(encoding="utf-8")
+    kept = kept_providers / kept_openssl.key(json.dumps([configure, settings]), version,
+                                             inspect.getsource(build_provider))
+    build, provided = kept / "build", kept / "provider"
+    if (provided / ".complete").exists():
+        print("fips: the provider build kept from an earlier run")
+        return provided
+    for entry in kept_providers.iterdir():
+        kept_openssl.remove(entry)  # Builds of other inputs, or an interrupted one.
+    build.mkdir(parents=True)
+    provided.mkdir()
     make = ([shutil.which("nmake", path=environment["PATH"]), "/nologo"] if os.name == "nt"
             else ["make", f"-j{max(1, (os.cpu_count() or 3) * 2 // 3)}"])
     program = build / "apps" / ("openssl.exe" if os.name == "nt" else "openssl")
@@ -195,6 +208,8 @@ def build_provider(source):
         result = subprocess.run(command, cwd=build, env=environment, capture_output=True, text=True, timeout=3600)
         assert result.returncode == 0, (command, result.stdout[-4000:], result.stderr[-4000:])
     shutil.copy2(built_module, provided / MODULE)
+    (provided / ".complete").write_text(" ".join(configure), encoding="utf-8")
+    kept_openssl.remove(build)  # Only the provider and its settings are used.
     return provided
 
 

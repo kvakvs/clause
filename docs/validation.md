@@ -33,7 +33,8 @@ cmake --build build/debug --target check-quality-all  # whole tree
   the host-OTP `library_freshness` audit, and the slow workflows `linking_lto`,
   `linking_exports`, `linking_compile_cache`, `programs_compile`,
   `transforms_cache`, `printing_source`, and the linking parts split from fast
-  tests below). Full mode (default) runs all driver/policy combinations.
+  tests below). Full mode (default) runs all driver/policy combinations; a
+  heavy golden case links each policy once there (below).
 - Gate rule: a test that takes more than about 10 s alone is `full_only`
   unless it is in the smoke set of golden cases (about one heavy case per area,
   with its time alone, in `tests/compiler/executables/areas.cmake`). Every
@@ -63,9 +64,36 @@ cmake --build build/debug --target check-quality-all  # whole tree
   they start after the rest of the selection finishes and have the processors to
   themselves; a failing dependency does not skip them. They reserve four CTest
   slots instead of two, so half as many of them run at once.
-- The executable golden runner gives each `clau` it starts `--jobs 2`; a case
-  links two policy combinations at once, so it runs within its two CTest slots
-  instead of taking every hardware thread twice.
+- The executable golden runner gives each `clau` it starts `--jobs 2` and
+  compiles two policy combinations of a case at once, in both modes: four
+  threads on the case's two CTest slots, so `-j 12` asks for 24. The runs of up
+  to four combinations overlap. Four compiles at once made the full gate ask
+  for twice the CPU budget: 21 cold `-O2` compiles passed the runner's 300 s
+  limit (plan 11 step VAL16).
+- A heavy golden case (`full_only`, or in the smoke set) links each of the four
+  policies once in full mode, the drivers alternating (O0 positional, O0-off
+  project, O2 project, O2-off positional) instead of each policy with both
+  drivers. Its time is the cold compile of 80 to 200 library modules per
+  combination (83 modules: 23 s at O0, 60 s at O2), and both drivers compile
+  the same modules with the same options, so the second driver repeated the
+  compile. Light cases keep all eight combinations. Measured over all 295
+  cases, run time was about 12% of the golden cases' full-gate time and cold
+  compiles the rest.
+- Run time of long tests (plan 11 step VAL16): 32 golden cases wait for the
+  event they need instead of sleeping, block a callee until the caller's
+  timeout has fired instead of racing a sleep, start refused connections (2 s
+  each on Windows) early or in parallel, and use iteration counts just above
+  the threshold they test; the rules are in
+  [the fixtures README](../tests/fixtures/executables/README.md#runner).
+- The three OpenSSL source builds (`linking_crypto_source`,
+  `linking_crypto_minimum`, `linking_fips_real`; minutes of serial `nmake` each)
+  keep their builds across runs (`tests/compiler/linking/kept_openssl.py`): a
+  test empties its work directory but for the kept build, which is rebuilt when
+  the source tree, the recorded recipe or `compiler/src/linking/openssl.cpp`
+  changes. `linking_crypto_source` still checks on every run that a second
+  build of the same tree reuses the first. `codegen_dependency` configures the
+  runtime-only build without LLVM and leaves building it to
+  `runtime_generated_link`, which builds every runtime target.
 - In fast mode the golden runner keeps each case's
   [build cache](projects.md#build-caches) in `<work>-cache` beside its work
   directory, shared by both drivers: an unchanged case replays its compile and

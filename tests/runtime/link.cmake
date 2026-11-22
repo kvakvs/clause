@@ -26,7 +26,9 @@ execute_process(COMMAND "${CMAKE_COMMAND}" -E env "CXXFLAGS=" "${CMAKE_COMMAND}"
 if(NOT configured STREQUAL "0")
     message(FATAL_ERROR "Consumer configure failed: ${output}${errors}")
 endif()
-execute_process(COMMAND "${CMAKE_COMMAND}" --build "${TEST_DIR}/build" --config "${HOST_CONFIG}" --target linked
+# Every runtime archive and program of the runtime-only build, not only what `linked` needs: codegen_dependency
+# configures a runtime-only build but leaves building it to this test (plan 11 step VAL16).
+execute_process(COMMAND "${CMAKE_COMMAND}" --build "${TEST_DIR}/build" --config "${HOST_CONFIG}"
     RESULT_VARIABLE built OUTPUT_VARIABLE output ERROR_VARIABLE errors)
 if(NOT built STREQUAL "0")
     message(FATAL_ERROR "Matching runtime failed to link: ${output}${errors}")

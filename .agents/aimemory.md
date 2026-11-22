@@ -49,6 +49,20 @@ gotchas and user directions not recorded elsewhere.
   full_only list. Still heavy: nodes (--distribution), programs on gen_server/supervisor/application/logger, and
   cases with their own atom producer beside a library dynamic call (node_code: pre_loaded/0, spawning:
   process_info/2). Time candidates alone with a cold <case>/Debug-cache before moving them.
+- Long tests (VAL16, 2026-11-22, user: review long tests for worth, cut iterations/run time): a golden case's
+  full-gate time is ~88% cold compiles (83 modules: 23 s O0, 60 s O2 at --jobs 2), run time ~12%. Heavy cases
+  (full_only or smoke, CTest passes `--heavy`) link each policy once, drivers alternating; run.py compiles 2
+  combinations at once (4 at once doubled the CPU budget: 21 cold -O2 compiles passed the 300 s limit). Split a
+  case's time with `CLAUSE_TEST_COMPILE_TIMES=1 ctest -V` (seconds per run, compile per policy). Test programs
+  wait for events, not sleeps; must-timeout calls hold the callee until the caller timed out; a refused loopback
+  connect is 2 s on Windows (OTP too): start it early or in parallel. OpenSSL source builds are kept across runs
+  (tests/compiler/linking/kept_openssl.py, stamp = hash of compiler/src/linking/openssl.cpp/.hpp).
+- Product slowness the VAL16 review measured against OTP (Debug runtime; not fixed, tests only cut where the size
+  was arbitrary): process dictionary is a linear search (2000 tuple-key puts 4.9 s); maps:update_with on 30 atom
+  keys 78k calls 1.5 s vs 12 ms; raise+catch 250k 1.1 s; full collection ~55 ms at 1.6M live words; clause_interp
+  ~70 us per call; mnesia:add_table_copy with active checkpoints 7.8 s vs 30 ms on a Clause node; a type bound of
+  300k digits takes 7 s (decimal conversion before the 10000-digit budget check, semantic/types/constants.cpp);
+  runtime_options words are in the whole-batch compile key, so each value recompiles the library.
 - Tidy/Lizard run on the Windows dev host only; other platforms build+test.
 - All ABI symbol/namespace versions collapse to v1 in plan step RT4 (never released).
 - RT5: rename runtime/src/builtins files to builtin_<name>.

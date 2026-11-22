@@ -11,6 +11,8 @@ import shutil
 import struct
 import subprocess
 import sys
+import threading
+import time
 import cases
 import nodes
 
@@ -21,6 +23,10 @@ import matrix  # noqa: E402  (shared fast/full policy selection)
 
 # Policy combinations linked and run at once; each is independent, so a case takes about one combination's time.
 COMBINATION_JOBS = 4
+# Compiles of one case at once. With CLAU_JOBS threads each they take four threads on the case's two CTest slots, as
+# the fast gate's two combinations do; four at once made the full gate ask for twice the CPU budget, and 21 cold -O2
+# compiles passed their time limit (plan step VAL15). The runs of all COMBINATION_JOBS combinations still overlap.
+COMPILE_SLOTS = threading.BoundedSemaphore(2)
 # Code generation threads of each clau run (--jobs): without it every clau takes all hardware threads, and the fast
 # gate's parallel cases (two combinations each) would ask for many times the CPU budget of AGENTS.md.
 CLAU_JOBS = 2
@@ -45,6 +51,7 @@ ESCRIPT = None
 SKIPPED = 77
 # Private hook of executables_selfcheck (plan step VAL8): when set, every compile prints its stage times and each
 # policy's report shows clau's '[time] compile' line, which ends in '(cached)' when the build directory replayed it.
+# Each run's report line then ends with its seconds, which the review of long cases reads (plan step VAL16).
 COMPILE_TIMES = bool(os.environ.get('CLAUSE_TEST_COMPILE_TIMES'))
 
 
@@ -243,7 +250,8 @@ def check_policy(tool, work, case, golden, policy, suffix, target_options=(), wo
     """Links the case under one policy and runs every golden invocation; returns the failure count and the report
     lines, printed by the caller so concurrent combinations do not interleave."""
     name, arguments = command(tool, work, case, golden, policy, target_options, build_dir)
-    result = subprocess.run(arguments, cwd=work, capture_output=True, timeout=300, check=False)
+    with COMPILE_SLOTS:
+        result = subprocess.run(arguments, cwd=work, capture_output=True, timeout=300, check=False)
     if result.returncode != 0:
         return 1, [f'FAIL {case} [{name}]: compiler exited {result.returncode}\n{text(result.stderr)}']
     times = text(result.stderr).splitlines() if COMPILE_TIMES else []
@@ -259,9 +267,11 @@ def check_policy(tool, work, case, golden, policy, suffix, target_options=(), wo
         if skipped(run):
             lines.append(f'skip {case} [{name}] {label(run)}{variant}: needs a host OTP (--escript)')
             continue
+        started = time.monotonic()
         problems = compare(executable, run, work / name, golden)
+        seconds = f' ({time.monotonic() - started:.1f} s)' if COMPILE_TIMES else ''
         status = 'FAIL' if problems else 'ok'
-        lines.append(f'{status} {case} [{name}] {label(run)}{variant}')
+        lines.append(f'{status} {case} [{name}] {label(run)}{variant}{seconds}')
         lines.extend('    ' + problem.replace('\n', '\n    ') for problem in problems)
         failures += bool(problems)
     return failures, lines
@@ -320,6 +330,9 @@ def main():
     parser.add_argument('--suffix', default='', help='host executable suffix appended by the linker')
     parser.add_argument('--lto', action='store_true',
                         help='link only with -O2 --lto, positional and project (plan step 62), instead of the matrix')
+    parser.add_argument('--heavy', action='store_true',
+                        help='a heavy case: the full matrix links each policy once, the drivers alternating '
+                             '(matrix.heavy_combinations, plan step VAL16)')
     parser.add_argument('--target-option', action='append', default=[], dest='target_options', metavar='OPTION',
                         help='one compiler argument for another target, repeatable in order, e.g. '
                              '--target-option=--target-triple --target-option=T (docs/validation.md#other-targets)')
@@ -336,7 +349,8 @@ def main():
     other = 64 if options.word_bits == 32 else 32
     if skipped := [run['args'] for run in golden['runs'] if run.get('word_bits', options.word_bits) == other]:
         print(f'skip {case_dir.name}: {len(skipped)} run(s) hold on {other}-bit targets only: {skipped}')
-    policies = LTO_POLICIES if options.lto else matrix.combinations()
+    policies = (LTO_POLICIES if options.lto else
+                matrix.heavy_combinations() if options.heavy else matrix.combinations())
     build_dir = kept_build_dir(work, options)
     with concurrent.futures.ThreadPoolExecutor(max_workers=min(COMBINATION_JOBS, len(policies))) as pool:
         outcomes = list(pool.map(lambda policy: check_policy(tool, work, case_dir.name, golden, policy, options.suffix,

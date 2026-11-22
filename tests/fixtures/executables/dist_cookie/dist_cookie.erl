@@ -83,16 +83,17 @@ setting() ->
     show("other cookies", [erlang:get_cookie(other@host), erlang:get_cookie(third@host)]),
     show("set this node", erlang:set_cookie(node(), selfc)),
     show("this node's cookies", [erlang:get_cookie(), erlang:get_cookie(node()), erlang:get_cookie(third@host)]),
+    % node_cookie/1,2 ping the node: @localhost fails at once where an unknown host waits for name resolution.
     show("auth functions", [
         auth:set_cookie(viaauth),
         auth:get_cookie(),
         auth:cookie(),
         auth:cookie([c2]),
         erlang:get_cookie(),
-        auth:node_cookie(n@h, nc),
-        auth:node_cookie([n2@h, nc2]),
-        auth:get_cookie(n@h),
-        auth:get_cookie(n2@h)
+        auth:node_cookie(n@localhost, nc),
+        auth:node_cookie([n2@localhost, nc2]),
+        auth:get_cookie(n@localhost),
+        auth:get_cookie(n2@localhost)
     ]),
     show("bad arguments", [
         raised(fun() -> erlang:set_cookie("s") end),

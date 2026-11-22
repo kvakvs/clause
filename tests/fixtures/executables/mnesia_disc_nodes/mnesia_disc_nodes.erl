@@ -60,7 +60,7 @@ main(["a"]) ->
     show("a_stops", stop()),
     show("b_stops_last", rpc:call(B, ?MODULE, stop, [])),
     show("files_after_stop", both(B, files, [])),
-    show("a_starts_alone", start()),
+    show("a_starts_alone", start([td, to, ty])),
     show("tables_with_a_alone", info(tables)),
     show("b_starts_again", rpc:call(B, ?MODULE, start, [])),
     show("a_waits", mnesia:wait_for_tables(?TABLES, 5000)),
@@ -75,13 +75,24 @@ main(["b"]) ->
     after infinity -> ok
     end.
 
-%% mnesia started; then whether this node's tables loaded within a moment, or which did not.
-start() ->
+start() -> start([]).
+
+%% mnesia started; then whether this node's tables loaded, those of Waiting, which wait for another node, within a
+%% moment after the others, or which did not.
+start(Waiting) ->
     Started = mnesia:start(),
     Local = mnesia:system_info(local_tables),
-    case mnesia:wait_for_tables(Local, 2000) of
-        {timeout, Tabs} -> {Started, {timeout, lists:sort(Tabs)}};
-        Waited -> {Started, Waited}
+    case mnesia:wait_for_tables(Local -- Waiting, 10000) of
+        ok -> {Started, waited(Waiting)};
+        Other -> {Started, Other}
+    end.
+
+waited([]) ->
+    ok;
+waited(Waiting) ->
+    case mnesia:wait_for_tables(Waiting, 300) of
+        {timeout, Tabs} -> {timeout, lists:sort(Tabs)};
+        Waited -> Waited
     end.
 
 stop() -> mnesia:stop().

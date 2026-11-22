@@ -79,7 +79,18 @@
       ],
       "stderr": "^$",
       "exit_status": 0,
-      "stdout": "{self,28,500000,15}\n{guarded,750000}\n"
+      "stdout": "{self,28,500000,15}\n{guarded,75000}\n"
+    },
+    {
+      "args": [
+        "--max-stack",
+        "4096",
+        "self"
+      ],
+      "authored": true,
+      "stderr": "^$",
+      "exit_status": 0,
+      "stdout": "{self,28,500000,15}\n{guarded,75000}\n"
     },
     {
       "args": [
@@ -87,7 +98,7 @@
       ],
       "stderr": "^$",
       "exit_status": 0,
-      "stdout": "{left,32,1000000}\n{peer_failed,tail_calls,down,1}\n{tock,1501}\n{tick,1502}\n"
+      "stdout": "{left,32,100000}\n{peer_failed,tail_calls,down,1}\n{tock,1501}\n{tick,1502}\n"
     },
     {
       "args": [
@@ -100,7 +111,7 @@
       "authored": true,
       "stderr": "^$",
       "exit_status": 0,
-      "stdout": "{left,32,1000000}\n{peer_failed,tail_calls,down,1}\n{tock,1501}\n{tick,1502}\n"
+      "stdout": "{left,32,100000}\n{peer_failed,tail_calls,down,1}\n{tock,1501}\n{tick,1502}\n"
     }
   ],
   "oracle_version": [
@@ -112,7 +123,7 @@
     "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
   },
   "inputs": {
-    "tail_calls.erl": "c239f2d7da57b48e0c20f78062f3e32ce2400d1f0a629004042446032fc8ccd1",
+    "tail_calls.erl": "f42215bcdcdcae37a7dbc945771a4126151ab9b87548e901b467989244661f69",
     "tail_peer.erl": "a1b6b247197bbcaffae0c19caf2223ea4d788060f544b6d5d95513d909554cdd"
   }
 }

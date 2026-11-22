@@ -7,18 +7,20 @@ source tree built once into the build cache with --source); refused uses.
 
 The links take a compile each, and linking_crypto_source has always repeated them, so they run there only; the fast
 gate links crypto statically through the golden smoke case crypto_digests (plan 11 step VAL10). Links share a build
-directory, so a batch built again with another OpenSSL replays its compile."""
+directory, so a batch built again with another OpenSSL replays its compile. The source tree's build stays in that
+build directory across runs and is built again only when the tree or clau's recipe changed (kept_openssl.py)."""
 import os
 from pathlib import Path
-import shutil
 import subprocess
 import sys
+
+import kept_openssl
 
 tool, root, directory, suffix = sys.argv[1:5]
 source_build = "--source" in sys.argv[5:]
 work = Path(directory)
-shutil.rmtree(work, ignore_errors=True)
-work.mkdir(parents=True)
+# Everything but the kept OpenSSL builds starts afresh, the compile cache included.
+openssl_builds = kept_openssl.ClauBuilds(root, work)
 BUILD = ["--build-dir", str(work / "build")]
 HASH = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
 
@@ -111,16 +113,20 @@ def check_links(bogus):
 
 
 def check_source_build():
-    """A source tree is configured and built once into the build cache, then reused (minutes)."""
+    """A source tree is configured and built once into the build cache, then reused: minutes when the tree or clau's
+    recipe changed since the kept build, else only the reuse."""
     tree = Path(root) / "thirdparty" / "openssl-4.1.0"
     build = ["dynamic.erl", f"--with-crypto={tree}", *BUILD, "-o", "sourced"]
     clau(build)
     assert output("sourced") == f"{HASH}\ndynamic: ok\n"
-    built = list((work / "build" / "cache" / "openssl").glob("*/install/.complete"))
+    openssl_builds.prune()
+    built = openssl_builds.completed()
     assert len(built) == 1, built
+    stamp = built[0].stat().st_mtime_ns
     clau(build)
-    assert list((work / "build" / "cache" / "openssl").glob("*/install/.complete")) == built
-    print("crypto: --with-crypto=SOURCE builds the tree once")
+    assert openssl_builds.completed() == built and built[0].stat().st_mtime_ns == stamp, "the tree was built again"
+    print("crypto: --with-crypto=SOURCE builds the tree once"
+          + ("" if openssl_builds.built_now() else " (kept: neither the tree nor clau's recipe changed)"))
 
 
 check_refusals()

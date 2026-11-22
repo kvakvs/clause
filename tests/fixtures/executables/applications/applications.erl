@@ -36,11 +36,29 @@ attempt(Fun) ->
         Class:Reason -> {Class, Reason}
     end.
 
-%% What tapp's callbacks reported, in order.
-reports() ->
+%% What tapp's callbacks reported, in order: Count reports, each awaited for as long as a loaded run may need, then
+%% any that arrive within 20 ms more (none should; a later one shows in the next reports).
+reports(Count) ->
     receive
-        {tapp, What} -> [What | reports()]
-    after 100 -> []
+        {tapp, What} -> [What | reports(Count - 1)]
+    after wait(Count) -> []
+    end.
+
+wait(Count) when Count > 0 -> 5000;
+wait(_) -> 20.
+
+%% Whether Name still runs once it has ended, polled for up to 5 s.
+running_after_end(Name) -> running_after_end(Name, 500).
+
+running_after_end(Name, Polls) ->
+    Running = lists:member(Name, [N || {N, _, _} <- application:which_applications()]),
+    case Running andalso Polls > 0 of
+        true ->
+            receive
+            after 10 -> running_after_end(Name, Polls - 1)
+            end;
+        false ->
+            Running
     end.
 
 keys(Name) ->
@@ -114,7 +132,7 @@ environment() ->
 
 starting() ->
     show("start", application:start(tapp)),
-    show("callbacks", reports()),
+    show("callbacks", reports(3)),
     show("running", lists:member(tapp, [Name || {Name, _, _} <- application:which_applications()])),
     show("start_again", application:start(tapp)),
     show("ensure_started", application:ensure_started(tapp)),
@@ -135,11 +153,11 @@ in_application() ->
 
 stopping() ->
     show("stop", application:stop(tapp)),
-    show("stop_callbacks", reports()),
+    show("stop_callbacks", reports(2)),
     show("after_stop", [whereis(tapp_sup), whereis(tapp_worker), application:get_supervisor(tapp)]),
     show("stop_again", application:stop(tapp)),
     show("unload_running", [application:start(tapp), application:unload(tapp), application:stop(tapp)]),
-    _ = reports(),
+    _ = reports(5),
     show("unloaded", application:unload(tapp)).
 
 dependencies() ->
@@ -186,24 +204,18 @@ permissions() ->
     show("permit", [application:permit(gated, true), is_pid(whereis(tapp_sup))]),
     show("unpermit", [application:permit(gated, false), whereis(tapp_sup)]),
     show("permit_errors", [application:permit(nobody, true), attempt(fun() -> application:permit(gated, perhaps) end)]),
-    _ = reports(),
+    _ = reports(3),
     ok = application:permit(gated, true),
     _ = application:stop(gated),
-    _ = reports().
+    _ = reports(3).
 
 transient() ->
     ok = application:load({application, quits, [{mod, {tapp, {transient_exit, normal}}}]}),
     show("transient_start", application:start(quits, transient)),
-    receive
-    after 300 -> ok
-    end,
-    show("transient_exited", lists:member(quits, [Name || {Name, _, _} <- application:which_applications()])),
+    show("transient_exited", running_after_end(quits)),
     ok = application:load({application, temp, [{mod, {tapp, {transient_exit, oops}}}]}),
     show("temporary_start", application:start(temp)),
-    receive
-    after 300 -> ok
-    end,
-    show("temporary_exited", lists:member(temp, [Name || {Name, _, _} <- application:which_applications()])).
+    show("temporary_exited", running_after_end(temp)).
 
 errors() ->
     show("errors", [

@@ -125,21 +125,21 @@ one_for_one() ->
     {ok, Sup} = supervisor:start_link(
         {local, sup_one}, ?MODULE, {#{intensity => 10}, [child(w1), child(w2)]}
     ),
-    show(started, collect()),
+    show(started, collect(2)),
     show(children, children(sup_one)),
     show(counts, supervisor:count_children(sup_one)),
     w1 ! {exit, crashed},
-    show(restart, collect()),
+    show(restart, collect(2)),
     w2 ! {exit, normal},
-    show(permanent_normal, collect()),
+    show(permanent_normal, collect(2)),
     show(children_after, children(Sup)),
     ok = supervisor:stop(Sup),
-    show(stopped, collect()),
+    show(stopped, collect(2)),
     show(sup_exit, receive_exit(Sup)).
 
 management() ->
     {ok, Sup} = supervisor:start_link(?MODULE, {#{}, [child(m1)]}),
-    show(started, collect()),
+    show(started, collect(1)),
     show(start_child, [
         ok_pid(supervisor:start_child(Sup, child(m2, transient))),
         supervisor:start_child(
@@ -154,7 +154,7 @@ management() ->
         supervisor:start_child(Sup, #{id => bad}),
         supervisor:start_child(Sup, #{id => b, start => {?MODULE, start_bad, []}})
     ]),
-    show(started_children, collect()),
+    show(started_children, collect(2)),
     show(which_children, children(Sup)),
     show(which_child, [
         child_info(supervisor:which_child(Sup, m1)),
@@ -166,12 +166,12 @@ management() ->
     show(get_childspec, [lists:sort(maps:to_list(Spec)), supervisor:get_childspec(Sup, nobody)]),
     show(counts, supervisor:count_children(Sup)),
     show(terminate_child, [
-        supervisor:terminate_child(Sup, m2), collect(), supervisor:terminate_child(Sup, nobody)
+        supervisor:terminate_child(Sup, m2), collect(1), supervisor:terminate_child(Sup, nobody)
     ]),
     show(after_terminate, children(Sup)),
     show(restart_child, [
         ok_pid(supervisor:restart_child(Sup, m2)),
-        collect(),
+        collect(1),
         supervisor:restart_child(Sup, m2),
         supervisor:restart_child(Sup, nobody),
         supervisor:restart_child(Sup, j)
@@ -182,48 +182,48 @@ management() ->
         supervisor:delete_child(Sup, nobody)
     ]),
     ok = supervisor:terminate_child(Sup, m3),
-    show(temporary_gone, [collect(), supervisor:which_child(Sup, m3)]),
+    show(temporary_gone, [collect(1), supervisor:which_child(Sup, m3)]),
     show(callback_module, supervisor:get_callback_module(Sup)),
     show(sys_state_module, element(1, sys:get_state(Sup))),
     ok = supervisor:stop(Sup, shutdown, 1000),
-    show(stopped, collect()),
+    show(stopped, collect(2)),
     show(sup_exit, receive_exit(Sup)).
 
 one_for_all() ->
     {ok, Sup} = supervisor:start_link(
         ?MODULE, {#{strategy => one_for_all, intensity => 5}, [child(a1), child(a2), child(a3)]}
     ),
-    show(started, collect()),
+    show(started, collect(3)),
     a2 ! {exit, boom},
-    show(restart_all, collect()),
+    show(restart_all, collect(6)),
     ok = supervisor:stop(Sup),
-    show(stopped, collect()),
+    show(stopped, collect(3)),
     receive_exit(Sup).
 
 rest_for_one() ->
     {ok, Sup} = supervisor:start_link(
         ?MODULE, {#{strategy => rest_for_one, intensity => 5}, [child(r1), child(r2), child(r3)]}
     ),
-    show(started, collect()),
+    show(started, collect(3)),
     r2 ! {exit, boom},
-    show(restart_rest, collect()),
+    show(restart_rest, collect(4)),
     show(order, [Id || {Id, _, _, _} <- supervisor:which_children(Sup)]),
     ok = supervisor:stop(Sup),
-    show(stopped, collect()),
+    show(stopped, collect(3)),
     receive_exit(Sup).
 
 intensity() ->
     {ok, Sup} = supervisor:start_link(?MODULE, {#{intensity => 1, period => 10}, [child(i1)]}),
-    show(started, collect()),
+    show(started, collect(1)),
     i1 ! {exit, once},
-    show(first, collect()),
+    show(first, collect(2)),
     i1 ! {exit, twice},
-    show(second, collect()),
+    show(second, collect(1)),
     show(gave_up, receive_exit(Sup)),
     {ok, Zero} = supervisor:start_link(?MODULE, {#{intensity => 0}, [child(z1)]}),
-    show(zero_started, collect()),
+    show(zero_started, collect(1)),
     z1 ! {exit, at_once},
-    show(zero, [collect(), receive_exit(Zero)]),
+    show(zero, [collect(1), receive_exit(Zero)]),
     flush().
 
 simple() ->
@@ -232,7 +232,7 @@ simple() ->
     show(no_children, supervisor:which_children(Sup)),
     {ok, P1} = supervisor:start_child(Sup, [s1, [trap]]),
     {ok, P2} = supervisor:start_child(Sup, [s2, [trap]]),
-    show(started, collect()),
+    show(started, collect(2)),
     show(children, [{Id, is_pid(P), T, M} || {Id, P, T, M} <- supervisor:which_children(Sup)]),
     show(counts, supervisor:count_children(Sup)),
     show(simple_errors, [
@@ -244,13 +244,13 @@ simple() ->
         supervisor:start_child(Sup, [s9]) =/= x
     ]),
     s1 ! {exit, abnormal},
-    show(transient_restart, collect()),
+    show(transient_restart, collect(2)),
     s2 ! {exit, normal},
-    show(transient_normal, [collect(), length(supervisor:which_children(Sup))]),
+    show(transient_normal, [collect(1), length(supervisor:which_children(Sup))]),
     show(terminate_by_pid, [
         supervisor:terminate_child(Sup, P2), supervisor:terminate_child(Sup, whereis(s1))
     ]),
-    show(terminated, collect()),
+    show(terminated, collect(1)),
     show(empty, supervisor:which_children(Sup)),
     ok = supervisor:stop(Sup),
     receive_exit(Sup),
@@ -268,17 +268,17 @@ significant() ->
     {ok, Any} = supervisor:start_link(
         ?MODULE, {#{auto_shutdown => any_significant}, [Child(g1), child(g2)]}
     ),
-    show(any_started, collect()),
+    show(any_started, collect(2)),
     g1 ! {exit, normal},
-    show(any_shutdown, [collect(), receive_exit(Any)]),
+    show(any_shutdown, [collect(2), receive_exit(Any)]),
     {ok, All} = supervisor:start_link(
         ?MODULE, {#{auto_shutdown => all_significant}, [Child(h1), Child(h2)]}
     ),
-    show(all_started, collect()),
+    show(all_started, collect(2)),
     h1 ! {exit, normal},
-    show(all_one, [collect(), is_process_alive(All)]),
+    show(all_one, [collect(1), is_process_alive(All)]),
     h2 ! {exit, shutdown},
-    show(all_shutdown, [collect(), receive_exit(All)]).
+    show(all_shutdown, [collect(1), receive_exit(All)]).
 
 shutdowns() ->
     Specs = [
@@ -292,26 +292,26 @@ shutdowns() ->
         }
     ],
     {ok, Sup} = supervisor:start_link(?MODULE, {#{}, Specs}),
-    show(started, collect()),
+    show(started, collect(3)),
     show(types, [{Id, Type} || {Id, _, Type, _} <- supervisor:which_children(Sup)]),
     ok = supervisor:stop(Sup),
-    show(stopped, collect()),
+    show(stopped, collect(1)),
     show(sup_exit, receive_exit(Sup)),
     flush().
 
 %% supervisor_bridge: the module's init/1 starts the bridged process, terminate/2 stops it.
 bridge() ->
     {ok, Bridge} = supervisor_bridge:start_link({local, sup_bridge}, sup_bridged, started),
-    show(bridge_started, collect()),
+    show(bridge_started, collect(1)),
     show(bridge_children, supervisor:which_children(sup_bridge)),
     show(bridge_other_call, gen_server:call(sup_bridge, other)),
     ok = gen_server:stop(Bridge, shutdown, 1000),
-    show(bridge_stopped, collect()),
+    show(bridge_stopped, collect(1)),
     show(bridge_exit, receive_exit(Bridge)),
     {ok, Bridge2} = supervisor_bridge:start_link(sup_bridged, started),
-    show(bridge2_started, collect()),
+    show(bridge2_started, collect(1)),
     bridged ! {exit, gone},
-    show(bridged_ended, [collect(), receive_exit(Bridge2)]),
+    show(bridged_ended, [collect(1), receive_exit(Bridge2)]),
     show(bridge_results, [
         supervisor_bridge:start_link(sup_bridged, ignore),
         supervisor_bridge:start_link(sup_bridged, {error, why})
@@ -335,16 +335,20 @@ ok_pid(Other) -> Other.
 already({error, {already_started, Pid}}) -> {error, {already_started, is_pid(Pid)}};
 already(Other) -> Other.
 
-%% The worker reports that arrive until things settle, sorted since several workers act at once.
-collect() -> lists:sort(reports()).
+%% The worker reports, sorted since several workers act at once: Count of them, each awaited for as long as a loaded
+%% run may need, then any that arrive within 20 ms more (none should; a later one shows in the next collect).
+collect(Count) -> lists:sort(reports(Count)).
 
-reports() ->
+reports(Count) ->
     receive
-        {started, Id} -> [{started, Id} | reports()];
-        {ended, Id, Reason} -> [{ended, Id, Reason} | reports()];
-        {bridge_terminate, Reason} -> [{bridge_terminate, Reason} | reports()]
-    after 200 -> []
+        {started, Id} -> [{started, Id} | reports(Count - 1)];
+        {ended, Id, Reason} -> [{ended, Id, Reason} | reports(Count - 1)];
+        {bridge_terminate, Reason} -> [{bridge_terminate, Reason} | reports(Count - 1)]
+    after wait(Count) -> []
     end.
+
+wait(Count) when Count > 0 -> 5000;
+wait(_) -> 20.
 
 receive_exit(Pid) ->
     receive

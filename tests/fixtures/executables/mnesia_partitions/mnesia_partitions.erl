@@ -8,7 +8,8 @@
 %% OTP node.
 -module(mnesia_partitions).
 -export([main/1]).
--export([start/0, stop/0, write/2, arm/2, armed/0, info/0, heard/0, forget/0, wait_event/1, masters/0, files/0]).
+-export([start/0, start/1, stop/0, write/2, arm/2, armed/0, info/0, heard/0, forget/0, wait_event/1, masters/0, files/0]).
+-export([settled/0]).
 -export([finish/0]).
 
 -define(TABLES, [td, tr, to]).
@@ -63,7 +64,7 @@ partition(B, Tag) ->
     true = erlang:disconnect_node(B),
     show("down", wait_event({mnesia_down, B})),
     show("write_alone", write(2, a)),
-    timer:sleep(700),
+    wait_registered(wrote_alone(Tag)),
     pong = net_adm:ping(B),
     show("a_reports", wait_event({inconsistent_database, running_partitioned_network, B})),
     show("b_reports", rpc:call(B, ?MODULE, wait_event, [{inconsistent_database, running_partitioned_network, node()}])),
@@ -84,7 +85,7 @@ a_masters_partition(A, B) ->
     true = erlang:disconnect_node(B),
     show("down", wait_event({mnesia_down, B})),
     show("a_masters", mnesia:set_master_nodes([A])),
-    timer:sleep(700),
+    wait_registered(wrote_alone(b3)),
     pong = net_adm:ping(B),
     show("a_reports", wait_event({inconsistent_database, running_partitioned_network, B})),
     timer:sleep(500),
@@ -102,14 +103,14 @@ orphans(A, B) ->
     show("a_stops", stop()),
     show("b_writes", rpc:call(B, ?MODULE, write, [6, b])),
     show("b_stops", rpc:call(B, ?MODULE, stop, [])),
-    show("a_starts_alone", start()),
+    show("a_starts_alone", start(?ORPHANS -- [tr])),
     show("a_waits", info()),
     show("b_starts", rpc:call(B, ?MODULE, start, [])),
     adopted(B, "adopted_by_a"),
     % b waits for its master node a for every table; a, starting last, adopts them.
     show("a_stops_again", stop()),
     show("b_tx_master", rpc:call(B, mnesia, set_master_nodes, [tx, [A]])),
-    show("b_starts_again", [rpc:call(B, ?MODULE, stop, []), rpc:call(B, ?MODULE, start, [])]),
+    show("b_starts_again", [rpc:call(B, ?MODULE, stop, []), rpc:call(B, ?MODULE, start, [?ORPHANS -- [tr]])]),
     show("a_starts", start()),
     adopted(B, "adopted_at_start"),
     % a waits for its master node b for td, b for a: a asks b to load td from b's disc.
@@ -117,14 +118,34 @@ orphans(A, B) ->
     show("a_td_master", mnesia:set_master_nodes(td, [B])),
     show("b_stops_first", rpc:call(B, ?MODULE, stop, [])),
     show("a_stops_last", stop()),
-    show("b_starts_alone", rpc:call(B, ?MODULE, start, [])),
+    show("b_starts_alone", rpc:call(B, ?MODULE, start, [?ORPHANS -- [tr]])),
     show("a_starts_last", start()),
     adopted(B, "adopted_by_master"),
     show("a_masters_cleared", mnesia:set_master_nodes([])).
 
+%% Both nodes once each reads every table here, knows it active on both and remembers no node down.
 adopted(B, Label) ->
-    timer:sleep(1000),
+    wait_settled(B, 500),
     show(Label, both(B, info, [])).
+
+% Polled instead of a fixed pause before showing the adopted tables (test run time cut).
+wait_settled(B, N) ->
+    case N =:= 0 orelse both(B, settled, []) =:= [{a, true}, {b, true}] of
+        true ->
+            ok;
+        false ->
+            timer:sleep(20),
+            wait_settled(B, N - 1)
+    end.
+
+settled() ->
+    Nodes = lists:sort(mnesia:system_info(db_nodes)),
+    lists:sort(mnesia:system_info(running_db_nodes)) =:= Nodes andalso downs() =:= [] andalso
+        lists:all(fun(T) -> active_here(T, Nodes) end, ?ORPHANS).
+
+active_here(Tab, Nodes) ->
+    mnesia:table_info(Tab, where_to_read) =:= node() andalso
+        lists:sort(mnesia:table_info(Tab, active_replicas)) =:= Nodes.
 
 %% Key written with Value in each table held here.
 write(Key, Value) ->
@@ -132,14 +153,25 @@ write(Key, Value) ->
         [mnesia:write({T, Key, Value}) || T <- mnesia:system_info(local_tables), T =/= schema]
     end).
 
-%% mnesia started, with a process keeping its system events; then whether this node's tables loaded within a moment.
-start() ->
+start() -> start([]).
+
+%% mnesia started, with a process keeping its system events; then whether this node's tables loaded, those of Waiting,
+%% which wait for another node, within a moment after the others.
+start(Waiting) ->
     Started = mnesia:start(),
     listen(),
     Local = mnesia:system_info(local_tables),
-    case mnesia:wait_for_tables(Local, 2000) of
-        {timeout, Tabs} -> {Started, {timeout, lists:sort(Tabs)}};
-        Waited -> {Started, Waited}
+    case mnesia:wait_for_tables(Local -- Waiting, 10000) of
+        ok -> {Started, waited(Waiting)};
+        Other -> {Started, Other}
+    end.
+
+waited([]) ->
+    ok;
+waited(Waiting) ->
+    case mnesia:wait_for_tables(Waiting, 300) of
+        {timeout, Tabs} -> {timeout, lists:sort(Tabs)};
+        Waited -> Waited
     end.
 
 stop() -> mnesia:stop().
@@ -153,13 +185,20 @@ arm(A, Tag) ->
         receive
             {mnesia_system_event, {mnesia_down, A}} -> ok
         end,
-        persistent_term:put(mpt_armed, {Tag, write(2, Tag), mnesia:system_info(running_db_nodes)})
+        persistent_term:put(mpt_armed, {Tag, write(2, Tag), mnesia:system_info(running_db_nodes)}),
+        % The node apart tells it wrote through epmd, while this process keeps the name.
+        _Wrote = mark(wrote_alone(Tag)),
+        receive
+        after infinity -> ok
+        end
     end),
     receive
         armed -> ok
     end.
 
 armed() -> persistent_term:get(mpt_armed, none).
+
+wrote_alone(Tag) -> "mpt_" ++ atom_to_list(Tag).
 
 both(B, F, Args) ->
     [{a, apply(?MODULE, F, Args)}, {b, rpc:call(B, ?MODULE, F, Args)}].
@@ -229,7 +268,7 @@ forget() ->
 
 %% Waits until Event comes: ok, or the events heard meanwhile.
 wait_event(Event) ->
-    wait_event(Event, 50, []).
+    wait_event(Event, 250, []).
 
 wait_event(Event, 0, Heard) ->
     {missing, Event, Heard};
@@ -239,7 +278,7 @@ wait_event(Event, N, Heard) ->
         true ->
             ok;
         false ->
-            timer:sleep(100),
+            timer:sleep(20),
             wait_event(Event, N - 1, Events)
     end.
 

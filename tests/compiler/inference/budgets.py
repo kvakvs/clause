@@ -83,8 +83,9 @@ line = rounds_of(timed, "trees:map/2")
 assert "0 flipped" in line and "0 capped" in line and "0 over work share" in line, line
 assert re.search(r"^%% inferred: map\(.*\) -> \{empty \|", types, re.MULTILINE), types[:2000]
 
-# The given-up group still compiles to code that runs.
-clau("-O2", "-o", "heavy", heavy)
+# The given-up group still compiles to code that runs. -O0: inference runs at every level, and LLVM's -O2 took 6 s
+# over the group's long lists (plan 11 step VAL16).
+clau("-O0", "-o", "heavy", heavy)
 run = subprocess.run([str(work / "heavy")], capture_output=True, text=True, timeout=60)
 assert run.returncode == 0 and run.stdout.endswith("heavy: ok\n"), run
 print("inference_budgets: ok")

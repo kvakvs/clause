@@ -44,8 +44,7 @@ questions() ->
     ok = erl_epmd:stop(),
     wait_names({ok, []}),
     show("kill", tool(["-kill"])),
-    wait_names({error, address}),
-    show("names without epmd", tool(["-names"])),
+    show("names without epmd", names_gone()),
     {Status, _Usage} = tool(["-names", "extra"]),
     show("names extra", Status).
 
@@ -67,6 +66,22 @@ collect(Port, Data) ->
 masked(Data) ->
     Text = binary:replace(Data, <<"\r\n">>, <<"\n">>, [global]),
     binary:replace(Text, list_to_binary(os:getenv("ERL_EPMD_PORT")), <<"PORT">>, [global]).
+
+%% The epmd program's -names once the killed epmd stopped listening. A refused connection takes seconds on Windows, so
+%% -names is asked until it fails rather than after a refused erl_epmd poll.
+names_gone() ->
+    names_gone(?WAIT_MS div 50).
+
+names_gone(0) ->
+    error({names, still_listening});
+names_gone(Attempts) ->
+    case tool(["-names"]) of
+        {0, _} ->
+            timer:sleep(50),
+            names_gone(Attempts - 1);
+        Answer ->
+            Answer
+    end.
 
 %% Wait until erl_epmd:names(localhost) answers Expected.
 wait_names(Expected) ->

@@ -14,9 +14,9 @@ main(_) ->
     put(b, 2),
     io:format("~p~n", [lists:sort(get_keys(2))]),
     io:format("~p~n", [{erase(a), erase(a), get(a)}]),
-    [put({n, N}, lists:seq(1, N rem 7)) || N <- lists:seq(1, 2000)],
+    [put({n, N}, lists:seq(1, N rem 7)) || N <- lists:seq(1, 500)],
     churn(300),
-    io:format("~p~n", [{get({n, 1999}), length(get_keys()), get({key, [1, 2]})}]),
+    io:format("~p~n", [{get({n, 496}), length(get_keys()), get({key, [1, 2]})}]),
     Self = self(),
     spawn(fun() -> Self ! {child, get(b), put(b, child), get(b)} end),
     receive

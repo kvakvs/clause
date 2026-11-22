@@ -6,7 +6,7 @@
 %% exported functions travel, so either node may be an OTP node.
 -module(mnesia_connect).
 -export([main/1]).
--export([start/0, stop/0, listen/0, heard/0, state/1, next_tid/0, finish/0]).
+-export([start/0, stop/0, listen/0, heard/0, state/1, next_tid/0, finish/0, arm/1, wait_heard/1]).
 
 main(["a"]) ->
     B = 'mrcb@localhost',
@@ -29,12 +29,13 @@ main(["a"]) ->
     show("b_start", rpc:call(B, ?MODULE, start, [])),
     show("reconnect", mnesia_recover:connect_nodes([B])),
     show("reconnected", both(B)),
+    ok = rpc:call(B, ?MODULE, arm, [node()]),
     true = erlang:disconnect_node(B),
     show("partition", wait_event({mnesia_down, B})),
-    timer:sleep(500),
+    wait_registered("mrcb_down"),
     pong = net_adm:ping(B),
     show("rejoin", wait_event({inconsistent_database, running_partitioned_network, B})),
-    timer:sleep(500),
+    ok = rpc:call(B, ?MODULE, wait_heard, [{inconsistent_database, running_partitioned_network, node()}]),
     show("rejoined", both(B)),
     show("finished", rpc:call(B, ?MODULE, finish, [])),
     io:format("mnesia_connect: ok~n");
@@ -72,7 +73,47 @@ events(Events) ->
             events([Event | Events]);
         {From, heard} ->
             From ! {heard, lists:reverse(Events)},
-            events([])
+            events([]);
+        {From, peek} ->
+            From ! {heard, lists:reverse(Events)},
+            events(Events)
+    end.
+
+%% Waits until Event is among the events since the last look, which stay for the next look (test run time cut).
+wait_heard(Event) ->
+    wait_heard(Event, 250).
+
+wait_heard(Event, N) ->
+    mrc_events ! {self(), peek},
+    Events =
+        receive
+            {heard, Heard} -> Heard
+        after 1000 -> []
+        end,
+    case N =:= 0 orelse lists:member(Event, Events) of
+        true ->
+            ok;
+        false ->
+            timer:sleep(20),
+            wait_heard(Event, N - 1)
+    end.
+
+%% On b, a process that tells through epmd when b hears that A's mnesia went down, while the nodes are apart.
+arm(A) ->
+    Self = self(),
+    spawn(fun() ->
+        {ok, _} = mnesia:subscribe(system),
+        Self ! armed,
+        receive
+            {mnesia_system_event, {mnesia_down, A}} -> ok
+        end,
+        _Down = mark("mrcb_down"),
+        receive
+        after infinity -> ok
+        end
+    end),
+    receive
+        armed -> ok
     end.
 
 %% The system events since the last look.

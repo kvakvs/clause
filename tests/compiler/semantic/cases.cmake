@@ -392,7 +392,8 @@ semantic_case(type_remote_builtin "-module(a). -type t() :: erlang:integer()." 0
 semantic_case(type_erlang_external "-module(a). -type t() :: erlang:timestamp()." 0 "warning:.*unavailable external type metadata: erlang:timestamp")
 semantic_case(type_self_builtin "-module(a). -type t() :: a:integer()." 0 "^$")
 semantic_case(type_wrong_arity "-module(a). -type t() :: integer(atom())." 1 "undefined local type integer/1")
-semantic_case(type_integer_budget "-module(a). -type t() :: (1 bsl 1000001)..(1 bsl 1000002)." 0 "warning:.*budget exhausted")
+# Bounds of more than 10000 decimal digits (1 bsl 40000 has 12042); 1 bsl 1000001 took 7 s (plan 11 step VAL16).
+semantic_case(type_integer_budget "-module(a). -type t() :: (1 bsl 40000)..(1 bsl 40001)." 0 "warning:.*budget exhausted")
 semantic_case(type_export_missing "-module(a). -export_type([missing/0])." 1 "export of undefined type")
 semantic_case(type_export_duplicate "-module(a). -type t() :: integer(). -export_type([t/0,t/0])." 1 "duplicate type export")
 semantic_case(type_export_bad "-module(a). -export_type(bad)." 1 "expected proper metadata list")

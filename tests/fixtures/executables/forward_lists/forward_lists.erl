@@ -36,8 +36,8 @@ main(_) ->
     io:format("~p~n", [{length(Live), lists:last(Live)}]),
     io:format("forward_lists: ok~n").
 
-%% A full collection every 4096 elements, so builds span many collections.
-collect(X) when X rem 4096 =:= 0 ->
+%% A full collection every 16384 elements, so every build of 20000 or more elements spans collections.
+collect(X) when X rem 16384 =:= 0 ->
     erlang:garbage_collect(),
     X;
 collect(X) ->

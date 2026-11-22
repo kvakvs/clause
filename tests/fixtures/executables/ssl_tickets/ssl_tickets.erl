@@ -69,17 +69,23 @@ connect(#{root := Root}, Listen, Options) ->
     after 5000 -> exit(server_timeout)
     end.
 
+%% A round trip from the server: the client has handled what the server sent before it, the session tickets too.
+settled(Client, Accepted) ->
+    ok = ssl:send(Accepted, "x"),
+    {ok, "x"} = ssl:recv(Client, 0, 5000),
+    ok.
+
 resumed(Socket) ->
     {ok, [{session_resumption, Resumed}]} = ssl:connection_information(Socket, [session_resumption]),
     Resumed.
 
-%% Connections one after another, a little apart so that the client has the tickets of the last one: the
-%% resumptions seen by the client and by the server.
+%% Connections one after another, each settled so that the client has the tickets of the last one: the resumptions
+%% seen by the client and by the server.
 resumptions(Server, Listen, OptionLists) ->
     lists:map(
         fun(Options) ->
             {Client, Accepted} = connect(Server, Listen, Options),
-            timer:sleep(200),
+            settled(Client, Accepted),
             Pair = {resumed(Client), resumed(Accepted)},
             [ssl:close(S) || S <- [Client, Accepted]],
             Pair
@@ -109,6 +115,7 @@ manual(Server, Mode) ->
     Listen = listener(Server, [{session_tickets, Mode}]),
     Name = named(atom_to_list(Mode) ++ ".manual"),
     {Client, Accepted} = connect(Server, Listen, [{session_tickets, manual} | Name]),
+    settled(Client, Accepted),
     Tickets = tickets(),
     show(io_lib:format("manual tickets, server ~p", [Mode]), {length(Tickets), [maps:get(sni, T) || T <- Tickets]}),
     [ssl:close(S) || S <- [Client, Accepted]],
@@ -118,10 +125,11 @@ manual(Server, Mode) ->
     tickets(),
     ssl:close(Listen).
 
+%% The tickets of settled connections, already in the mailbox.
 tickets() ->
     receive
         {ssl, session_ticket, Ticket} -> [Ticket | tickets()]
-    after 500 -> []
+    after 0 -> []
     end.
 
 %% The peer certificates of resumed connections: a server keeps the client's only in the _with_cert modes.
@@ -129,7 +137,7 @@ peer_certificates(#{cert := Cert, key := Key, root := Root} = Server, Mode) ->
     Listen = listener(Server, [{session_tickets, Mode}, {verify, verify_peer}, {cacerts, [Root]}]),
     Options = [{session_tickets, auto}, {cert, Cert}, {key, Key} | named(atom_to_list(Mode) ++ ".peer")],
     {Client1, Accepted1} = connect(Server, Listen, Options),
-    timer:sleep(200),
+    settled(Client1, Accepted1),
     {Client2, Accepted2} = connect(Server, Listen, Options),
     show(
         io_lib:format("peercert, server ~p", [Mode]),
@@ -174,7 +182,7 @@ tls12(#{cert := Cert, key := Key} = Server) ->
                 receive
                     {server, S0} -> S0
                 end,
-            timer:sleep(100),
+            settled(C, S),
             {C, S}
         end
      || _ <- [1, 2]

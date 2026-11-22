@@ -108,6 +108,6 @@
     "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
   },
   "inputs": {
-    "mnesia_connect.erl": "11ccd266012fa029d38a0eefc97f8141ab9fc9888272b531b3121f8a7036753c"
+    "mnesia_connect.erl": "77d69f833fd465f493327a9b2b736d69174f1fe2edfe0668e9ce5180993b8861"
   }
 }

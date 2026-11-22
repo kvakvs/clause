@@ -137,11 +137,19 @@ child(Parent) -> Parent ! {child, self(), node()}.
 ticktime() ->
     show("ticktime", [net_kernel:get_net_ticktime(), net_kernel:set_net_ticktime(3)]),
     show("longer", [net_kernel:set_net_ticktime(4, 1), net_kernel:get_net_ticktime(), net_kernel:set_net_ticktime(9)]),
-    timer:sleep(2000),
-    show("longer after", net_kernel:get_net_ticktime()),
+    show("longer after", settled_ticktime()),
     show("shorter", net_kernel:set_net_ticktime(3, 0)),
-    timer:sleep(200),
-    show("shorter after", net_kernel:get_net_ticktime()).
+    show("shorter after", settled_ticktime()).
+
+% The tick time once its transition period has ended.
+settled_ticktime() ->
+    case net_kernel:get_net_ticktime() of
+        {ongoing_change_to, _} ->
+            timer:sleep(20),
+            settled_ticktime();
+        Ticktime ->
+            Ticktime
+    end.
 
 % dist_auto_connect once: a disconnected node is no longer auto-connected; connect_node/1 connects it, and it may
 % connect to this node.

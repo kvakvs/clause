@@ -2,10 +2,11 @@
 %% calls b, a node no one runs and itself through rpc and erpc, b's rex serves block calls, server calls and broadcasts,
 %% a calls b's gen_server, gen_statem and gen_event servers, the output of a's calls on b appears on a, also through a
 %% collecting group leader, and net_adm finds both nodes through epmd. b ends through an rpc call of halt, which a sees
-%% as {badrpc, nodedown}. Only exported functions travel, so b may be an OTP node.
+%% as {badrpc, nodedown}. Only exported functions travel, so b may be an OTP node. A call that must time out is held on
+%% b until a releases it after the timeout, so its reply can never win, however late either node runs.
 -module(dist_rpc).
 -export([main/1]).
--export([fail/1, slow/1, tell/2, where/1, finish/0, server/0, say/1, say_twice/1]).
+-export([fail/1, slow/1, held/1, tell/2, where/1, finish/0, server/0, gate/1, say/1, say_twice/1]).
 %% The callbacks of the gen servers, without -behaviour attributes since gen_server's and gen_event's share init/1.
 -export([init/1, handle_call/3, handle_cast/2, callback_mode/0, handle_event/4, handle_event/2, handle_call/2]).
 
@@ -15,6 +16,8 @@ main(["a"]) ->
     B = 'drpb@localhost',
     wait_registered("drpb_ready"),
     show("ping", net_adm:ping(B)),
+    %% net_adm:ping_list/1 waits 3 s for other nodes coming up; it runs beside the rest and shows at the end.
+    Pinger = spawn(fun() -> ping_list(B) end),
     rpc_calls(B),
     rpc_spread(B),
     rpc_servers(B),
@@ -25,10 +28,15 @@ main(["a"]) ->
     gen_others(B),
     io_calls(B),
     collected_io(B),
-    net_adms(B),
+    net_adms(),
+    Pinger ! {ping_list, self()},
+    receive
+        {ping_list, Pinged} -> show("ping_list", Pinged)
+    end,
     show("halted", rpc:call(B, ?MODULE, finish, [])),
     done();
 main(["b"]) ->
+    register(drp_gate, spawn(?MODULE, gate, [#{}])),
     register(drp_server, spawn(?MODULE, server, [])),
     {ok, _} = gen_server:start({local, drp_gs}, ?MODULE, gs, []),
     {ok, _} = gen_statem:start({local, drp_sm}, ?MODULE, sm, []),
@@ -48,6 +56,37 @@ slow(Time) ->
     receive
     after Time -> slept
     end.
+
+%% A call on b that returns only once a has released Token, which a does after the call timed out on its side.
+held(Token) ->
+    drp_gate ! {hold, Token, self()},
+    receive
+        {go, Token} -> slept
+    end.
+
+%% b's gate: the holder of a token and a's release meet here in either order.
+gate(Waiting) ->
+    receive
+        {hold, Token, Holder} -> gate(meet(Token, Holder, Waiting));
+        {release, Token} -> gate(meet(Token, released, Waiting))
+    end.
+
+meet(Token, Arrived, Waiting) ->
+    case maps:take(Token, Waiting) of
+        {released, Rest} ->
+            Arrived ! {go, Token},
+            Rest;
+        {Holder, Rest} ->
+            Holder ! {go, Token},
+            Rest;
+        error ->
+            Waiting#{Token => Arrived}
+    end.
+
+%% Result, after releasing b's call of Token.
+released(B, Token, Result) ->
+    {drp_gate, B} ! {release, Token},
+    Result.
 
 tell(To, What) ->
     To ! {told, node(), What},
@@ -84,7 +123,8 @@ init(sm) -> {ok, idle, 0};
 init(ev) -> {ok, 0}.
 
 handle_call(ping, _, State) -> {reply, {pong, node()}, State};
-handle_call({sleep, Time}, _, State) -> {reply, slow(Time), State}.
+handle_call({sleep, Time}, _, State) -> {reply, slow(Time), State};
+handle_call({hold, Token}, _, State) -> {reply, held(Token), State}.
 
 handle_cast({forward, To}, State) ->
     To ! {cast, node()},
@@ -94,7 +134,7 @@ callback_mode() -> handle_event_function.
 
 handle_event({call, From}, get, State, Count) -> {keep_state, Count + 1, [{reply, From, {State, Count, node()}}]};
 handle_event({call, From}, {go, Next}, _, Count) -> {next_state, Next, Count, [{reply, From, ok}]};
-handle_event({call, From}, {sleep, Time}, _, _) -> {keep_state_and_data, [{reply, From, slow(Time)}]}.
+handle_event({call, From}, {hold, Token}, _, _) -> {keep_state_and_data, [{reply, From, held(Token)}]}.
 
 handle_event(_, Count) -> {ok, Count + 1}.
 
@@ -111,20 +151,22 @@ rpc_calls(B) ->
         rpc:call(B, ?MODULE, fail, [exit_tuple]),
         strip(rpc:call(B, no_such_module, f, []))
     ]),
-    show("timeouts", [rpc:call(B, ?MODULE, slow, [300], 50), rpc:call(B, ?MODULE, slow, [0], 5000)]),
+    show("timeouts", [
+        released(B, call, rpc:call(B, ?MODULE, held, [call], 50)), rpc:call(B, ?MODULE, slow, [0], 5000)
+    ]),
     show("block_call", [
         rpc:block_call(B, erlang, node, []),
         rpc:block_call(B, ?MODULE, fail, [exit]),
-        rpc:block_call(B, ?MODULE, slow, [300], 50),
+        released(B, block_call, rpc:block_call(B, ?MODULE, held, [block_call], 50)),
         rpc:block_call(?NOBODY, erlang, node, [])
     ]),
     show("cast", [rpc:cast(B, ?MODULE, tell, [self(), cast]), rpc:cast(?NOBODY, ?MODULE, tell, [self(), lost])]),
     show("cast_told", receive_one()),
-    Slow = rpc:async_call(B, ?MODULE, slow, [300]),
+    Slow = rpc:async_call(B, ?MODULE, held, [async_call]),
     show("async", [
         rpc:yield(rpc:async_call(B, erlang, node, [])),
         rpc:yield(rpc:async_call(?NOBODY, erlang, node, [])),
-        rpc:nb_yield(Slow, 10),
+        released(B, async_call, rpc:nb_yield(Slow, 10)),
         rpc:yield(Slow),
         rpc:nb_yield(rpc:async_call(B, lists, sum, [[5]]), 5000)
     ]),
@@ -135,7 +177,7 @@ rpc_spread(B) ->
         rpc:multicall(erlang, node, []),
         rpc:multicall([node(), B, ?NOBODY], erlang, node, []),
         rpc:multicall([B], ?MODULE, fail, [exit]),
-        rpc:multicall([B], ?MODULE, slow, [300], 50)
+        released(B, multicall, rpc:multicall([B], ?MODULE, held, [multicall], 50))
     ]),
     show("parallel", [
         rpc:parallel_eval([{erlang, node, []}, {erlang, node, []}, {erlang, node, []}]),
@@ -178,13 +220,13 @@ erpc_calls(B) ->
         attempt(fun() -> erpc:call(B, ?MODULE, fail, [error]) end),
         attempt(fun() -> erpc:call(B, ?MODULE, fail, [exit]) end),
         attempt(fun() -> erpc:call(B, ?MODULE, fail, [throw]) end),
-        attempt(fun() -> erpc:call(B, ?MODULE, slow, [300], 50) end),
+        released(B, erpc_call, attempt(fun() -> erpc:call(B, ?MODULE, held, [erpc_call], 50) end)),
         attempt(fun() -> erpc:call(B, no_such_module, f, []) end)
     ]),
     show("erpc_multicall", [
         [strip_result(R) || R <- erpc:multicall([node(), B, ?NOBODY], ?MODULE, fail, [error])],
         erpc:multicall([node(), B, ?NOBODY], erlang, node, []),
-        erpc:multicall([B], ?MODULE, slow, [300], 50)
+        released(B, erpc_multicall, erpc:multicall([B], ?MODULE, held, [erpc_multicall], 50))
     ]),
     Self = self(),
     show("erpc_cast", [
@@ -197,12 +239,12 @@ erpc_calls(B) ->
 erpc_requests(B) ->
     R1 = erpc:send_request(B, lists, sum, [[1, 2]]),
     show("receive_response", erpc:receive_response(R1)),
-    R2 = erpc:send_request(B, ?MODULE, slow, [100]),
-    show("wait_response", [erpc:wait_response(R2), erpc:wait_response(R2, 5000)]),
+    R2 = erpc:send_request(B, ?MODULE, held, [wait_response]),
+    show("wait_response", [released(B, wait_response, erpc:wait_response(R2)), erpc:wait_response(R2, 5000)]),
     R3 = erpc:send_request(?NOBODY, erlang, node, []),
     show("other_node", attempt(fun() -> erpc:receive_response(R3, 5000) end)),
-    R4 = erpc:send_request(B, ?MODULE, slow, [300]),
-    show("response_timeout", attempt(fun() -> erpc:receive_response(R4, 20) end)),
+    R4 = erpc:send_request(B, ?MODULE, held, [receive_response]),
+    show("response_timeout", released(B, receive_response, attempt(fun() -> erpc:receive_response(R4, 20) end))),
     C0 = erpc:reqids_new(),
     C1 = erpc:send_request(B, erlang, node, [], one, C0),
     C2 = erpc:send_request(node(), erlang, node, [], two, C1),
@@ -219,7 +261,7 @@ gen_calls(B) ->
         gen_server:receive_response(gen_server:send_request({drp_gs, B}, ping), 5000)
     ]),
     show("gen_call_errors", [
-        attempt(fun() -> gen_server:call({drp_gs, B}, {sleep, 300}, 50) end),
+        released(B, gen_call, attempt(fun() -> gen_server:call({drp_gs, B}, {hold, gen_call}, 50) end)),
         attempt(fun() -> gen_server:call({nobody, B}, ping) end),
         attempt(fun() -> gen_server:call({drp_gs, ?NOBODY}, ping) end),
         attempt(fun() -> gen_server:call({drp_gs, ?NOBODY}, ping, 5000) end),
@@ -233,7 +275,7 @@ gen_spread(B) ->
         gen_server:multi_call(drp_gs, ping),
         gen_server:multi_call([B, ?NOBODY], drp_gs, ping),
         gen_server:multi_call([B], nobody, ping),
-        gen_server:multi_call([B], drp_gs, {sleep, 300}, 50)
+        released(B, multi_call, gen_server:multi_call([B], drp_gs, {hold, multi_call}, 50))
     ]),
     Self = self(),
     show("cast", gen_server:cast({drp_gs, B}, {forward, Self})),
@@ -250,7 +292,7 @@ gen_others(B) ->
         gen_statem:call({drp_sm, B}, get),
         gen_statem:call({drp_sm, B}, {go, busy}),
         gen_statem:call({drp_sm, B}, get, 5000),
-        attempt(fun() -> gen_statem:call({drp_sm, B}, {sleep, 300}, 50) end),
+        released(B, statem_call, attempt(fun() -> gen_statem:call({drp_sm, B}, {hold, statem_call}, 50) end)),
         attempt(fun() -> gen_statem:call({drp_sm, ?NOBODY}, get) end)
     ]),
     show("gen_event", [
@@ -292,7 +334,7 @@ collected_io(B) ->
     end.
 
 %% The nodes epmd names on this host that answer a ping; b's ready marker does not.
-net_adms(B) ->
+net_adms() ->
     show("localhost", lists:prefix(element(2, inet:gethostname()), net_adm:localhost())),
     show("world_list", lists:sort(net_adm:world_list([localhost]))),
     ok = file:write_file(".hosts.erlang", <<"'localhost'.\n">>),
@@ -300,8 +342,14 @@ net_adms(B) ->
     show("world", lists:sort(net_adm:world())),
     {Text, Nodes} = captured(fun() -> net_adm:world(verbose) end),
     show("world_verbose", [lists:sort(Nodes), lists:sort(string:lexemes(Text, "\n"))]),
-    ok = file:delete(".hosts.erlang"),
-    show("ping_list", net_adm:ping_list([?NOBODY, B])).
+    ok = file:delete(".hosts.erlang").
+
+%% net_adm:ping_list/1 of b and a node no one runs, kept until main asks.
+ping_list(B) ->
+    Pinged = net_adm:ping_list([?NOBODY, B]),
+    receive
+        {ping_list, Main} -> Main ! {ping_list, Pinged}
+    end.
 
 %% The result of Fun and the output it wrote, through a collecting group leader.
 captured(Fun) ->
@@ -383,14 +431,33 @@ wait_registered(Name) ->
             wait_registered(Name)
     end.
 
-% Register the epmd name Name while the returned socket stays open: this node is ready.
+% Register the epmd name Name while the returned socket stays open: this node is ready. The name's port closes every
+% connection, so a ping of the name fails at once (a refused connection takes 2 s on Windows).
 mark(Name) ->
+    Main = self(),
+    spawn(fun() -> refuse(Main) end),
+    Listening =
+        receive
+            {refusing, ListenPort} -> ListenPort
+        end,
     Port = list_to_integer(os:getenv("ERL_EPMD_PORT", "4369")),
     {ok, Socket} = gen_tcp:connect({127, 0, 0, 1}, Port, [binary, {active, false}]),
     Bytes = list_to_binary(Name),
-    Request = <<120, 1:16, 77, 0, 6:16, 5:16, (byte_size(Bytes)):16, Bytes/binary, 0:16>>,
+    Request = <<120, Listening:16, 77, 0, 6:16, 5:16, (byte_size(Bytes)):16, Bytes/binary, 0:16>>,
     ok = gen_tcp:send(Socket, [<<(byte_size(Request)):16>>, Request]),
     {ok, <<_, 0, _/binary>>} = gen_tcp:recv(Socket, 0, 5000),
     Socket.
+
+%% A loopback listener that closes every connection it accepts; its port goes to Main.
+refuse(Main) ->
+    {ok, Listen} = gen_tcp:listen(0, [binary, {ip, {127, 0, 0, 1}}, {active, false}]),
+    {ok, Port} = inet:port(Listen),
+    Main ! {refusing, Port},
+    refuse_next(Listen).
+
+refuse_next(Listen) ->
+    {ok, Socket} = gen_tcp:accept(Listen),
+    ok = gen_tcp:close(Socket),
+    refuse_next(Listen).
 
 done() -> io:format("dist_rpc: ok~n").

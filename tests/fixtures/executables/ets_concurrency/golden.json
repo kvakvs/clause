@@ -10,7 +10,7 @@
       "args": [],
       "stderr": "^$",
       "exit_status": 0,
-      "stdout": "counters: [set,[],{4000,18000},8]\ncounters: [set,[{write_concurrency,true}],{4000,18000},8]\ncounters: [set,[{write_concurrency,auto}],{4000,18000},8]\ncounters: [set,[{read_concurrency,true},{write_concurrency,true}],{4000,18000},8]\ncounters: [set,[{decentralized_counters,true},{write_concurrency,true}],{4000,18000},8]\ncounters: [ordered_set,[],{4000,18000},8]\ncounters: [ordered_set,[{write_concurrency,true}],{4000,18000},8]\ncounters: [ordered_set,[{write_concurrency,auto}],{4000,18000},8]\ncounters: [ordered_set,[{read_concurrency,true},{write_concurrency,true}],{4000,18000},8]\ncounters: [ordered_set,[{decentralized_counters,true},{write_concurrency,true}],{4000,18000},8]\ninserts: [set,[true,true,true,true,true,true],1200,1]\ninserts: [ordered_set,[true,true,true,true,true,true],1200,1]\ninserts: [bag,[true,true,true,true,true,true],1200,6]\ninserts: [duplicate_bag,[true,true,true,true,true,true],1200,6]\nlarge: [set,60000,1800030000,60000,0,undefined]\nlarge: [ordered_set,60000,1800030000,60000,0,undefined]\nowners: [100,20000,[undefined]]\nets_concurrency: ok\n"
+      "stdout": "counters: [set,[],{4000,18000},8]\ncounters: [set,[{write_concurrency,true}],{4000,18000},8]\ncounters: [set,[{write_concurrency,auto}],{4000,18000},8]\ncounters: [set,[{read_concurrency,true},{write_concurrency,true}],{4000,18000},8]\ncounters: [set,[{decentralized_counters,true},{write_concurrency,true}],{4000,18000},8]\ncounters: [ordered_set,[],{4000,18000},8]\ncounters: [ordered_set,[{write_concurrency,true}],{4000,18000},8]\ncounters: [ordered_set,[{write_concurrency,auto}],{4000,18000},8]\ncounters: [ordered_set,[{read_concurrency,true},{write_concurrency,true}],{4000,18000},8]\ncounters: [ordered_set,[{decentralized_counters,true},{write_concurrency,true}],{4000,18000},8]\ninserts: [set,[true,true,true,true,true,true],1200,1]\ninserts: [ordered_set,[true,true,true,true,true,true],1200,1]\ninserts: [bag,[true,true,true,true,true,true],1200,6]\ninserts: [duplicate_bag,[true,true,true,true,true,true],1200,6]\nlarge: [set,20000,200010000,20000,0,undefined]\nlarge: [ordered_set,20000,200010000,20000,0,undefined]\nowners: [100,20000,[undefined]]\nets_concurrency: ok\n"
     }
   ],
   "oracle_version": [
@@ -22,6 +22,6 @@
     "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
   },
   "inputs": {
-    "ets_concurrency.erl": "d6518a176d2207d217c9fae41df8d2996c14cb62a92ff4dd23452eb32ad1d5a2"
+    "ets_concurrency.erl": "44d44705771976cb353cc966c7c62026865185422fd5d6327da5d2b2630e4959"
   }
 }

@@ -18,6 +18,6 @@
     "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
   },
   "inputs": {
-    "ssl_sessions.erl": "7d46eae1da625a91ea8084530e7ebbc9c2101d4739faf229cd854b36ff7821c1"
+    "ssl_sessions.erl": "b37e5a2242c2f3673fa030e2635b315fdf5b7ec797cca230a968d61c472266bc"
   }
 }

@@ -135,15 +135,42 @@ start_server() ->
     end.
 
 server(Parent) ->
-    {ok, Udp} = gen_udp:open(0, [binary, {active, true}, {ip, {127, 0, 0, 1}}]),
-    {ok, Port} = inet:port(Udp),
-    {ok, Listen} = gen_tcp:listen(Port, [
-        binary, {active, false}, {packet, 2}, {ip, {127, 0, 0, 1}}, {reuseaddr, true}
-    ]),
+    {Udp, Listen, Port} = open_pair(),
     Self = self(),
     spawn(fun() -> tcp_server(Listen, Self) end),
     Parent ! {self(), Port},
     udp_loop(Udp).
+
+% One loopback port that is free for UDP and TCP: the name server option gives one port for both.
+% Windows excludes ranges of several hundred ports per protocol (opening there fails with eacces),
+% and the ranges of UDP and TCP differ, so a free port of one may be refused by the other: step
+% far past such a range and try again.
+open_pair() ->
+    {ok, Udp} = gen_udp:open(0, [{ip, {127, 0, 0, 1}}]),
+    {ok, Port} = inet:port(Udp),
+    ok = gen_udp:close(Udp),
+    open_pair(Port, 50).
+
+open_pair(Port, Tries) when Tries > 0 ->
+    case gen_udp:open(Port, [binary, {active, true}, {ip, {127, 0, 0, 1}}]) of
+        {ok, Udp} ->
+            Options = [
+                binary, {active, false}, {packet, 2}, {ip, {127, 0, 0, 1}}, {reuseaddr, true}
+            ],
+            case gen_tcp:listen(Port, Options) of
+                {ok, Listen} ->
+                    {Udp, Listen, Port};
+                {error, _} ->
+                    ok = gen_udp:close(Udp),
+                    open_pair(next_port(Port), Tries - 1)
+            end;
+        {error, _} ->
+            open_pair(next_port(Port), Tries - 1)
+    end.
+
+% Another port of the dynamic range 49152..65535, 1021 ports further on.
+next_port(Port) ->
+    49152 + (max(Port, 49152) - 49152 + 1021) rem 16384.
 
 udp_loop(Udp) ->
     receive

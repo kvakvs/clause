@@ -22,9 +22,17 @@ if(CLAUSE_BUILD_RUNTIME)
         if(host_otp AND CLAUSE_ESCRIPT)
             set(otp_arguments "--escript=${CLAUSE_ESCRIPT}")
         endif()
+        # A heavy case (full_only, or a smoke case) links each policy once in the full gate instead of once per driver:
+        # its time is the cold compile of 80 to 200 library modules per combination (plan 11 step VAL16).
+        golden_case_full_only(${case} full_only)
+        set(heavy_arguments)
+        if(full_only OR case IN_LIST golden_smoke_cases)
+            set(heavy_arguments --heavy)
+        endif()
         add_test(NAME executables_${case} COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/run.py"
             "$<TARGET_FILE:clau>" "${CMAKE_CURRENT_BINARY_DIR}/${case}/$<CONFIG>" "${case_dir}"
-            "--suffix=${CMAKE_EXECUTABLE_SUFFIX}" "--epmd-executable=$<TARGET_FILE:clause_epmd>" ${otp_arguments})
+            "--suffix=${CMAKE_EXECUTABLE_SUFFIX}" "--epmd-executable=$<TARGET_FILE:clause_epmd>" ${otp_arguments}
+            ${heavy_arguments})
         set_tests_properties(executables_${case} PROPERTIES TIMEOUT 600)
         # One label list per case, set once: the area, host_otp, full_only.
         golden_case_area(${case} labels)
@@ -32,7 +40,6 @@ if(CLAUSE_BUILD_RUNTIME)
             list(APPEND labels host_otp)
             set_tests_properties(executables_${case} PROPERTIES SKIP_RETURN_CODE 77)
         endif()
-        golden_case_full_only(${case} full_only)
         if(full_only)
             list(APPEND labels full_only)
             set_tests_properties(executables_${case} PROPERTIES COST 15)

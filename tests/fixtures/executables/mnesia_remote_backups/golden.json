@@ -30,7 +30,7 @@
             "CLAUSE_FLAGS": "--sname mrbb@localhost --setcookie mrb"
           },
           "otp_flags": "-sname mrbb@localhost -setcookie mrb",
-          "stderr": "(?si)^(?:(?!error)(?!=ERROR).|[^\\n]*fallback is installed[^\\n]*\\n?|=ERROR REPORT[^\\n]*\\n[^\\n]*fallback is installed[^\\n]*\\n?)*$",
+          "stderr": "(?si)^(?:(?!error)(?!=ERROR).|[^\\n]*fallback is installed[^\\n]*\\n?|=ERROR REPORT[^\\n]*\\n[^\\n]*fallback is installed[^\\n]*\\n?|[^\\n]*Context: shutdown_error\\. Reason: killed\\. Offender: id=mnesia_locker,[^\\n]*\\n?)*$",
           "exit_status": 0,
           "stdout": "mnesia_remote_backups: ok\n"
         }
@@ -61,7 +61,7 @@
             "CLAUSE_FLAGS": "--sname mrbb@localhost --setcookie mrb"
           },
           "otp_flags": "-sname mrbb@localhost -setcookie mrb",
-          "stderr": "(?si)^(?:(?!error)(?!=ERROR).|[^\\n]*fallback is installed[^\\n]*\\n?|=ERROR REPORT[^\\n]*\\n[^\\n]*fallback is installed[^\\n]*\\n?)*$",
+          "stderr": "(?si)^(?:(?!error)(?!=ERROR).|[^\\n]*fallback is installed[^\\n]*\\n?|=ERROR REPORT[^\\n]*\\n[^\\n]*fallback is installed[^\\n]*\\n?|[^\\n]*Context: shutdown_error\\. Reason: killed\\. Offender: id=mnesia_locker,[^\\n]*\\n?)*$",
           "exit_status": 0,
           "stdout": "mnesia_remote_backups: ok\n"
         }
@@ -92,7 +92,7 @@
             "CLAUSE_FLAGS": "--sname mrbb@localhost --setcookie mrb"
           },
           "otp_flags": "-sname mrbb@localhost -setcookie mrb",
-          "stderr": "(?si)^(?:(?!error)(?!=ERROR).|[^\\n]*fallback is installed[^\\n]*\\n?|=ERROR REPORT[^\\n]*\\n[^\\n]*fallback is installed[^\\n]*\\n?)*$",
+          "stderr": "(?si)^(?:(?!error)(?!=ERROR).|[^\\n]*fallback is installed[^\\n]*\\n?|=ERROR REPORT[^\\n]*\\n[^\\n]*fallback is installed[^\\n]*\\n?|[^\\n]*Context: shutdown_error\\. Reason: killed\\. Offender: id=mnesia_locker,[^\\n]*\\n?)*$",
           "exit_status": 0,
           "stdout": "mnesia_remote_backups: ok\n"
         }

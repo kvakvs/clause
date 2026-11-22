@@ -6,7 +6,7 @@
       "args": [],
       "stderr": "^$",
       "exit_status": 0,
-      "stdout": "{undefined,1,2,undefined}\n{<<\"value\">>,int,float}\n[{1.0,float},{1,int},{a,2},{{key,[1,2]},<<\"value\">>}]\n[1.0,1,a,{key,[1,2]}]\n[a,b]\n{2,undefined,undefined}\n{[1,2,3,4],2004,<<\"value\">>}\n{child,undefined,undefined,child}\n2\n{2004,[],undefined}\ndictionary: ok\n"
+      "stdout": "{undefined,1,2,undefined}\n{<<\"value\">>,int,float}\n[{1.0,float},{1,int},{a,2},{{key,[1,2]},<<\"value\">>}]\n[1.0,1,a,{key,[1,2]}]\n[a,b]\n{2,undefined,undefined}\n{[1,2,3,4,5,6],504,<<\"value\">>}\n{child,undefined,undefined,child}\n2\n{504,[],undefined}\ndictionary: ok\n"
     }
   ],
   "oracle_version": [
@@ -18,6 +18,6 @@
     "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
   },
   "inputs": {
-    "dictionary.erl": "af4aeafbc881e9dcb9f01fbdd26c64c1bcd403b12eb4620a2075f79a04818ff1"
+    "dictionary.erl": "261356bcd63b4c21d260b55c917a9bd72d768f449b75cc9779792365a4c29b23"
   }
 }

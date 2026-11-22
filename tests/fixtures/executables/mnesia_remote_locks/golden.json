@@ -108,6 +108,6 @@
     "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
   },
   "inputs": {
-    "mnesia_remote_locks.erl": "412407e30fec54035e12c50e7f4a84344c12d855a3b0c352458ea2c8919f656a"
+    "mnesia_remote_locks.erl": "7dd0e06b9a390cdb9b3900b2433724e82e06a8c493856913e068aa9b07682847"
   }
 }

@@ -1,5 +1,5 @@
 %% Connections between two nodes (plan 30 step DIST4b2a): node a connects to node b with a wrong cookie first, then
-%% visibly, keeps the idle connection up over several tick times, disconnects and connects hidden. Node b reports the
+%% visibly, keeps the idle connection up past its tick time, disconnects and connects hidden. Node b reports the
 %% node status messages it gets. Both nodes run with net_ticktime 3.
 %% The handshake statuses (DIST4b2b): nodes sa and sb connect at once; sb then runs raw handshakes against itself for
 %% the statuses alive, nok, named: and not_allowed, and sa connects to a node allow/1 does not allow; epmd names
@@ -25,8 +25,8 @@ main(["a"]) ->
     show("status", next()),
     show("again", net_kernel:connect_node(B)),
     true = monitor_node(B, true),
-    % Ticks keep the idle connection up past its tick time.
-    timer:sleep(7000),
+    % Ticks keep the idle connection up past its tick time: without them it would be down after 3.75 s.
+    timer:sleep(5000),
     show("after ticks", nodes()),
     show("disconnect", [erlang:disconnect_node(B), nodes(connected)]),
     show("messages", [next(), next()]),

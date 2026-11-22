@@ -123,13 +123,15 @@ digest(Form) ->
         code_points()
     ).
 
+%% Counted over the sorted categories: a fold into a map of 30 atom keys took most of the case's run time in Clause.
 category_counts() ->
-    Counts = lists:foldl(
-        fun(C, Map) -> maps:update_with(unicode:category(C), fun(N) -> N + 1 end, 1, Map) end,
-        #{},
-        all_points()
-    ),
-    lists:sort(maps:to_list(Counts)).
+    counted(lists:sort([unicode:category(C) || C <- all_points()])).
+
+counted([]) -> [];
+counted([Category | Rest]) -> counted(Category, 1, Rest).
+
+counted(Category, N, [Category | Rest]) -> counted(Category, N + 1, Rest);
+counted(Category, N, Rest) -> [{Category, N} | counted(Rest)].
 
 property(Name) ->
     True = [C || C <- all_points(), unicode:Name(C)],

@@ -80,44 +80,44 @@ handlers() ->
         gen_event:add_handler(ev_mgr, {?MODULE, d}, {error, refused}),
         gen_event:add_handler(ev_mgr, {?MODULE, e}, hibernate)
     ]),
-    show(reports, reports()),
+    show(reports, reports(3)),
     show(which_handlers, gen_event:which_handlers(ev_mgr)),
     show(deleted, [
         gen_event:delete_handler(ev_mgr, {?MODULE, e}, bye),
         gen_event:delete_handler(ev_mgr, {?MODULE, e}, again),
         gen_event:delete_handler(ev_mgr, nobody, x)
     ]),
-    show(reports, reports()),
+    show(reports, reports(1)),
     show(sys_state, sys:get_state(ev_mgr)),
     show(
         replaced, sys:replace_state(ev_mgr, fun({Mod, Id, {Name, _}}) -> {Mod, Id, {Name, 100}} end)
     ),
     ok = gen_event:stop(M),
-    show(stopped, reports()),
+    show(stopped, reports(3)),
     show(exit, receive_exit(M)).
 
 events() ->
     {ok, M} = gen_event:start({local, ev_mgr}),
     ok = gen_event:add_handler(ev_mgr, ?MODULE, h1),
     ok = gen_event:add_handler(ev_mgr, {?MODULE, x}, h2),
-    reports(),
+    reports(2),
     show(notify, gen_event:notify(ev_mgr, first)),
     show(sync_notify, gen_event:sync_notify(M, second)),
     show(notify_remote, gen_event:notify({ev_mgr, node()}, third)),
     M ! an_info,
     gen_event:sync_notify(M, sync),
-    show(reports, reports()),
+    show(reports, reports(10)),
     show(counts, [
         gen_event:call(ev_mgr, ?MODULE, count), gen_event:call(ev_mgr, {?MODULE, x}, count)
     ]),
     ok = gen_event:stop(ev_mgr, normal, 1000),
-    show(stopped, reports()).
+    show(stopped, reports(2)).
 
 calls() ->
     {ok, M} = gen_event:start(),
     ok = gen_event:add_handler(M, ?MODULE, h1),
     ok = gen_event:add_handler(M, {?MODULE, x}, h2),
-    reports(),
+    reports(2),
     show(calls, [
         gen_event:call(M, ?MODULE, count),
         gen_event:call(M, ?MODULE, hibernate, 1000),
@@ -127,7 +127,7 @@ calls() ->
         strip(gen_event:call(M, ?MODULE, crash)),
         gen_event:which_handlers(M)
     ]),
-    show(reports, reports()),
+    show(reports, reports(2)),
     show(call_errors, [
         catch_exit(fun() -> gen_event:call(ev_nobody, ?MODULE, count) end),
         catch_exit(fun() -> gen_event:call(ev_nobody, ?MODULE, count, 100) end)
@@ -140,35 +140,35 @@ results() ->
     ok = gen_event:add_handler(M, {?MODULE, c}, h_crash),
     ok = gen_event:add_handler(M, {?MODULE, b}, h_bad),
     ok = gen_event:add_handler(M, {?MODULE, s}, h_swap),
-    reports(),
+    reports(4),
     gen_event:sync_notify(M, remove),
     show(after_remove, gen_event:which_handlers(M)),
     gen_event:sync_notify(M, crash),
     show(after_crash, gen_event:which_handlers(M)),
     gen_event:sync_notify(M, bad),
     show(after_bad, gen_event:which_handlers(M)),
-    show(reports, reports()),
+    show(reports, reports(8)),
     ok = gen_event:add_handler(M, {?MODULE, t}, h_swap2),
-    reports(),
+    reports(1),
     gen_event:sync_notify(M, {swap, {?MODULE, swapped_id}}),
     show(after_swap, gen_event:which_handlers(M)),
-    show(reports, reports()),
+    show(reports, reports(2)),
     show(
         swap_handler, gen_event:swap_handler(M, {{?MODULE, swapped_id}, again}, {{?MODULE, new}, x})
     ),
     show(swap_missing, gen_event:swap_handler(M, {nobody, x}, {{?MODULE, n2}, y})),
     show(after_swaps, gen_event:which_handlers(M)),
-    show(reports, reports()),
+    show(reports, reports(3)),
     show(call_swap, gen_event:call(M, {?MODULE, new}, {swap, {?MODULE, from_call}})),
     show(after_call_swap, gen_event:which_handlers(M)),
-    show(reports, reports()),
+    show(reports, reports(2)),
     ok = gen_event:stop(M),
-    reports().
+    reports(2).
 
 supervised() ->
     {ok, M} = gen_event:start(),
     show(add_sup, gen_event:add_sup_handler(M, {?MODULE, sup}, h_sup)),
-    reports(),
+    reports(1),
     show(delete_sup, gen_event:delete_handler(M, {?MODULE, sup}, bye)),
     show(sup_exit, receive_gen_event_exit()),
     ok = gen_event:add_sup_handler(M, {?MODULE, sup2}, h_sup2),
@@ -177,7 +177,7 @@ supervised() ->
     ok = gen_event:add_sup_handler(M, {?MODULE, sup3}, h_sup3),
     show(swap_sup, gen_event:swap_sup_handler(M, {{?MODULE, sup3}, x}, {{?MODULE, sup4}, y})),
     show(swapped_sup, receive_gen_event_exit()),
-    reports(),
+    reports(6),
     %% A process supervising a handler ends: the handler is removed.
     Self = self(),
     Owner = spawn(fun() ->
@@ -192,17 +192,17 @@ supervised() ->
     end,
     show(owned, lists:member({?MODULE, owned}, gen_event:which_handlers(M))),
     Owner ! stop,
-    timer:sleep(100),
+    Reports = reports(3),
     show(owner_gone, lists:member({?MODULE, owned}, gen_event:which_handlers(M))),
-    show(reports, reports()),
+    show(reports, Reports),
     ok = gen_event:stop(M),
     show(stop_exit, receive_gen_event_exit()),
-    reports().
+    reports(1).
 
 request_ids() ->
     {ok, M} = gen_event:start(),
     ok = gen_event:add_handler(M, ?MODULE, h1),
-    reports(),
+    reports(1),
     R1 = gen_event:send_request(M, ?MODULE, count),
     show(receive_response, gen_event:receive_response(R1, 1000)),
     R2 = gen_event:send_request(M, nobody, count),
@@ -252,11 +252,16 @@ managers() ->
 
 %% Helpers.
 
-reports() ->
+%% Count reports in arrival order, each awaited for as long as a loaded run may need, then any that arrive within
+%% 20 ms more (none should; a later one shows in the next reports).
+reports(Count) ->
     receive
-        {report, Event} -> [Event | reports()]
-    after 100 -> []
+        {report, Event} -> [Event | reports(Count - 1)]
+    after wait(Count) -> []
     end.
+
+wait(Count) when Count > 0 -> 5000;
+wait(_) -> 20.
 
 receive_gen_event_exit() ->
     receive

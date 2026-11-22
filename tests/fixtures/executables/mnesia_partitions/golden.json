@@ -108,6 +108,6 @@
     "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
   },
   "inputs": {
-    "mnesia_partitions.erl": "7a362523e9edaa596bb9967eb1650d7703620f24ef53ae3969fedc7492459427"
+    "mnesia_partitions.erl": "0ee39c944c4ae6dce467b3e8650fcc83a305186642ba08df5a3c9bfeb823c6b8"
   }
 }

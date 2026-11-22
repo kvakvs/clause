@@ -6,7 +6,8 @@
 %% exported functions travel, so either node may be an OTP node.
 -module(mnesia_remote_dirty).
 -export([main/1]).
--export([start/1, listen/1, heard/0, exercise/2, activity/1, failures/1, hold/0, finish/0]).
+-export([merged/0]).
+-export([start/1, listen/1, heard/0, exercise/2, activity/1, failures/1, hold/0, wait_queued/1, finish/0]).
 
 main(["a"]) ->
     B = 'mrdb@localhost',
@@ -15,7 +16,7 @@ main(["a"]) ->
     ok = start(ta),
     ok = rpc:call(B, ?MODULE, start, [tb]),
     show("merge", mnesia:change_config(extra_db_nodes, [B])),
-    timer:sleep(300),
+    ok = wait_merged(B, 250),
     ok = listen(ta),
     ok = rpc:call(B, ?MODULE, listen, [tb]),
     show("a_on_tb", exercise(tb, tb_count)),
@@ -30,7 +31,7 @@ main(["a"]) ->
     show("b_hold", rpc:call(B, ?MODULE, hold, [])),
     Self = self(),
     _ = spawn(fun() -> Self ! {written, caught(fun() -> mnesia:dirty_write({tb, 9, a}) end)} end),
-    timer:sleep(300),
+    ok = rpc:call(B, ?MODULE, wait_queued, [250]),
     show("b_finish", rpc:call(B, ?MODULE, finish, [])),
     show(
         "written",
@@ -140,6 +141,18 @@ hold() ->
         held -> ok
     end.
 
+%% Polled until the held transaction manager has a request waiting, instead of a fixed pause (test run time cut).
+wait_queued(0) ->
+    timeout;
+wait_queued(N) ->
+    case process_info(whereis(mnesia_tm), message_queue_len) of
+        {message_queue_len, Len} when Len > 0 ->
+            ok;
+        _ ->
+            timer:sleep(20),
+            wait_queued(N - 1)
+    end.
+
 wait_gone(Tab) ->
     case mnesia:table_info(Tab, where_to_read) of
         nowhere ->
@@ -200,6 +213,22 @@ heard() ->
 finish() ->
     io:format(user, "mnesia_remote_dirty: ok~n", []),
     erlang:halt().
+
+%% Polled until both nodes run mnesia together and read every table, instead of a fixed pause (test run time cut).
+wait_merged(B, N) ->
+    Both = lists:sort([node(), B]),
+    case N =:= 0 orelse [merged(), rpc:call(B, ?MODULE, merged, [])] =:= [{Both, []}, {Both, []}] of
+        true ->
+            ok;
+        false ->
+            timer:sleep(20),
+            wait_merged(B, N - 1)
+    end.
+
+%% The nodes running mnesia with this one and the tables read nowhere here.
+merged() ->
+    Unread = [T || T <- mnesia:system_info(tables), mnesia:table_info(T, where_to_read) =:= nowhere],
+    {lists:sort(mnesia:system_info(running_db_nodes)), Unread}.
 
 show(Label, Value) -> io:format("~s: ~p~n", [Label, Value]).
 

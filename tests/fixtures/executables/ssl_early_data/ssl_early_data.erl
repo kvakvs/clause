@@ -74,6 +74,12 @@ connect(Listen, Name, Options) ->
     after 5000 -> exit(server_timeout)
     end.
 
+%% A round trip from the server: the client has handled what the server sent before it, the session tickets too.
+settled(Client, Accepted) ->
+    ok = ssl:send(Accepted, "x"),
+    {ok, _} = ssl:recv(Client, 0, 5000),
+    ok.
+
 resumed(Socket) ->
     {ok, [{session_resumption, Resumed}]} = ssl:connection_information(Socket, [session_resumption]),
     Resumed.
@@ -93,7 +99,7 @@ accepted(Server, Mode, ServerOptions) ->
     Name = atom_to_list(Mode) ++ ".accepted",
     Listen = listener(Server, Mode, [{early_data, enabled} | ServerOptions]),
     {C1, A1} = connect(Listen, Name, [{session_tickets, auto}]),
-    timer:sleep(200),
+    settled(C1, A1),
     {C2, A2} = connect(Listen, Name, [{session_tickets, auto}, {early_data, <<"early">>}]),
     show(
         io_lib:format("~p early data", [Mode]),
@@ -107,7 +113,7 @@ accepted(Server, Mode, ServerOptions) ->
 rejected(Server) ->
     Listen = listener(Server, stateless, []),
     {C1, A1} = connect(Listen, "rejected", [{session_tickets, auto}]),
-    timer:sleep(200),
+    settled(C1, A1),
     {C2, A2} = connect(Listen, "rejected", [{session_tickets, auto}, {early_data, <<"early">>}]),
     show("rejected", {resumed(C2), early_results(C2), first_read(A2)}),
     [ssl:close(S) || S <- [C1, A1, C2, A2, Listen]].

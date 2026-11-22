@@ -19,6 +19,6 @@
   },
   "inputs": {
     "sup_bridged.erl": "90f83ffb2bb01b0766fc029e4b89af27bd3f6481ae548b463a2daed2ca14fda1",
-    "supervisors.erl": "6b9926fc54945cf352ea215c5d35cec578491db2241c512ebe4ef26b3cf23078"
+    "supervisors.erl": "489f5dcb5afa877b3e4262dcf1319adc048c0ebbf066b8a2dcd2745e34bc24f3"
   }
 }

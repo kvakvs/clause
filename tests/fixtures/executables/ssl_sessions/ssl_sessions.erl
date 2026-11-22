@@ -72,23 +72,22 @@ connect(#{root := Root}, Listen, Options) ->
     after 5000 -> exit(server_timeout)
     end.
 
+%% A round trip from the server: both connection processes finished their handshakes, registrations included.
+settled({Client, Accepted} = Pair) ->
+    ok = ssl:send(Accepted, "x"),
+    {ok, _} = ssl:recv(Client, 0, 5000),
+    Pair.
+
 %% Whether a connection resumed a session, and its session id.
 session(Socket) ->
     {ok, [{session_id, Id}, {session_resumption, Resumed}]} =
         ssl:connection_information(Socket, [session_id, session_resumption]),
     {Resumed, Id}.
 
-%% Connections made one after another with each option list, a little apart so that the client cache registers
-%% each session (OTP registers them asynchronously): [{Resumed, Id}] of the client sides.
+%% Connections made one after another with each option list, each settled so that the caches registered its session
+%% (OTP registers them asynchronously): [{Resumed, Id}] of the client sides.
 sessions(Server, Listen, OptionLists) ->
-    Pairs = [
-        begin
-            Pair = connect(Server, Listen, Options),
-            timer:sleep(100),
-            Pair
-        end
-     || Options <- OptionLists
-    ],
+    Pairs = [settled(connect(Server, Listen, Options)) || Options <- OptionLists],
     Sessions = [session(Client) || {Client, _} <- Pairs],
     [ssl:close(S) || {Client, Accepted} <- Pairs, S <- [Client, Accepted]],
     Sessions.
@@ -185,8 +184,7 @@ server_verify_peer(#{cert := Cert, key := Key, root := Root} = Server) ->
     show("server verify_peer", summary(sessions(Server, Listen1, [ClientOptions, ClientOptions]))),
     ssl:close(Listen1),
     Listen2 = listener(Server, [{reuse_sessions, true} | ServerOptions]),
-    {Client1, Accepted1} = connect(Server, Listen2, ClientOptions),
-    timer:sleep(100),
+    {Client1, Accepted1} = settled(connect(Server, Listen2, ClientOptions)),
     {Client2, Accepted2} = connect(Server, Listen2, ClientOptions),
     show("server verify_peer, reuse_sessions true", element(1, summary([session(Client1), session(Client2)]))),
     show("peer certificates kept", {ssl:peercert(Client2) == {ok, Cert}, ssl:peercert(Accepted2) == {ok, Cert}}),

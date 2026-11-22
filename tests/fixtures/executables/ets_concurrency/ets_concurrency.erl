@@ -61,9 +61,10 @@ inserts(Type) ->
 walk(_T, '$end_of_table') -> [];
 walk(T, Key) -> [Key | walk(T, ets:next(T, Key))].
 
+%% Larger than one time slice walks (about 16000 objects); ets_portions proves the walks and frees in portions.
 large(Type) ->
     T = ets:new(large, [Type, public]),
-    Count = 60000,
+    Count = 20000,
     ets:insert(T, [{K, <<K:64>>} || K <- lists:seq(1, Count)]),
     List = ets:tab2list(T),
     Sum = ets:foldl(fun({K, _}, Acc) -> K + Acc end, 0, T),

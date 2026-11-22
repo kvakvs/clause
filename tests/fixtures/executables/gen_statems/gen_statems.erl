@@ -77,29 +77,26 @@ report(Event) -> sm_main ! {report, Event}.
 
 door() ->
     {ok, Door} = gen_statem:start_link({local, sm_door}, ?MODULE, {door, [1, 2, 3]}, []),
-    show(start, reports()),
+    show(start, reports(1)),
     show(status, gen_statem:call(sm_door, status)),
     gen_statem:cast(sm_door, {button, 1}),
     gen_statem:cast(sm_door, {button, 2}),
     show(partial, gen_statem:call(Door, status)),
-    timer:sleep(400),
-    show(reset, [reports(), gen_statem:call(Door, status)]),
+    show(reset, [reports(1), gen_statem:call(Door, status)]),
     [gen_statem:cast(Door, {button, D}) || D <- [1, 2, 3]],
-    show(opened, [gen_statem:call(Door, status), reports()]),
-    timer:sleep(400),
-    show(locked_again, [reports(), gen_statem:call(Door, status)]),
+    show(opened, [gen_statem:call(Door, status), reports(1)]),
+    show(locked_again, [reports(2), gen_statem:call(Door, status)]),
     Door ! hello,
-    show(info, [gen_statem:call(Door, status), reports()]),
+    show(info, [gen_statem:call(Door, status), reports(1)]),
     show(call_open, [gen_statem:call(Door, open_now), gen_statem:call(Door, status, 1000)]),
-    timer:sleep(400),
-    show(after_open, reports()),
+    show(after_open, reports(3)),
     show(sys, [
         element(1, sys:get_state(Door)), lists:sort(maps:to_list(element(2, sys:get_state(Door))))
     ]),
     {status, _, {module, gen_statem}, [_, running, _, _, Misc]} = sys:get_status(Door),
     show(status_header, lists:keyfind(header, 1, Misc)),
     ok = gen_statem:stop(Door),
-    show(stopped, [reports(), receive_exit(Door)]).
+    show(stopped, [reports(1), receive_exit(Door)]).
 
 %% Buttons pressed while the door is open are postponed until it locks again.
 postponing() ->
@@ -109,10 +106,8 @@ postponing() ->
     gen_statem:cast(Door, {button, 7}),
     gen_statem:cast(Door, {button, 5}),
     show(open, gen_statem:call(Door, status)),
-    timer:sleep(400),
-    show(retried, [reports(), gen_statem:call(Door, status)]),
-    timer:sleep(400),
-    show(reports, reports()),
+    show(retried, [reports(4), gen_statem:call(Door, status)]),
+    show(reports, reports(2)),
     ok = gen_statem:stop(Door, normal, 1000),
     reports().
 
@@ -146,7 +141,7 @@ timeouts() ->
         receive_report(),
         receive_report(),
         receive_report(),
-        receive_report()
+        quiet(100)
     ]),
     show(state_change, [
         gen_statem:call(M, {actions, [{state_timeout, 50, st}]}),
@@ -209,7 +204,7 @@ events() ->
 
 modules() ->
     {ok, M} = gen_statem:start(statem_events, {events, modules}, []),
-    show(push, [gen_statem:call(M, {actions, [{push_callback_module, ?MODULE}]}), reports()]),
+    show(push, [gen_statem:call(M, {actions, [{push_callback_module, ?MODULE}]}), reports(0)]),
     show(pushed_state, catch_call(M, status)),
     {ok, M2} = gen_statem:start(statem_events, {events, modules}, []),
     show(change, gen_statem:call(M2, {actions, [{change_callback_module, statem_events}]})),
@@ -220,7 +215,7 @@ modules() ->
         gen_statem:call(M2, {echo, popped})
     ]),
     show(pop_last, catch_call(M2, {actions, [pop_callback_module]})),
-    show(reports, reports()).
+    show(reports, reports(2)).
 
 errors() ->
     Results = [
@@ -236,12 +231,12 @@ errors() ->
         {throw, {keep_state_and_data, [{reply, caller, thrown}]}}
     ],
     show(errors, [error_case(R) || R <- Results]),
-    show(reports, reports()),
+    show(reports, reports(10)),
     {ok, M} = gen_statem:start(statem_events, {events, errors}, []),
     show(enter_postpone, catch_call(M, {goto, postpone_on_enter})),
     {ok, M2} = gen_statem:start(statem_events, {events, errors}, []),
     show(enter_next_state, catch_call(M2, {goto, change_on_enter})),
-    show(reports, reports()).
+    show(reports, reports(2)).
 
 error_case(Request) ->
     {ok, M} = gen_statem:start(statem_events, {events, errors}, []),
@@ -276,8 +271,7 @@ starts() ->
         end
     ]),
     {ok, Actions} = gen_statem:start(?MODULE, {actions, [{state_timeout, 10, reset}]}, []),
-    timer:sleep(50),
-    show(init_actions, reports()),
+    show(init_actions, reports(2)),
     gen_statem:stop(Actions),
     show(call_errors, [
         catch_call(sm_nobody, status),
@@ -323,6 +317,19 @@ reports() ->
     receive
         {report, Event} -> [Event | reports()]
     after 50 -> []
+    end.
+
+%% Count reports, each awaited for as long as a loaded run may need (time-outs that must fire), then any that arrive
+%% within 20 ms more (none should; a later one shows in the next reports).
+reports(Count) when Count > 0 ->
+    receive
+        {report, Event} -> [Event | reports(Count - 1)]
+    after 5000 -> []
+    end;
+reports(0) ->
+    receive
+        {report, Event} -> [Event | reports(0)]
+    after 20 -> []
     end.
 
 receive_report() ->

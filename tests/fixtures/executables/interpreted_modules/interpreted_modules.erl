@@ -26,7 +26,7 @@ calls(A) ->
     show(fun_argument, A:apply_twice(fun(X) -> X + 1 end, 1)),
     show(local_fun, A:local_fun([1, 2, 3])),
     show(records, A:records()),
-    show(deep, A:deep(100000)),
+    show(deep, A:deep(10000)),
     show(info, A:info()),
     show(catching, [A:catching({ok, 1}), A:catching(other)]).
 
