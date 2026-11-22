@@ -241,7 +241,7 @@ Compact record of [plan 11](11-plan.md), one bullet per step;
 - **VAL11** transform host decided: `transforms_host_setup` stays a fast setup test (31–33 s after a
   `clau`, runtime or library change, 0.2 s else), not a build target; only tests that start the host
   require it: 5 instead of 14 (golden cases compiled from `.abstr` and tests passing `--erl` no longer
-  wait). Fast gate with the host removed 132 s (setup 37 s, its three fast dependents 25 s) — `pending`
+  wait). Fast gate with the host removed 132 s (setup 37 s, its three fast dependents 25 s) — `b6a9f439`
 
 ## Library gaps (luerl, 2026-10-14 to 2026-10-15)
 
