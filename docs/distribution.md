@@ -18,9 +18,10 @@ named node:
   `erpc` and the `gen` behaviours ([remote calls](#remote-calls)), `net_adm`, `global` and `global_group`
   ([global](#global), [global_group](#global_group)) and `pg` ([pg](#pg)).
 
-Clause and OTP 29 nodes do all of this with each other both ways ([testing](#testing)). Not yet done: starting other
-nodes (`peer`, `slave`; plan 30 DIST10) and distributed applications (`dist_ac`, DIST11); the libraries answer as OTP
-does without them (`not_alive`, `noproc`). The rest of this file is the contract for distribution; the sections that
+Clause and OTP 29 nodes do all of this with each other both ways ([testing](#testing)). An executable also runs as
+a node that calls no entry, as `erl` starts one, detached or not ([node mode](executables.md#node-mode), DIST10a).
+Not yet done: `peer` and `slave` starting such nodes (plan 30 DIST10b to DIST10d) and distributed applications
+(`dist_ac`, DIST11); the libraries answer as OTP does without them (`not_alive`, `noproc`). The rest of this file is the contract for distribution; the sections that
 are current name the step that delivered them.
 
 ## Scope

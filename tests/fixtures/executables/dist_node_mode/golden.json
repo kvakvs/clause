@@ -1,0 +1,37 @@
+{
+  "schema": 1,
+  "entry": "dist_node_mode",
+  "options": [
+    "--distribution"
+  ],
+  "runs": [
+    {
+      "nodes": [
+        {
+          "name": "a",
+          "args": [
+            "a"
+          ],
+          "env": {
+            "CLAUSE_FLAGS": "--sname nma@localhost --setcookie nm"
+          },
+          "otp_flags": "-sname nma@localhost -setcookie nm",
+          "stderr": "^$",
+          "exit_status": 0,
+          "stdout": "node: 0\nstart\nhello: [x,y]\nwords: [\"p\",\"q\"]\nplain: [\"e1\"]\nflags: [{ok,[[]]},error,error,error]\nstopping\nfailed node: 1 \"Error! Failed to load module 'nosuchmod' because it cannot be found.\"\ndetached starter: 0 []\nup: nmb@localhost\nflags: [{ok,[[]]},{ok,[[]]},{ok,[[]]},error]\nplain: []\nb down\ndist_node_mode: ok\n"
+        }
+      ]
+    }
+  ],
+  "oracle_version": [
+    "29",
+    "29.1.1"
+  ],
+  "reference": {
+    "branch": "maint-29",
+    "revision": "e14591f196d4eacc1946e7073e0ec27f72df2a12"
+  },
+  "inputs": {
+    "dist_node_mode.erl": "01a8e4bd005fccabad6f733cbb452ac44e7ae3a83639cf81f3df4ef3373fdb07"
+  }
+}

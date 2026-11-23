@@ -26,6 +26,11 @@ struct OtpFlag {
     std::optional<std::pair<std::string, std::string>> variable = {};
     // Whether the warning line names the flag: emulator tuning or a flag Clause cannot act on.
     bool ignored = false;
+    // OTP init's start instruction of `-s` or `-run` with its words, which node mode runs. Added for node mode (plan
+    // 30 step DIST10a).
+    std::optional<ProgramFlag> start = {};
+    // Whether node mode acts on the ignored flag (-detached, -noshell, -noinput, -s, -run), naming it in no warning.
+    bool node_flag = false;
 };
 
 // Read the OTP flag at `at` (`-Flag Values...` or `+Flag [Value]`); an error for a word that is no flag.

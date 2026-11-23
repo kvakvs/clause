@@ -91,6 +91,7 @@ wins. All are parsed the same way; a value goes in the next argument or after
 | `--config FILE` | Application environments from a `.config` file, as OTP's `-config FILE`; every one is kept ([config files](#config-files)) |
 | `--profile FILE` | Write a report of entries and self time per function and per process to `FILE` when the program ends ([profiling](profiling.md)); off by default |
 | `--args-file FILE` | Reads a release's `vm.args` as OTP's `-args_file` ([args files](#args-files)) |
+| `--node` | Runs the program as an `erl` node that calls no entry: the rest of the command line is `erl`'s ([node mode](#node-mode)) |
 | `--` | Ends the runtime options; the following arguments all go to `Entry` |
 
 On the command line, parsing stops at the first argument that is not a runtime
@@ -136,11 +137,46 @@ Decided in plan 30 step DIST4a2 (2026-10-31, user choices); implemented in DIST4
 
 - **Ignored with a warning:** emulator tuning without a Clause meaning (every other `+` flag: `+K`, `+A`, `+P`,
   `+Q`, `+e`, `+zdbbl`, `+sbwt`, `+swt`, `+M...` allocators, `+C`, `+c`, ...) and the `-` flags Clause cannot act
-  on (`-heart`, `-eval`, `-s`, `-run`, `-boot`, `-mode`, `-pa`, `-pz`, `-noshell`, `-noinput`, `-smp`, ...; still
-  reported by init). One line on stderr names them all:
-  `clau: warning: --args-file FILE: ignored: +K true +A 30 -heart`.
+  on (`-heart`, `-eval`, `-boot`, `-mode`, `-pa`, `-pz`, `-noshell`, `-noinput`, `-detached`, `-smp`, ...; still
+  reported by init, `-detached` with the `-noshell` and `-noinput` erlexec adds after it). One line on stderr names
+  them all: `clau: warning: --args-file FILE: ignored: +K true +A 30 -heart`.
+- **`-s` and `-run`** are OTP init's start instructions, which only [node mode](#node-mode) runs; elsewhere the
+  warning line names them. Init reports neither as a flag, as in OTP.
 - A file that cannot be read, or a bad value of a flag with a Clause meaning, stops the program as other invalid
   runtime options do (exit 70).
+
+## Node mode
+
+Current since plan 30 step DIST10a (`runtime/src/startup/options.cpp`, `detach_*.cpp`,
+`library/kernel/clause_dist_start.erl`). `--node` makes the executable an Erlang node as `erl` starts one: it boots,
+starts distribution when it is named, calls no entry and runs until `halt/0,1,2` or `init:stop/0,1`. A program starts
+copies of itself as nodes this way (`peer`, `slave`; [distribution](distribution.md)).
+
+- **Command line:** the words after the runtime options are `erl`'s command line, read as an
+  [args file](#args-files)'s words: OTP's flags and Clause's runtime options mixed, every `-Flag Values...` an init
+  flag, the words after `-extra` plain arguments. A word that is no flag is a plain argument and `--` is skipped, as
+  OTP's init reads them. So `prog --node -sname a -setcookie c -kernel net_ticktime 20` starts as
+  `erl -sname a -setcookie c -kernel net_ticktime 20` does. `--node` may also come from `CLAUSE_FLAGS` or the built-in
+  `runtime_options`, which makes every start of the program a node; an args file read before `--node` keeps the args
+  files' rules for its `-s` and `-run`.
+- **Boot:** `kernel_sup` with its services ([kernel_sup](distribution.md#kernel_sup)) and distribution under
+  `-sname` or `-name` ([node start options](distribution.md#node-start-options)), then the
+  [`-on_load` functions](#on-load-functions), then the start instructions.
+- **Start instructions:** `-s Module [Function [Arguments...]]` and `-run Module [Function [Arguments...]]` run in
+  the order given, in the main process, each to its end before the next, as OTP's init runs them:
+  `Module:start()`, `Module:Function()` or `Module:Function(Arguments)` with the arguments as one list, of atoms for
+  `-s` and of strings for `-run`. The module must be in the program. A missing module or function prints OTP's
+  `Error! ...` lines on standard error; an instruction that fails halts the node with OTP's slogan
+  `Runtime terminating during boot (Reason)`, exit 1 ([differences](differences.md)).
+- **`-detached`:** the node goes on in the background with standard input, output and error on the null device,
+  and the command returns at once with status 0, as OTP's erlexec starts a detached emulator: on Linux and macOS
+  the process forks twice in a session of its own; on Windows the program starts itself again with the same command
+  line, without console or inherited handles. Init reports `detached`, `noshell` and `noinput`, as OTP's.
+- **Warnings:** `-noshell`, `-noinput`, `-detached`, `-s` and `-run` are node mode's own; the other flags Clause
+  cannot act on are named in one line, `clau: warning: --node: ignored: -pa ebin`.
+- **Linking:** node mode needs the distribution modules, which join a program that calls `net_kernel`, `peer` or
+  `slave`, or one built with `clau --distribution`; another program stops with `clau: runtime failure: --node needs
+  the distribution modules (link the program with --distribution)`, exit 70.
 
 ## Config files
 
@@ -211,6 +247,8 @@ only after generated cleanup.
 - stderr: the uncaught-exception report, `standard_error` output, runtime
   failures and the error reports of other processes that crash
   ([processes](processes.md#exits)).
+- Both streams carry the program's bytes unchanged: on Windows too a line end is the `\n` the program wrote, as
+  OTP's node writes it, never the C runtime's CR LF (since plan 30 step DIST10a).
 - The report is one line `uncaught exception <class>: <reason in ~w form>`,
   without stack frames. Its exact text is not a stable interface; tests match it
   by pattern.

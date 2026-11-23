@@ -75,11 +75,15 @@ constexpr std::array<std::pair<std::string_view, std::string_view>, 5> NODE_FLAG
 }};
 
 // The init flags Clause cannot act on: reported by init, and named in the warning line.
-constexpr std::array<std::string_view, 15> IGNORED_FLAGS{
-    "heart",   "eval", "s",        "run",           "boot",
-    "mode",    "pa",   "pz",       "path",          "noshell",
-    "noinput", "smp",  "detached", "shutdown_time", "async_shell_start",
+constexpr std::array<std::string_view, 13> IGNORED_FLAGS{
+    "heart",   "eval",     "boot",          "mode",
+    "pa",      "pz",       "path",          "noshell",
+    "smp",     "detached", "shutdown_time", "async_shell_start",
+    "noinput",
 };
+
+// The ignored flags node mode acts on: it detaches, and never has a shell. Added for node mode (plan 30 DIST10a).
+constexpr std::array<std::string_view, 3> NODE_MODE_FLAGS{"detached", "noshell", "noinput"};
 
 // A mapped -Flag: its Clause options, or none for a flag without one.
 std::optional<std::vector<std::string>> node_options(std::string_view name, const std::vector<std::string> &values) {
@@ -112,7 +116,7 @@ std::expected<OtpFlag, std::string> environment_flag(std::span<const std::string
 }
 
 // The init flags of `-Name Values...`: one, except that OTP's erlexec gives every file of -config its own flag on
-// Windows. Added for -config (plan 30 step DIST4a4).
+// Windows and adds two after -detached. Added for -config (plan 30 step DIST4a4).
 std::vector<ProgramFlag> init_flags(std::string_view name, std::vector<std::string> values) {
 #ifdef _WIN32
     if (name == "config" && values.size() > 1) {
@@ -124,6 +128,10 @@ std::vector<ProgramFlag> init_flags(std::string_view name, std::vector<std::stri
         return flags;
     }
 #endif
+    // erlexec adds -noshell and -noinput after -detached (node mode, plan 30 step DIST10a).
+    if (name == "detached") {
+        return {ProgramFlag{"detached", std::move(values)}, ProgramFlag{"noshell", {}}, ProgramFlag{"noinput", {}}};
+    }
     return {ProgramFlag{std::string(name), std::move(values)}};
 }
 
@@ -141,8 +149,17 @@ std::expected<OtpFlag, std::string> init_flag(std::span<const std::string> words
     if (auto options = node_options(name, values)) {
         return OtpFlag{.used = used, .options = std::move(*options)};
     }
+    // OTP's init takes -s and -run as start instructions, never as flags.
+    if (name == "s" || name == "run") {
+        return OtpFlag{.used = used,
+                       .ignored = true,
+                       .start = ProgramFlag{std::string(name), std::move(values)},
+                       .node_flag = true};
+    }
     const bool ignored = std::ranges::find(IGNORED_FLAGS, name) != IGNORED_FLAGS.end();
-    return OtpFlag{.used = used, .flags = init_flags(name, std::move(values)), .ignored = ignored};
+    const bool node_flag = std::ranges::find(NODE_MODE_FLAGS, name) != NODE_MODE_FLAGS.end();
+    return OtpFlag{
+        .used = used, .flags = init_flags(name, std::move(values)), .ignored = ignored, .node_flag = node_flag};
 }
 
 // The value of the emulator flag `prefix` at `at`, attached (`+t5000`) or the next word (`+t 5000`), and the words

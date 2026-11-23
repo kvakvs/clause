@@ -13,7 +13,8 @@ direction); formerly backlog item F38.
   leader (DIST7c), find each other through `net_adm`'s worlds (DIST7d), share `global` names and locks (DIST8a) within `global_group`'s groups (DIST8b) and `pg` groups (DIST9,
   `start_pg` in DIST13), and connect over TLS and user carriers (DIST12);
   the program's end loses queued packets as
-  OTP's `halt` (DIST4b3b2).
+  OTP's `halt` (DIST4b3b2). An executable runs as an `erl` node under `--node`: erl's command line, `-s` and `-run`,
+  `-detached` (DIST10a).
   Clause and OTP 29 nodes interoperate on either epmd (DIST4b4). `net_kernel` changes tick times, reports and tunes
   connections, bars nodes under `dist_auto_connect once` and connects passively; `auth` keeps cookies with OTP's
   requests and cookie-file checks (DIST6a, DIST6b).
@@ -95,14 +96,35 @@ DIST0 to DIST9 and DIST12 are done, with DIST5's follow-ups DIST5d and DIST5e ([
 Depends on: DIST7 ([30-finished](30-finished.md)).
 
 - Success criteria
-  - [ ] A node mode for executables: boot, start distribution and run no entry, so a program can
-        start copies of itself as nodes.
+  - [x] A node mode for executables: boot, start distribution and run no entry, so a program can
+        start copies of itself as nodes (DIST10a).
   - [ ] `peer`: `start/1`, `start_link/1` (its own executable in node mode, or `exec` programs such
         as OTP's `erl`), connections over distribution, `standard_io` and `{Ip, Port}`, `call/4,5`,
         `cast/4`, `send/3`, `stop/1`, `get_state/1`; refused and declined functions implemented.
   - [ ] `slave` starts nodes the same way; `pool`'s statistics collector per node.
 - Tests
   - [ ] Golden `dist_peer`: a program starts peers, calls them, and stops them.
+- Split (2026-11-22), one commit each:
+  - DIST10a (node mode, `--node`) is done ([30-finished](30-finished.md)).
+  - **DIST10b. `peer` over distribution.** OTP 29's control process and peer side in `library/stdlib/peer.erl`:
+    - `start/1`, `start_link/0,1`, `stop/1`, `get_state/1`, `random_name/0,1`; OTP's option checks, `wait_boot`,
+      `shutdown`, `peer_down`, `detached`, `env`, `post_process_args`, `longnames`, `host`.
+    - The default `exec` is this executable (`init:script_name/0`) with `--node`; `exec` may name OTP's `erl` (OTP
+      29's peer runs there) or another program.
+    - Peer side: node mode starts the `-user M` module's `start/0` after the boot, before the start instructions
+      (OTP's user_sup runs it in place of `user`); `-user peer`, `-origin`, `-peer_detached`; the relay registered
+      as `user`, so a detached peer's standard I/O goes to the origin's group leader; `clause_io:start_user/0`
+      leaves `user` to it.
+      `supervision_child_spec/0` in `kernel_sup` (`peer_supervision`).
+    - Golden `dist_peer`: a Clause origin starts Clause peers and, as `host_otp`, OTP `erl` peers; an OTP origin
+      starts the Clause program with `exec => {Program, ["--node"]}`.
+  - **DIST10c. `peer`'s alternative connections.** `standard_io` (the fd port, OTP's nibble encoding with CRC)
+    and `{Ip, Port}` / port TCP connections, non-distributed peers (no `name`), `call/4,5`, `cast/4`, `send/3`,
+    I/O requests forwarded to the origin; `dist_peer` grows these cases.
+  - **DIST10d. `slave` and `pool`.** `slave:start/1,2,3,5` and `start_link/1,2,3` start this executable in node
+    mode with OTP's command line (`-detached -noinput -master`, `-s slave slave_start`), `wait_for_slave/7`,
+    `slave_start/1`, `wait_for_master_to_die/2`; `pool` as OTP's, with `statistic_collector/0` on every node.
+    Golden `dist_slave_pool`; the `pool` and `peer` rows of `differences.md` go.
 
 <a id="step-dist11"></a>
 

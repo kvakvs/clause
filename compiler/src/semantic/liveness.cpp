@@ -128,13 +128,15 @@ class Liveness {
 
     // A node runs the functions other nodes name, with atoms the analysis never sees, so every export stays by the
     // distribution rule; the runtime boots it through clause_dist_start:boot/3 to start distribution from the node
-    // start options (plan 30 step DIST4b1b). Added for export liveness (CLAU12c).
+    // start options (plan 30 step DIST4b1b), and node mode through node/1 (DIST10a). Added for export liveness
+    // (CLAU12c).
     void become_node(const FunctionRef entry, const std::string &why) {
         if (node_) {
             return;
         }
         node_ = true;
         reach_name(U"clause_dist_start", {U"boot", 3}, entry);
+        reach_name(U"clause_dist_start", {U"node", 1}, entry);
         for (const auto &module : modules_) {
             report_.kept_.insert_or_assign(module->name, "the distribution rule: " + why);
             reach_exports(*module);

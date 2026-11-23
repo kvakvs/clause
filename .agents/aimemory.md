@@ -1104,3 +1104,11 @@ gotchas and user directions not recorded elsewhere.
   no_warn_sasl]), then `erl -boot Name -mode embedded -noshell -s M F` (scratch/mim9b/ol). A library builtin module's
   own placeholder function is reached only by a remote call (`?MODULE:handlers()`); a local call returns the
   placeholder atom. parse_trans's ct_expand reports evaluation errors as error forms inside the returned forms.
+- DIST10a node mode (2026-11-22): Windows stdout/stderr were CRT text mode (every line end CR LF; run.py hides it by
+  normalizing), OTP writes bare LF: a fixture printing a child's port-captured output showed it; now _setmode binary
+  in startup. erlexec keeps `-detached` as an init flag and adds `-noshell -noinput`; `-s`/`-run` are never flags.
+  A fixture that starts nodes must clear CLAUSE_FLAGS and ERL_FLAGS in the child's port env (the runner's node flags
+  would name the child like its parent) and, under the oracle, compile itself beside its source for `erl -pa`
+  (the oracle loads modules in memory; call `compile` through a computed module name so Clause does not link it).
+  `ERL_CRASH_DUMP_SECONDS=0` keeps OTP's failing boot from writing a dump. The detached Windows copy is marked by
+  the variable CLAUSE_DETACHED_NODE, removed at once. Lizard counts program_options' early returns: keep it short.

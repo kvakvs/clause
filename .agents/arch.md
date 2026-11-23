@@ -107,6 +107,12 @@ builtin and service calls), `RuntimeOptions` + `RuntimeExtension` for extension 
   `--env APP KEY VALUE` as init flags under OTP's names (`ProgramArguments::flags`, `init:get_argument/1`);
   `application_controller` reads `--env` from them as OTP's `get_cmd_env` reads `-App Key Value`, and
   distribution (DIST4b) reads the node flags as OTP's `net_kernel` does.
+- **Node mode** (DIST10a): `--node` (`ProgramArguments::node`) makes `options.cpp` read the rest of the command line
+  as erl's words (the args-file word loop `apply_erl_words`; `-s`/`-run` become `ProgramArguments::start`).
+  `startup.cpp` detaches for `-detached` before the runtime starts (`startup/detach_{posix,windows}.cpp`: double fork,
+  or a marked restart of the program), then boots `clause_dist_start:boot(clause_dist_start, node, [Instructions])`:
+  `node/1` runs OTP init's start instructions and waits until the node halts. Standard output and error are binary
+  on Windows since then (`untranslated_output`).
 - **Starting distribution** (DIST4b1a): Erlang only. `net_kernel:start/1,2` starts `erl_distribution`'s `net_sup`
   unlinked (`erl_epmd`, `net_kernel`); `net_kernel`'s init names the node from the carrier's `listen/2`
   (`inet_tcp_dist`, epmd registration) with `erlang:setnode/2`, and its end takes the name (DIST2a).

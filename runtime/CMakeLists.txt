@@ -279,11 +279,11 @@ endif()
 target_compile_definitions(clause_runtime_epmd PRIVATE BOOST_ASIO_NO_DEPRECATED
     $<$<PLATFORM_ID:Windows>:_WIN32_WINNT=0x0A00>)
 target_link_libraries(clause_runtime_epmd PUBLIC clause_runtime)
-# Starting an epmd program for --epmd external (DIST3d).
+# Starting an epmd program for --epmd external (DIST3d), and node mode's -detached (DIST10a).
 if(WIN32)
-    target_sources(clause_runtime PRIVATE src/epmd/launch_windows.cpp)
+    target_sources(clause_runtime PRIVATE src/epmd/launch_windows.cpp src/startup/detach_windows.cpp)
 else()
-    target_sources(clause_runtime PRIVATE src/epmd/launch_posix.cpp)
+    target_sources(clause_runtime PRIVATE src/epmd/launch_posix.cpp src/startup/detach_posix.cpp)
 endif()
 
 # PCRE2 for the re builtins (plan step 41ZA): built from source into the archive itself, or an installed library

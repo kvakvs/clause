@@ -11,16 +11,15 @@ namespace clause::runtime::detail {
 // Decode an erlang:halt/1 slogan (a proper list of at most 1023 Unicode code points) to UTF-8.
 std::optional<std::string> slogan_text(const Term &value);
 
-// Runtime options of one program run and how many leading arguments carried them (docs/executables.md).
+// Runtime options of one program run (docs/executables.md).
 struct ProgramOptions {
-    // Options for Runtime::start; defaults unless CLAUSE_FLAGS or leading arguments set them.
+    // Options for Runtime::start, with the program's arguments; defaults unless CLAUSE_FLAGS or leading arguments set
+    // them.
     RuntimeOptions runtime;
-    // Leading command-line arguments after the program name used as runtime options, `--` included.
-    std::size_t consumed = 0;
 };
 
-// Parse the built-in defaults (the manifest's runtime_options), CLAUSE_FLAGS, then the leading arguments; the error
-// is the text of an invalid option.
+// Parse the built-in defaults (the manifest's runtime_options), CLAUSE_FLAGS, then the leading arguments, and take
+// the command line after them (in node mode as erl's); the error is the text of an invalid option.
 std::expected<ProgramOptions, std::string> program_options(std::span<const char *const> defaults, int argc,
                                                            char **argv);
 // Decode the platform's native arguments after the first `skip` ones (runtime options), the executable's path and

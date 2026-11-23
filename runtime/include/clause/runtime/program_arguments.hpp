@@ -23,5 +23,10 @@ struct ProgramArguments {
     // init's flags after `home`: the node start options and --env in the order they were given, the later of two
     // same single-valued options replacing the earlier (docs/distribution.md#node-start-options). Added for DIST4a1.
     std::vector<ProgramFlag> flags = {};
+    // Node mode (--node): the program runs as an erl node and calls no entry. Added for node mode (plan 30 DIST10a).
+    bool node = false;
+    // OTP init's start instructions of node mode, in order: `s` or `run` with the words after the flag. Added for
+    // node mode (plan 30 step DIST10a).
+    std::vector<ProgramFlag> start = {};
 };
 } // namespace clause::runtime

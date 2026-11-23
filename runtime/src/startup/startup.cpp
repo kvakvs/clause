@@ -1,6 +1,7 @@
 #include "startup.hpp"
 #include "../process/exceptions.hpp"
 #include "../scheduler/executor.hpp"
+#include "detach.hpp"
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -10,6 +11,10 @@
 #include <cstdio>
 #include <fstream>
 #include <span>
+#ifdef _WIN32
+#include <fcntl.h>
+#include <io.h>
+#endif
 
 namespace clause::runtime::detail {
 namespace {
@@ -189,9 +194,27 @@ constexpr BootModule DISTRIBUTION_BOOT{
 // clause_on_load runs the -on_load functions as OTP's init does at boot, then calls the entry. Added for -on_load (plan
 // 21 step MIM9d).
 constexpr BootModule ON_LOAD_BOOT{"clause_on_load", "-on_load functions need the module clause_on_load"};
+// clause_dist_start boots node mode, then calls its node/1 in the entry's place. Added for node mode (plan 30 DIST10a).
+constexpr BootModule NODE_BOOT{"clause_dist_start",
+                               "--node needs the distribution modules (link the program with --distribution)"};
+
+// The call a boot module makes once it booted: Module:Function with the list of its arguments.
+struct BootedCall {
+    std::string_view module;
+    std::string_view function;
+    TermResult<Term> arguments;
+};
+
+// The entry as the call after the boot, with argv for an arity-1 entry.
+BootedCall entry_call(ProcessContext &main, const StartupDescriptor &startup, const Term &arguments) {
+    TermFactory factory(main);
+    return {std::string_view{startup.entry_module, startup.entry_module_size},
+            std::string_view{startup.entry_function, startup.entry_function_size},
+            entry_arity(startup) == 1 ? factory.list(std::array{arguments}) : factory.list({})};
+}
 
 // Run Boot:boot(Module, Function, Arguments) as the main process.
-int run_booted_entry(Runtime &runtime, ProcessContext &main, const StartupDescriptor &startup, const Term &arguments,
+int run_booted_entry(Runtime &runtime, ProcessContext &main, const StartupDescriptor &startup, const BootedCall &call,
                      const BootModule &boot_module) {
     TermFactory factory(main);
     const auto module_atom = factory.atom(boot_module.name);
@@ -203,9 +226,9 @@ int run_booted_entry(Runtime &runtime, ProcessContext &main, const StartupDescri
     if (!frame) {
         return released(runtime, main, runtime_failure(boot_module.missing));
     }
-    const auto module = factory.atom(std::string_view{startup.entry_module, startup.entry_module_size});
-    const auto function = factory.atom(std::string_view{startup.entry_function, startup.entry_function_size});
-    const auto list = entry_arity(startup) == 1 ? factory.list(std::array{arguments}) : factory.list({});
+    const auto module = factory.atom(call.module);
+    const auto function = factory.atom(call.function);
+    const auto &list = call.arguments;
     if (!module || !function || !list) {
         return released(runtime, main, runtime_failure("cannot build the entry's arguments"));
     }
@@ -216,18 +239,48 @@ int run_booted_entry(Runtime &runtime, ProcessContext &main, const StartupDescri
     return start_main(runtime, main, startup, *frame);
 }
 
+// Node mode's start instructions as clause_dist_start:node/1 takes them: [{s | run, [Word]}], in order.
+TermResult<Term> start_instructions(ProcessContext &main, std::span<const ProgramFlag> start) {
+    TermFactory factory(main);
+    std::vector<Term> instructions;
+    for (const auto &flag : start) {
+        const auto kind = factory.atom(flag.name);
+        const auto words = argument_list(main, flag.values);
+        if (!kind || !words) {
+            return std::unexpected(TermError::invalid_argument);
+        }
+        const auto instruction = factory.tuple(std::array{*kind, *words});
+        if (!instruction) {
+            return instruction;
+        }
+        instructions.push_back(*instruction);
+    }
+    return factory.list(instructions);
+}
+
+// Boot node mode as the main process: clause_dist_start:node(Instructions) in the entry's place. Added for node mode
+// (plan 30 step DIST10a).
+int run_node(Runtime &runtime, ProcessContext &main, const StartupDescriptor &startup) {
+    const auto instructions = start_instructions(main, runtime.program_arguments().start);
+    const auto arguments = instructions ? TermFactory(main).list(std::array{*instructions}) : instructions;
+    return run_booted_entry(runtime, main, startup, {"clause_dist_start", "node", arguments}, NODE_BOOT);
+}
+
 // Build argv without the runtime options and run the entry as the main process, passing argv to an arity-1 entry;
 // no context remains after.
 int run_entry(Runtime &runtime, ProcessContext &main, const StartupDescriptor &startup) {
+    if (runtime.program_arguments().node) {
+        return run_node(runtime, main, startup);
+    }
     const auto arguments = argument_list(main, runtime.program_arguments().plain);
     if (!arguments) {
         return released(runtime, main, runtime_failure("cannot build the argument list"));
     }
     if (names_node(runtime.program_arguments())) {
-        return run_booted_entry(runtime, main, startup, *arguments, DISTRIBUTION_BOOT);
+        return run_booted_entry(runtime, main, startup, entry_call(main, startup, *arguments), DISTRIBUTION_BOOT);
     }
     if (!main.code_server().on_load_handlers().empty()) {
-        return run_booted_entry(runtime, main, startup, *arguments, ON_LOAD_BOOT);
+        return run_booted_entry(runtime, main, startup, entry_call(main, startup, *arguments), ON_LOAD_BOOT);
     }
     const auto *frame = entry_frame(main, startup);
     if (!frame) {
@@ -281,8 +334,40 @@ std::string start_extensions(std::span<const RuntimeExtension *const> extensions
     return {};
 }
 
+// Write standard output and standard error as bytes: the Windows C runtime would turn every line end into CR LF, which
+// OTP's node never writes, so a program reading another's output through a port saw other bytes (DIST10a).
+void untranslated_output() {
+#ifdef _WIN32
+    static_cast<void>(_setmode(_fileno(stdout), _O_BINARY));
+    static_cast<void>(_setmode(_fileno(stderr), _O_BINARY));
+#endif
+}
+
+// Whether node mode was asked to detach (-detached). Added for node mode (plan 30 step DIST10a).
+bool detaches(const ProgramArguments &program) {
+    return program.node &&
+           std::ranges::any_of(program.flags, [](const ProgramFlag &flag) { return flag.name == "detached"; });
+}
+
+// Detach for node mode's -detached: the exit status of a program that does not go on as the node, 0 once its detached
+// copy started; none for the program that runs the node.
+std::optional<int> detached_exit(const ProgramArguments &program) {
+    if (!detaches(program)) {
+        return std::nullopt;
+    }
+    switch (detach()) {
+    case Detached::run:
+        return std::nullopt;
+    case Detached::started:
+        return 0;
+    default:
+        return runtime_failure("-detached: cannot start the detached node");
+    }
+}
+
 // Own the runtime for one program run and shut it down in order on every path.
 int run(const StartupDescriptor &startup, int argc, char **argv) {
+    untranslated_output();
     if (!compatible(startup)) {
         return runtime_failure("startup ABI mismatch (rebuild objects and runtime together)");
     }
@@ -290,13 +375,9 @@ int run(const StartupDescriptor &startup, int argc, char **argv) {
     if (!options) {
         return runtime_failure(options.error());
     }
-    // init's flags come from the runtime options, the rest from the command line; the plain arguments after an args
-    // file's -extra follow those of the command line, as erlexec puts them last.
-    auto from_options = std::move(options->runtime.program);
-    options->runtime.program = command_line(argc, argv, options->consumed);
-    options->runtime.program.flags = std::move(from_options.flags);
-    auto &plain = options->runtime.program.plain;
-    plain.insert(plain.end(), from_options.plain.begin(), from_options.plain.end());
+    if (const auto status = detached_exit(options->runtime.program)) {
+        return *status;
+    }
     for (const auto entry : std::span(startup.extensions, startup.extension_count)) {
         options->runtime.extensions.push_back(static_cast<const RuntimeExtension *>(entry()));
     }

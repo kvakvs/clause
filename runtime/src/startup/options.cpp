@@ -11,6 +11,7 @@
 #include <memory>
 #include <optional>
 #include <span>
+#include <utility>
 #include <vector>
 
 namespace clause::runtime::detail {
@@ -399,9 +400,13 @@ std::expected<std::size_t, std::string> apply_otp_flag(std::span<const std::stri
     if (flag->variable) {
         set_environment(flag->variable->first, flag->variable->second);
     }
-    if (flag->ignored) {
+    const bool node = options.program.node;
+    if (flag->ignored && !(node && flag->node_flag)) {
         ignored.insert(ignored.end(), words.begin() + static_cast<std::ptrdiff_t>(at),
                        words.begin() + static_cast<std::ptrdiff_t>(at + flag->used));
+    }
+    if (flag->start && node) {
+        options.program.start.push_back(std::move(*flag->start));
     }
     std::ranges::move(flag->flags, std::back_inserter(options.program.flags));
     return flag->used;
@@ -409,11 +414,14 @@ std::expected<std::size_t, std::string> apply_otp_flag(std::span<const std::stri
 
 std::expected<void, std::string> apply_args_file(const std::string &path, RuntimeOptions &options, std::size_t depth);
 
-// An args file being applied: its path, how deep it is nested and the ignored words of its warning line.
+// Words of erl's command line being applied, an args file's or node mode's: their source as errors and the warning
+// line name it (`--args-file FILE`, `--node`), how deep files nest, whether words that are no flags are plain
+// arguments (node mode) and the ignored words of the warning line.
 struct ArgsFile {
-    const std::string &path;
+    std::string source;
     std::size_t depth;
-    std::vector<std::string> ignored;
+    bool plain_words;
+    std::vector<std::string> ignored = {};
 };
 
 // Apply a Clause runtime option or an OTP flag at `at` of an args file; how many words it used.
@@ -441,27 +449,36 @@ std::expected<std::size_t, std::string> apply_file_word(std::span<const std::str
     }
     const auto used = nests ? std::expected<std::size_t, std::string>(std::unexpected(word + " needs a file"))
                             : apply_own_word(words, at, options, file);
-    return used ? used : std::unexpected("--args-file " + file.path + ": " + used.error());
+    return used ? used : std::unexpected(file.source + ": " + used.error());
 }
 
-// Apply an args file's words as OTP's erlexec does (docs/executables.md#args-files): the words after -extra are
-// plain arguments, and one warning line names the ignored flags. Added for args files.
-std::expected<void, std::string> apply_args_file(const std::string &path, RuntimeOptions &options, std::size_t depth) {
-    if (depth == MAX_ARGS_FILE_DEPTH) {
-        return std::unexpected("args files nested too deeply at '" + path + "'");
+// Apply the word at `at` of node mode's command line: a plain argument for a word that is no flag, nothing for `--`
+// (OTP's init skips it), else as an args file's word. Added for node mode (plan 30 step DIST10a).
+std::expected<std::size_t, std::string> apply_command_word(std::span<const std::string> words, std::size_t at,
+                                                           RuntimeOptions &options, ArgsFile &file) {
+    const auto &word = words[at];
+    if (word == "--") {
+        return 1;
     }
-    const auto words = args_file_words(path);
-    if (!words) {
-        return std::unexpected(words.error());
+    if (!word.starts_with('-') && !word.starts_with('+')) {
+        options.program.plain.push_back(word);
+        return 1;
     }
-    ArgsFile file{path, depth, {}};
-    for (std::size_t at = 0; at < words->size();) {
-        if ((*words)[at] == "-extra") {
+    return apply_file_word(words, at, options, file);
+}
+
+// Apply erl's words as OTP's erlexec does (docs/executables.md#args-files): the words after -extra are plain
+// arguments, and one warning line names the ignored flags. Added for args files; node mode since DIST10a.
+std::expected<void, std::string> apply_erl_words(std::span<const std::string> words, RuntimeOptions &options,
+                                                 ArgsFile &file) {
+    for (std::size_t at = 0; at < words.size();) {
+        if (words[at] == "-extra") {
             options.program.plain.insert(options.program.plain.end(),
-                                         words->begin() + static_cast<std::ptrdiff_t>(at) + 1, words->end());
+                                         words.begin() + static_cast<std::ptrdiff_t>(at) + 1, words.end());
             break;
         }
-        const auto used = apply_file_word(*words, at, options, file);
+        const auto used =
+            file.plain_words ? apply_command_word(words, at, options, file) : apply_file_word(words, at, options, file);
         if (!used) {
             return std::unexpected(used.error());
         }
@@ -472,10 +489,22 @@ std::expected<void, std::string> apply_args_file(const std::string &path, Runtim
         for (const auto &word : file.ignored) {
             text += " " + word;
         }
-        static_cast<void>(
-            std::fprintf(stderr, "clau: warning: --args-file %s: ignored:%s\n", path.c_str(), text.c_str()));
+        static_cast<void>(std::fprintf(stderr, "clau: warning: %s: ignored:%s\n", file.source.c_str(), text.c_str()));
     }
     return {};
+}
+
+// Apply an args file's words (docs/executables.md#args-files). Added for args files.
+std::expected<void, std::string> apply_args_file(const std::string &path, RuntimeOptions &options, std::size_t depth) {
+    if (depth == MAX_ARGS_FILE_DEPTH) {
+        return std::unexpected("args files nested too deeply at '" + path + "'");
+    }
+    const auto words = args_file_words(path);
+    if (!words) {
+        return std::unexpected(words.error());
+    }
+    ArgsFile file{.source = "--args-file " + path, .depth = depth, .plain_words = false};
+    return apply_erl_words(*words, options, file);
 }
 
 // Apply --args-file at `at`, a release's vm.args whose words stand in place of the option
@@ -497,6 +526,11 @@ std::expected<std::size_t, std::string> apply_args_option(std::span<const std::s
 // Apply the option at `at` and return how many arguments it used; 0 when it is not a runtime option.
 std::expected<std::size_t, std::string> apply(std::span<const std::string> args, std::size_t at,
                                               RuntimeOptions &options) {
+    // Node mode (docs/executables.md#node-mode); added for plan 30 step DIST10a.
+    if (args[at] == "--node") {
+        options.program.node = true;
+        return 1;
+    }
     if (const auto atoms = match(args, at, "--max-atoms")) {
         const auto limit = atom_limit(atoms->value);
         if (!limit) {
@@ -543,6 +577,37 @@ std::expected<void, std::string> apply_every(std::span<const std::string> words,
     }
     return {};
 }
+
+// Take the decoded command line after its `used` runtime options: the entry's plain arguments, or in node mode erl's
+// command line (docs/executables.md#node-mode). The plain arguments after an args file's -extra follow, as erlexec
+// puts them last; init's flags and start instructions are those the options gave.
+std::expected<void, std::string> take_command_line(RuntimeOptions &options, int argc, char **argv, std::size_t used) {
+    auto from_options = std::exchange(options.program, command_line(argc, argv, used));
+    auto &program = options.program;
+    program.flags = std::move(from_options.flags);
+    program.node = from_options.node;
+    program.start = std::move(from_options.start);
+    if (program.node) {
+        const auto words = std::exchange(program.plain, {});
+        ArgsFile line{.source = "--node", .depth = 0, .plain_words = true};
+        if (const auto applied = apply_erl_words(words, options, line); !applied) {
+            return applied;
+        }
+    }
+    program.plain.insert(program.plain.end(), from_options.plain.begin(), from_options.plain.end());
+    return {};
+}
+
+// Apply the command line: its leading runtime options, then the words after them.
+std::expected<void, std::string> apply_command_line(RuntimeOptions &options, int argc, char **argv) {
+    std::vector<std::string> arguments;
+    arguments.reserve(argc > 1 ? static_cast<std::size_t>(argc - 1) : 0);
+    for (int i = 1; i < argc && argv; ++i) {
+        arguments.emplace_back(argv[i] ? argv[i] : "");
+    }
+    const auto used = apply_all(arguments, options);
+    return used ? take_command_line(options, argc, argv, *used) : std::unexpected(used.error());
+}
 } // namespace
 
 std::expected<ProgramOptions, std::string> program_options(std::span<const char *const> defaults, int argc,
@@ -558,16 +623,9 @@ std::expected<ProgramOptions, std::string> program_options(std::span<const char 
         !applied) {
         return std::unexpected(applied.error());
     }
-    std::vector<std::string> arguments;
-    arguments.reserve(argc > 1 ? static_cast<std::size_t>(argc - 1) : 0);
-    for (int i = 1; i < argc && argv; ++i) {
-        arguments.emplace_back(argv[i] ? argv[i] : "");
+    if (const auto applied = apply_command_line(result.runtime, argc, argv); !applied) {
+        return std::unexpected(applied.error());
     }
-    const auto used = apply_all(arguments, result.runtime);
-    if (!used) {
-        return std::unexpected(used.error());
-    }
-    result.consumed = *used;
     if (result.runtime.schedulers == 0) {
         result.runtime.schedulers = default_schedulers(result.runtime.scheduler_cpus);
     }

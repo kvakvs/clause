@@ -5,6 +5,7 @@ available) which is latest Erlang version 29. Supported platforms: Windows (x86 
 x86 and ARM targets), MacOS for Apple Silicon ARM targets.
 
 The expected modules this project will have:
+
 - Preprocessor of Erlang
 - Parser of Erlang
 - Compiler/transformer of Erlang abstract code into LLVM abstract code
@@ -33,6 +34,7 @@ upgrades can be implemented as separate dynamic SO/DLL modules, or dropped.
 # Questions to Answer
 
 (Replace text here in place as the answers are derived)
+
 - Implementation language: C++23 for the preprocessor, parser, compiler tool, and a separately built
   C++ runtime. Use CMake; all project targets treat compiler warnings as errors.
 - Project structure: compiler executable `clau` and separate runtime library `clause_runtime`, in
@@ -45,9 +47,14 @@ upgrades can be implemented as separate dynamic SO/DLL modules, or dropped.
 
 Use `.agents/aimemory.md` for AI notes and memory, this file will not be read by humans.
 
-Delegated subagents (search, doc cleanup, review, mechanical edits) run on a faster model such as
-Sonnet; Claude Code applies this through `CLAUDE_CODE_SUBAGENT_MODEL` in `.claude/settings.json`.
-Override per task only when the work needs deeper reasoning.
+## Important: Use of subagents
+
+- There is Codex CLI available, use `gpt-6.2-sol` for text preparation and processing. 
+- Subagents for simpler tasks such as search, doc cleanup, review, mechanical edits -
+  run on a faster model such as `claude-sonnet-5-5`; Claude Code applies this through `CLAUDE_CODE_SUBAGENT_MODEL` in `.claude/settings.json`
+- When running Fable model:
+  - Use smart subagents for more demanding tasks should use `claude-opus-5-5`
+- Override per task only when the work needs deeper reasoning.
 
 ## Plans and Records (lazy references)
 
@@ -199,4 +206,3 @@ printed by `vcvars64.bat` is harmless.
   - Do not test code which does nothing. Save CPU cycles for other valuable stuff.
 - When long (full) test suite is running. Report progress at least every estimated and approximate
   25% (estimate the percentage from previous runs)
-  
