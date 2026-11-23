@@ -13,6 +13,7 @@ This file keeps open work only:
 **NAMING CONVENTIONS** The optimization steps use prefixes based on their area of concern:
 
 - OPT<id1>.<id2> - optimization tasks
+  - OPT4.<id2> - slow paths outside 69A found by the long-test review (2026-11-22)
 - OPTM.<id2> - manual optimization tasks added by the human
 
 ## Working rules for plan 20 steps
@@ -247,6 +248,11 @@ Kernels (pinned 0-15, against OTP, 2026-10-30 after part 3): ring 0.71x, ping_po
 - Programs whose phases share one process still pay for heaps an earlier phase grew or for a large
   shrunk block (69A no longer shows it: each kernel runs in its own process since a4659943).
 - ERTS's own sizing measured worse in Clause (see `docs/runtime-heap.md#generations`).
+- **Full collections of a large live heap** (VAL16 review, 2026-11-22, Debug runtime, loaded
+  machine): each `erlang:garbage_collect()` with about 1.6M live words of lists took 50-60 ms, and
+  `forward_lists` with about 290 of them ran 15-18 s against OTP's 1.1 s. 69A's explicit_collect
+  is ahead on Release, so re-measure this shape there first: long cons chains may behave unlike the
+  kernel's heap.
 
 ### File kernels (read_file 0.98x, small_files 0.81x)
 
@@ -295,6 +301,140 @@ follow-ups, 2026-10-17). Run in this order, one commit each.
   - atom `<` still pays the comparison service call (27 ns against OTP 10); an order rank per atom
     readable from generated code would make it a word compare
   - compound terms holding atoms (tuple keys) still take `structural_order` with `Term`s
+
+## Tier OPT4: slow paths found by the long-test review
+
+Added 2026-11-23 (user direction) from the VAL16 review of the long tests
+([11-finished.md](11-finished.md)). No 69A kernel shows these paths.
+
+- **The numbers are weak evidence.** They were measured on the unoptimized Debug runtime
+  (`build/debug`) on a loaded machine, unpinned; the OTP times are of the same program under OTP 29.
+  The Release ratios may be much smaller: `gc.explicit_collect` is 0.37x of OTP in 69A while the
+  Debug review saw full collections 15x behind.
+- **First action of every step:** write the kernel into `benchmarks/` (`bench_library.erl` or a new
+  group), time it on the Release runtime against OTP, pinned (see
+  [Timing on P-cores and E-cores](#timing-on-p-cores-and-e-cores)). A step whose kernel is already
+  ahead of OTP closes with that number in `20-finished.md` and no code change.
+- **The golden cases no longer show the sizes below.** VAL16 cut them to threshold sizes; the
+  kernels use the sizes given here.
+- Suspects are marked as such: none was profiled. Profile before building.
+- Steps are ordered by measured ratio, largest first; the two compile-time steps come last.
+
+### OPT4.1 ETS: interleaved portions, inserts and `tab2list`
+
+- **Measured:** `ets_portions`' `interleaved()` took 1.9-3.3 s a round against OTP's 10 ms (190x or
+  more). On 100000 objects: `insert` 200 ms, `tab2list` 245 ms, `ordered_set` insert 490 ms (no OTP
+  time taken).
+- **Where:** `runtime/src/ets/` (`table`, `hash_index`, `tree_index`), `builtins/ets/`,
+  `library/stdlib/ets.erl`.
+- **Open:** which part of `interleaved()` is slow (portions resumed from a continuation while other
+  calls edit the table); time the three bulk operations against OTP.
+- **Keep:** traversal order and continuation results as the `ets_portions` and `ets_concurrency`
+  goldens fix them; fixation semantics.
+
+### OPT4.2 Small-map updates through variable atom keys
+
+- **Measured** (78000 updates of a map counting by key):
+
+  | Keys | Expression                       | Clause    | OTP   |
+  | ---- | -------------------------------- | --------- | ----- |
+  | 30   | `maps:update_with`               | 1.4-1.7 s | 12 ms |
+  | 30   | `M#{K => maps:get(K, M, 0) + 1}` | 3.2 s     | 11 ms |
+  | 8    | `maps:update_with`               | 213 ms    | 3 ms  |
+
+- From 8 to 30 keys the time per update grows about 7x, so the cost is more than linear in the map
+  size, though 30 keys is still the flat layout (up to 32).
+- **Where:** `library/stdlib/maps.erl` (`update_with/3,4`), `runtime/src/builtins/maps.cpp`, the
+  small-map update and lookup services.
+- **Suspects (unconfirmed):** the key scan compares atoms by spelling through the comparison service
+  (the OPT3.14 remainder: an order rank per atom); the variable key takes no inline cache (the
+  OPT1.6 remainder). `dataproc.map_update` (literal keys) is 0.53x of OTP, so literal keys are not
+  affected.
+- **Related:** OPT1.6 and OPT3.14 remainders; do this step with them if the profile agrees.
+
+### OPT4.3 `mnesia:add_table_copy` with active checkpoints
+
+- **Measured:** about 7.8 s on a Clause node against 30 ms on OTP (`mnesia_remote_checkpoints`; the
+  case takes 8-20 s against OTP's 2 s by run kind). Also `mnesia_remote_dirty` with OTP as node a
+  and Clause as node b: 2.1 s against 0.8 s.
+- **Where:** `library/mnesia/` (checkpoints, the table loader and copier); the cause may be in the
+  runtime (messages, ETS, distribution) instead.
+- **Open:** whether the time is work or waiting (a time-out or a poll interval would explain a
+  whole-second figure). Time the phases first.
+- **Not this step:** the same case's deactivation-order flake is a correctness race, not slowness.
+- **Gate:** the `mnesia` label's golden cases (`ctest -L mnesia`) instead of 69A.
+
+### OPT4.4 Raise and catch
+
+- **Measured:** 250000 x `try error(odd) catch error:odd -> 1 end` took 1.1 s (4.4 us a raise); OTP
+  ran the whole 500000-step loop holding them in 13 ms (85x or more). A `try` that does not raise
+  costs about nothing.
+- **Where:** the raise service and handler transfer in `runtime/src/` (stack trace capture), the
+  `try` lowering in `compiler/src/codegen/`.
+- **Suspect (unconfirmed):** the stack trace is built as a term at each raise even when no handler
+  binds it; OTP keeps the raw trace and builds the term on demand.
+- **Keep:** stack traces, `erlang:raise/3`, `catch` values and error reports exactly as today.
+
+### OPT4.5 Process dictionary index
+
+- **Measured:** 2000 `put/2` with tuple keys took 4.9 s and 2000 `get/1` 5.9 s; with integer keys
+  15 ms. OTP ran the whole `process_dictionary` program in 0.24 s.
+- **Where:** `runtime/src/builtins/erlang/dictionary.cpp`: `find()` is `std::ranges::find_if` over
+  the entry vector, so every access is linear and n entries cost n squared. A compound key also pays
+  two `Term::from_word` and `exactly_equal` per entry passed (about 2.4 us in Debug, by division).
+- **Build:** a hash index over the entries (OTP's dictionary is a hash table), and a word-level
+  exact comparison with no `Term` staging for compound keys.
+- **Keep:** the order of `get/0` and `get_keys/0,1` the goldens fix (OTP leaves it unspecified);
+  entries stay collector roots; the raw `get/1`/`put/2` path of OPT0.15 must not slow down for a
+  dictionary of a few atom keys (negative control: euler).
+
+### OPT4.6 Unicode normalization and property lookups
+
+- **Measured** (78000 calls each): `unicode:characters_to_nf*_list/1` 210-230 ms a form against
+  4-34 ms on OTP; category and property lookups 63-88 ms against 2-3 ms (25x or more).
+- **Where:** `library/stdlib/unicode.erl`, `unicode_util.erl`, `clause_unicode.erl`,
+  `runtime/src/builtins/unicode/`.
+- **Open:** whether the time is in the table lookups or in the Erlang loops around them.
+
+### OPT4.7 Interpreted calls (`clause_interp`)
+
+- **Measured:** 65-80 us per interpreted call (`interpreted_modules`' `deep(30000)` 2.5 s alone).
+  OTP runs the same module as loaded BEAM code, so there is no like-for-like OTP time; take OTP's
+  `erl_eval` on the same forms as the reference.
+- **Where:** `library/stdlib/clause_interp.erl`, `runtime/src/builtins/interpreted.cpp`.
+- **Open:** the cost per call split between the `error_handler` route into the module, the frames
+  kept in the process dictionary (`'$clause_interp_stack'`) and the evaluation itself.
+
+### OPT4.8 List probe: not isolated
+
+- **Measured:** over a 78000-element list, `lists:split(1000, L)` and `length(L)` each step, then
+  `lists:merge`, took 7.9 s. Which call is slow was not found, and no OTP time was taken.
+- **Step:** isolate it (three kernels) and time them against OTP; then either fix the slow builtin
+  here or close the step with the numbers.
+
+### OPT4.9 Compile time: budget of a type integer before its decimal text
+
+- **Measured:** a type bound of about 300000 digits takes 7 s to compile.
+- **Where:** `compiler/src/semantic/types/constants.cpp`, `arithmetic()`: the value is converted to
+  decimal text first and the 10000-digit budget is tested on the text.
+- **Suspect (unconfirmed):** the conversion is the cost; the evaluator before it
+  (`evaluate_operator`) has its own bound.
+- **Build:** test the bit length against the budget before converting (10000 decimal digits is
+  about 33220 bits); a value over it is widened to `term()` with the same warning.
+- **Gate:** `clau --print-stage-times` on the bound before and after, and the semantic cases
+  (`type_integer_budget`, which VAL16 lowered to `1 bsl 40000`) instead of 69A. This is compiler
+  work under plan 22's rules ([22-opt-compiler.md](22-opt-compiler.md)).
+
+### OPT4.10 Compile time: runtime options out of the whole-batch compile key
+
+- **Found:** `compiler/src/driver/compile_cache.cpp` adds every `runtime_options` word to the key
+  of the whole batch, so two builds differing only in a manifest runtime option recompile all 83
+  library modules (23 s at `-O0`, 60 s at `-O2` with `--jobs 2`).
+- **Open:** which outputs read the options. If only the startup object does
+  (`compiler/src/codegen/startup.cpp`), key that object alone by them.
+- **Keep:** a changed option must still rebuild whatever embeds it; prove it with a build-dir replay
+  test that changes one option and checks the program's behavior.
+- **Gate:** the compile cache tests and the wall time of the second build instead of 69A.
 
 ## Invariants of finished tier OPT0 steps
 
@@ -508,6 +648,13 @@ Then the steps with no 69A kernel:
 - OPT3.13 and OPT3.14 remainders
 - OPT1.7 and OPT1.9 remainders
 - OPT2.x
+
+Tier OPT4 (measured on the Debug runtime only; each step starts with a Release measurement):
+
+- OPT4.1 (ETS portions, 190x or more), OPT4.2 (map updates, 120-290x), OPT4.3 (mnesia, 260x)
+- OPT4.4 (raise and catch, 85x or more), OPT4.5 (process dictionary, quadratic)
+- OPT4.6 (unicode, 25x or more), OPT4.7 (interpreted calls), OPT4.8 (list probe, not isolated)
+- OPT4.9 and OPT4.10 (compile time), independent of the rest
 
 **Gate for every item:**
 
